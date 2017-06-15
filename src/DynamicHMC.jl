@@ -13,40 +13,65 @@ Notation follows Betancourt (2017), with some differences
 """
 module DynamicHMC
 
+using Parameters
+
 import Base: rand
 
 export
+    KineticEnergy,
+    EuclideanKE,
+    GaussianKE,
     logdensity,
     loggradient,
-    UnitNormal,
-    UNITNORMAL,
-    minuslogH,
+    propose,
+    HMC,
     leapfrog
 
+"Kinetic energy specifications."
+abstract type KineticEnergy end
+
+"Euclidean kinetic energies (position independent)."
+abstract type EuclideanKE <: KineticEnergy end
+
 """
-Unit normal momentum. Efficient when the distribution has been
-decorrelated.
+Gaussian kinetic energy.
 
-p|q ∼ MultivariateNormal(0,I) (independently of `q`)
+p|q ∼ Normal(0, M) (importantly, independent of q)
+
+The square root M⁻¹ is stored.
 """
-struct UnitNormal end
+struct GaussianKE{T <: Union{AbstractMatrix,UniformScaling}} <: EuclideanKE
+    "U'U = M⁻¹"
+    U::T
+end
 
-UNITNORMAL = UnitNormal()
+logdensity(κ::GaussianKE, p, q = nothing) = -sum(abs2, κ.U*p)/2
 
-logdensity(::UnitNormal, p, q) = -sum(abs2, p)/2
+loggradient(κ::GaussianKE, p, q = nothing) = -κ.U'*(κ.U*p)
 
-rand(::UnitNormal, q) = randn(length(q))
+propose(κ::GaussianKE, q = nothing) = κ.U \ randn(size(κ.U, 1 ))
 
-"Jacobian of the log density."
-function loggradient end
+"""
+Specification for Hamiltonian Monte Carlo. Determines the kinetic and
+potential energy, and the stepsize, but not the actual algorithm.
+"""
+struct HMC{Tℓ, Tκ, Tϵ}
+    "The (log) density we are sampling from."
+    ℓ::Tℓ
+    "The kinetic energy."
+    κ::Tκ
+    "Stepsize for integration."
+    ϵ::Tϵ
+end
 
-function leapfrog(ℓ, ω::UnitNormal, q, p, ϵ)
+logdensity(hmc::HMC, q, p) = logdensity(hmc.κ, p, q) + logdensity(hmc.ℓ, q)
+
+function leapfrog{Tℓ, Tκ <: EuclideanKE, Tϵ}(hmc::HMC{Tℓ,Tκ,Tϵ}, q, p)
+    @unpack ℓ, κ, ϵ = hmc
     p₊ = p + ϵ/2 * loggradient(ℓ, q)
-    q′ = q + ϵ * p₊
+    q′ = q - ϵ * loggradient(κ, p₊)
     p′ = p₊ + ϵ/2 * loggradient(ℓ, q′)
     q′, p′
 end
-
-minuslogH(ℓ, ω, q, p) = logdensity(ω, p, q) + logdensity(ℓ, q)
 
 end # module
