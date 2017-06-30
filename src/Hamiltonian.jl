@@ -49,8 +49,6 @@ logdensity(κ::GaussianKE, p, q = nothing) = -sum(abs2, κ.U*p)/2
 
 loggradient(κ::GaussianKE, p, q = nothing) = -invM_premultiply(κ, p)
 
-getp♯(κ::GaussianKE, p, q = nothing) = invM_premultiply(κ, p)
-
 propose(κ::GaussianKE, q = nothing) = κ.U \ randn(size(κ.U, 1 ))
 
 """
@@ -71,8 +69,6 @@ struct PhasePoint{Tq,Tp}
     "Momentum."
     p::Tp
 end
-
-getp♯(H::Hamiltonian, z::PhasePoint) = getp♯(h.κ, z.p, z.q)
 
 """
 Log density for Hamiltonian `H` at point `z`.
