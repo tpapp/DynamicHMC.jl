@@ -4,17 +4,25 @@ Notation follows Betancourt (2017), with some differences.
 """
 module DynamicHMC
 
-"""
-    ⊔(x, y)
+using ArgCheck
+using Parameters
+import StatsFuns: logsumexp
+import Base.Random: GLOBAL_RNG
 
-Combine/aggregate information, and or propagate proposals from `x` and
-`y`. Used internally in this library as a generic operator, not
-necessarily commutative.
-"""
-function ⊔ end
+export
+    KineticEnergy,
+    EuclideanKE,
+    GaussianKE,
+    logdensity,
+    loggradient,
+    HMCTransition,
+    HMC_transition
 
-include("utilities.jl")
 include("Hamiltonian.jl")
-include("trajectory.jl")
+include("stepsize.jl")
+include("divergence.jl")
+include("proposal.jl")
+include("turn.jl")
+include("sampling.jl")
 
 end # module

@@ -1,12 +1,17 @@
+export DualAveragingParameters, DualAveragingAdaptation, adapt
+
 """
     bracket_zero(f, x, Δ, C; maxiter)
 
-Find `x₁`, `x₂′` that bracket `f(x) = 0`. Return `x₁, x₂′, f(x₁),
-f(x₂)′`. `x₁` and `x₂′ are not necessarily ordered.
+Find `x₁`, `x₂′` that bracket `f(x) = 0`. `f` should be monotone, use
+`Δ > 0` for increasing and `Δ < 0` decreasing `f`.
+
+Return `x₁, x₂′, f(x₁), f(x₂)′`. `x₁` and `x₂′ are not necessarily
+ordered.
 
 Algorithm: start at the given `x`, adjust by `Δ` — for increasing `f`,
-use `Δ > 0`. At each step, multiply `Δ` by `C`. Stop after `maxiter`
-iterations.
+use `Δ > 0`. At each step, multiply `Δ` by `C`. Stop and throw an
+error after `maxiter` iterations.
 """
 function bracket_zero(f, x, Δ, C; maxiter = 50)
     @argcheck C > 1
@@ -31,6 +36,12 @@ function bracket_zero(f, x, Δ, C; maxiter = 50)
 end
 
 """
+    find_zero(f, a, b, tol; fa, fb, maxiter)
+
+Use bisection to find ``x ∈ [a,b]`` such that `|f(x)| < tol`. When `f`
+is costly, specify `fa` and `fb`.
+
+When does not converge within `maxiter` iterations, throw an error.
 """
 function find_zero(f, a, b, tol; fa=f(a), fb=f(b), maxiter = 50)
     @argcheck fa*fb ≤ 0 "Initial values don't bracket the root."
@@ -59,7 +70,7 @@ function bracket_find_zero(f, x, Δ, C, tol;
 end
 
 """
-    find_reasonable_ϵ(H, z; ϵ, a₀, maxiter)
+    find_reasonable_logϵ(H, z; tol, a, ϵ, maxiter)
 
 Let
 
@@ -70,12 +81,60 @@ after one leapfrog step with stepsize `ϵ`.
 
 Returns an `ϵ` such that `|log(A(ϵ)) - log(a)| ≤ tol`. Uses iterative
 bracketing (with gently expanding steps) and rootfinding.
+
+Starts at `ϵ`, uses `maxiter` iterations for the bracketing and the
+rootfinding, respectively.
 """
-function find_reasonable_ϵ(H, z; tol = 0.5, a = 0.5, ϵ = 1.0, maxiter = 200)
+function find_reasonable_logϵ(H, z; tol = 0.5, a = 0.5, ϵ = 1.0, maxiter = 50)
     target = logdensity(H, z) + log(a)
     function residual(logϵ)
         z′ = leapfrog(H, z, exp(logϵ))
         logdensity(H, z′) - target
     end
-    exp(bracket_find_zero(residual, log(ϵ), log(0.5), 1.1, tol))
+    bracket_find_zero(residual, log(ϵ), log(0.5), 1.1, tol, maxiter, maxiter)
+end
+
+"""
+Parameters for the dual averaging algorithm of Gelman and Hoffman
+(2014, Algorithm 6).
+
+To get reasonable defaults, initialize with
+`DualAveragingParameters(logϵ₀)`.
+"""
+struct DualAveragingParameters{T}
+    μ::T
+    δ::T
+    γ::T
+    κ::T
+    t₀::Int
+end
+
+DualAveragingParameters(logϵ₀; δ = 0.65, γ = 0.05, κ = 0.75, t₀ = 10) =
+    DualAveragingParameters(promote(log(10)+logϵ₀, δ, γ, κ)..., t₀)
+
+"Current state of adaptation for `ϵ`. Use
+`DualAverageingAdaptation(logϵ₀)` to get an initial value."
+struct DualAveragingAdaptation{T <: AbstractFloat}
+    m::Int
+    H̄::T
+    logϵ::T
+    logϵ̄::T
+end
+
+DualAveragingAdaptation(logϵ₀) =
+    DualAveragingAdaptation(0, zero(logϵ₀), logϵ₀, zero(logϵ₀))
+
+"""
+Update the adaptation of `logϵ` using the dual averaging algorithm of
+Gelman and Hoffman (2014, Algorithm 6).
+"""
+function adapt(parameters::DualAveragingParameters, A::DualAveragingAdaptation,
+               acceptance_rated)
+    @unpack μ, δ, γ, κ, t₀ = parameters
+    @unpack m, H̄, logϵ, logϵ̄ = A
+    m += 1
+    H̄ += (δ - acceptance_rate - H̄) / (m+t₀)
+    logϵ = μ - √m/γ*H̄
+    logϵ̄ += m^(-κ)*(logϵ - logϵ̄)
+    DualAveragingAdaptation(m, H̄, logϵ, logϵ̄)
 end

@@ -1,11 +1,4 @@
-using Parameters
-
-export
-    KineticEnergy,
-    EuclideanKE,
-    GaussianKE,
-    logdensity,
-    loggradient
+import Base: rand
 
 """
 Kinetic energy specifications.
@@ -49,7 +42,9 @@ logdensity(κ::GaussianKE, p, q = nothing) = -sum(abs2, κ.U*p)/2
 
 loggradient(κ::GaussianKE, p, q = nothing) = -invM_premultiply(κ, p)
 
-propose(κ::GaussianKE, q = nothing) = κ.U \ randn(size(κ.U, 1 ))
+rand(κ::GaussianKE, q = nothing) = κ.U \ randn(size(κ.U, 1 ))
+
+getp♯(κ::GaussianKE, p, q = nothing) = invM_premultiply(κ, p)
 
 """
 Specification for the Hamiltonian. Determines the kinetic and
@@ -62,25 +57,37 @@ struct Hamiltonian{Tℓ, Tκ}
     κ::Tκ
 end
 
-"A point in phase space, consists of a position and a momentum."
-struct PhasePoint{Tq,Tp}
+"""
+A point in phase space, consists of a position and a momentum.
+
+Log densities and gradients may be saved for speed gains, so a
+`PhasePoint` should only be used with a specific Hamiltonian.
+"""
+struct PhasePoint{Tv}
     "Position."
-    q::Tq
+    q::Tv
     "Momentum."
-    p::Tp
+    p::Tv
+    "Loggradient (potential energy). Cached for reuse in leapfrog."
+    ∇ℓq::Tv
 end
 
+phasepoint(H, q, p = rand(H.κ, q)) = PhasePoint(q, p, loggradient(H.ℓ, q))
+    
 """
 Log density for Hamiltonian `H` at point `z`.
 """
-logdensity(H::Hamiltonian, z::PhasePoint) = logdensity(H.κ, z.p, z.q) + logdensity(H.ℓ, z.q)
+logdensity(H::Hamiltonian, z::PhasePoint) = logdensity(H.ℓ, z.q) + logdensity(H.κ, z.p, z.q)
+
+getp♯(H::Hamiltonian, z::PhasePoint) = getp♯(H.κ, z.p, z.q)
 
 "Take a leapfrog step in phase space."
 function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ)
     @unpack ℓ, κ = H
-    @unpack p, q = z
-    p₊ = p + ϵ/2 * loggradient(ℓ, q)
-    q′ = q - ϵ * loggradient(κ, p₊)
-    p′ = p₊ + ϵ/2 * loggradient(ℓ, q′)
-    PhasePoint(q′, p′)
+    @unpack p, q, ∇ℓq = z
+    pmid = p + ϵ/2 * ∇ℓq
+    q′ = q - ϵ * loggradient(κ, pmid)
+    ∇ℓq′ = loggradient(ℓ, q′)
+    p′ = pmid + ϵ/2 * ∇ℓq′
+    PhasePoint(q′, p′, ∇ℓq′)
 end
