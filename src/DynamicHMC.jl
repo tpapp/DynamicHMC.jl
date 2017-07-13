@@ -6,7 +6,6 @@ module DynamicHMC
 
 using ArgCheck
 using Parameters
-import StatsFuns: logsumexp
 import Base.Random: GLOBAL_RNG
 
 export

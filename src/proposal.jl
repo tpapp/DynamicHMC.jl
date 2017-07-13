@@ -1,3 +1,5 @@
+import StatsFuns: logsumexp
+
 """
     rand_bool(rng, prob)
 
