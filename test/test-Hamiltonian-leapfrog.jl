@@ -1,5 +1,5 @@
 import DynamicHMC: GaussianKE, Hamiltonian, loggradient, logdensity,
-    phasepoint, leapfrog, find_reasonable_logϵ
+    phasepoint, leapfrog
 
 import ForwardDiff: gradient
 

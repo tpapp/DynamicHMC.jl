@@ -1,4 +1,7 @@
-export DualAveragingParameters, DualAveragingAdaptation, adapt
+export find_reasonable_logϵ, DualAveragingParameters, DualAveragingAdaptation, adapt
+
+const MAXITER_BRACKET = 50
+const MAXITER_BISECTION = 50
 
 """
     bracket_zero(f, x, Δ, C; maxiter)
@@ -13,7 +16,7 @@ Algorithm: start at the given `x`, adjust by `Δ` — for increasing `f`,
 use `Δ > 0`. At each step, multiply `Δ` by `C`. Stop and throw an
 error after `maxiter` iterations.
 """
-function bracket_zero(f, x, Δ, C; maxiter = 50)
+function bracket_zero(f, x, Δ, C; maxiter = MAXITER_BRACKET)
     @argcheck C > 1
     @argcheck Δ ≠ 0
     fx = f(x)
@@ -43,7 +46,7 @@ is costly, specify `fa` and `fb`.
 
 When does not converge within `maxiter` iterations, throw an error.
 """
-function find_zero(f, a, b, tol; fa=f(a), fb=f(b), maxiter = 50)
+function find_zero(f, a, b, tol; fa=f(a), fb=f(b), maxiter = MAXITER_BISECTION)
     @argcheck fa*fb ≤ 0 "Initial values don't bracket the root."
     @argcheck tol > 0
     for _ in 1:maxiter
@@ -63,8 +66,8 @@ function find_zero(f, a, b, tol; fa=f(a), fb=f(b), maxiter = 50)
 end
 
 function bracket_find_zero(f, x, Δ, C, tol;
-                           maxiter_bracket = 50,
-                           maxiter_bisection = 50)
+                           maxiter_bracket = MAXITER_BRACKET,
+                           maxiter_bisection = MAXITER_BISECTION)
     a, fa, b, fb = bracket_zero(f, x, Δ, C; maxiter = maxiter_bracket)
     find_zero(f, a, b, tol; fa=fa, fb = fb, maxiter = maxiter_bisection)
 end
@@ -85,13 +88,17 @@ bracketing (with gently expanding steps) and rootfinding.
 Starts at `ϵ`, uses `maxiter` iterations for the bracketing and the
 rootfinding, respectively.
 """
-function find_reasonable_logϵ(H, z; tol = 0.5, a = 0.5, ϵ = 1.0, maxiter = 50)
+function find_reasonable_logϵ(H, z; tol = 0.5, a = 0.5, ϵ = 1.0,
+                              maxiter_bracket = MAXITER_BRACKET,
+                              maxiter_bisection = MAXITER_BISECTION)
     target = logdensity(H, z) + log(a)
     function residual(logϵ)
         z′ = leapfrog(H, z, exp(logϵ))
         logdensity(H, z′) - target
     end
-    bracket_find_zero(residual, log(ϵ), log(0.5), 1.1, tol, maxiter, maxiter)
+    bracket_find_zero(residual, log(ϵ), log(0.5), 1.1, tol;
+                      maxiter_bracket = MAXITER_BRACKET,
+                      maxiter_bisection = MAXITER_BISECTION)
 end
 
 """
@@ -125,15 +132,17 @@ DualAveragingAdaptation(logϵ₀) =
     DualAveragingAdaptation(0, zero(logϵ₀), logϵ₀, zero(logϵ₀))
 
 """
-Update the adaptation of `logϵ` using the dual averaging algorithm of
-Gelman and Hoffman (2014, Algorithm 6).
+    A′ = adapt(parameters, A, a)
+
+Update the adaptation `A` of log stepsize `logϵ` with acceptance rate
+`a`, using the dual averaging algorithm of Gelman and Hoffman (2014,
+Algorithm 6). Return the new adaptation.
 """
-function adapt(parameters::DualAveragingParameters, A::DualAveragingAdaptation,
-               acceptance_rated)
+function adapt(parameters::DualAveragingParameters, A::DualAveragingAdaptation, a)
     @unpack μ, δ, γ, κ, t₀ = parameters
     @unpack m, H̄, logϵ, logϵ̄ = A
     m += 1
-    H̄ += (δ - acceptance_rate - H̄) / (m+t₀)
+    H̄ += (δ - a - H̄) / (m+t₀)
     logϵ = μ - √m/γ*H̄
     logϵ̄ += m^(-κ)*(logϵ - logϵ̄)
     DualAveragingAdaptation(m, H̄, logϵ, logϵ̄)
