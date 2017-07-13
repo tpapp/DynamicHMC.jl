@@ -1,5 +1,5 @@
 import DynamicHMC: GaussianKE, Hamiltonian, loggradient, logdensity,
-    phasepoint, leapfrog, find_reasonable_ϵ
+    phasepoint, leapfrog, find_reasonable_logϵ
 
 import ForwardDiff: gradient
 
@@ -111,7 +111,7 @@ end
         a = 0.5
         tol = 0.2
         a = 0.5
-        ϵ = find_reasonable_ϵ(H, z; tol = tol, a = a)
+        ϵ = exp(find_reasonable_logϵ(H, z; tol = tol, a = a))
         logA = logdensity(H, leapfrog(H, z, ϵ)) - logdensity(H, z)
         @test logA ≈ log(a) atol = tol
     end
@@ -130,7 +130,7 @@ end
 
     for _ in 1:100
         H, z = rand_Hz(rand(2:5))
-        ϵ = find_reasonable_ϵ(H, z)
+        ϵ = exp(find_reasonable_logϵ(H, z))
         test_hamiltonian_invariance(H, z, 100, ϵ/10; atol = 1.0)
     end
 end
