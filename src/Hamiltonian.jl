@@ -1,5 +1,11 @@
 import Base: rand
 
+export
+    logdensity, loggradient,
+    Hamiltonian,
+    KineticEnergy, EuclideanKE, GaussianKE,
+    PhasePoint, phasepoint
+
 """
 Kinetic energy specifications.
 
@@ -47,8 +53,10 @@ rand(κ::GaussianKE, q = nothing) = κ.U \ randn(size(κ.U, 1 ))
 getp♯(κ::GaussianKE, p, q = nothing) = invM_premultiply(κ, p)
 
 """
-Specification for the Hamiltonian. Determines the kinetic and
-potential energy, but not the not the actual algorithm.
+    Hamiltonian(ℓ, κ)
+
+Construct a Hamiltonian from the posterior density `ℓ`, and the
+kinetic energy specification `κ`.
 """
 struct Hamiltonian{Tℓ, Tκ}
     "The (log) density we are sampling from."
