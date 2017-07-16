@@ -1,3 +1,5 @@
+using PDMats
+
 import Base: rand
 
 export
@@ -26,17 +28,14 @@ abstract type EuclideanKE <: KineticEnergy end
 """
 Gaussian kinetic energy.
 
-p|q ∼ Normal(0, M) (importantly, independent of q)
+p | q ∼ Normal(0, M)     (importantly, independent of q)
 
-The square root of M⁻¹ is stored.
+The inverse M⁻¹ is stored.
 """
-struct GaussianKE{T <: Union{AbstractMatrix,UniformScaling}} <: EuclideanKE
-    "U'U = M⁻¹"
-    U::T
+struct GaussianKE{T <: AbstractPDMat} <: EuclideanKE
+    "M⁻¹"
+    Minv::T
 end
-
-"Return U'*U*p."
-invM_premultiply(κ::GaussianKE, p) = κ.U'*(κ.U*p)
 
 """
     logdensity(κ, p[, q])
@@ -44,13 +43,13 @@ invM_premultiply(κ::GaussianKE, p) = κ.U'*(κ.U*p)
 Return the log density of kinetic energy `κ`, at momentum `p`. Some
 kinetic energies (eg Riemannian geometry)  will need `q`, too.
 """
-logdensity(κ::GaussianKE, p, q = nothing) = -sum(abs2, κ.U*p)/2
+logdensity(κ::GaussianKE, p, q = nothing) = -quad(κ.Minv, p) / 2
 
-loggradient(κ::GaussianKE, p, q = nothing) = -invM_premultiply(κ, p)
+getp♯(κ::GaussianKE, p, q = nothing) = κ.Minv * p
 
-rand(κ::GaussianKE, q = nothing) = κ.U \ randn(size(κ.U, 1 ))
+loggradient(κ::GaussianKE, p, q = nothing) = -getp♯(κ, p)
 
-getp♯(κ::GaussianKE, p, q = nothing) = invM_premultiply(κ, p)
+rand(rng, κ::GaussianKE, q = nothing) = whiten(κ.Minv, randn(rng, dim(κ.Minv)))
 
 """
     Hamiltonian(ℓ, κ)
@@ -71,21 +70,36 @@ A point in phase space, consists of a position and a momentum.
 Log densities and gradients may be saved for speed gains, so a
 `PhasePoint` should only be used with a specific Hamiltonian.
 """
-struct PhasePoint{Tv}
+struct PhasePoint{Tv,Tf}
     "Position."
     q::Tv
     "Momentum."
     p::Tv
-    "Loggradient (potential energy). Cached for reuse in leapfrog."
+    "Gradient of ℓ at q. Cached for reuse in leapfrog."
     ∇ℓq::Tv
+    "ℓ at q. Cached for reuse in sampling."
+    ℓq::Tf
 end
 
-phasepoint(H, q, p = rand(H.κ, q)) = PhasePoint(q, p, loggradient(H.ℓ, q))
+"""
+    phasepoint(H, q, p)
+
+Preferred constructor for phasepoints, computes cached information.
+"""
+phasepoint(H, q, p) = PhasePoint(q, p, loggradient(H.ℓ, q), logdensity(H.ℓ, q))
+
+"""
+    rand_phasepoint(rng, H, q)
+
+Extend a position `q` to a phasepoint with a random momentum according
+to the kinetic energy of `H`.
+"""
+rand_phasepoint(rng, H, q) = phasepoint(H, q, rand(rng, H.κ))
     
 """
 Log density for Hamiltonian `H` at point `z`.
 """
-logdensity(H::Hamiltonian, z::PhasePoint) = logdensity(H.ℓ, z.q) + logdensity(H.κ, z.p, z.q)
+logdensity(H::Hamiltonian, z::PhasePoint) = z.ℓq + logdensity(H.κ, z.p, z.q)
 
 getp♯(H::Hamiltonian, z::PhasePoint) = getp♯(H.κ, z.p, z.q)
 
@@ -93,9 +107,9 @@ getp♯(H::Hamiltonian, z::PhasePoint) = getp♯(H.κ, z.p, z.q)
 function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ)
     @unpack ℓ, κ = H
     @unpack p, q, ∇ℓq = z
-    pmid = p + ϵ/2 * ∇ℓq
-    q′ = q - ϵ * loggradient(κ, pmid)
+    pₘ = p + ϵ/2 * ∇ℓq
+    q′ = q - ϵ * loggradient(κ, pₘ)
     ∇ℓq′ = loggradient(ℓ, q′)
-    p′ = pmid + ϵ/2 * ∇ℓq′
-    PhasePoint(q′, p′, ∇ℓq′)
+    p′ = pₘ + ϵ/2 * ∇ℓq′
+    PhasePoint(q′, p′, ∇ℓq′, logdensity(ℓ, q))
 end

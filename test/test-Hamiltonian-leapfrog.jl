@@ -1,30 +1,15 @@
 import DynamicHMC: GaussianKE, Hamiltonian, loggradient, logdensity,
-    phasepoint, leapfrog
-
-import ForwardDiff: gradient
+    phasepoint, rand_phasepoint, leapfrog
 
 ######################################################################
 # Hamiltonian and leapfrog
 ######################################################################
 
 @testset "loggradient" begin
-    "Test log gradient (using AD on log density)."
-    function test_loggradient(ℓ, x)
-        ∇ = loggradient(ℓ, x)
-        ∇_AD = ForwardDiff.gradient(x->logdensity(ℓ,x), x)
-        @test ∇ ≈ ∇_AD
-    end
-
     for _ in 1:10
-        κ = GaussianKE(ΣtoU(rand_PDmat(3)))
+        κ = GaussianKE(rand_PDMat(3))
         for _ in 1:100
             test_loggradient(κ, randn(3))
-        end
-    end
-    for _ in 1:10
-        d = normal_density(randn(3), rand_PDmat(3))
-        for _ in 1:100
-            test_loggradient(d, randn(3))
         end
     end
 end
@@ -47,8 +32,8 @@ When ``Σ=U'U``, this is ``U'⁻¹ Σ U⁻¹'=I``, and thus decorrelates the
 density perfectly.
 """
 function find_stable_ϵ(κ::GaussianKE, Σ)
-    invU = inv(κ.U)
-    √eigmin(invU' * Σ * invU)
+    invU = inv(chol(full(κ.Minv)))
+    √eigmin(Xt_A_X(Σ, full(invU)))
 end
 
 @testset "leapfrog" begin
@@ -66,12 +51,12 @@ end
     end
 
     n = 3
-    m = abs.(randn(3))+1
-    κ = GaussianKE(chol(inv(Diagonal(m))))
+    m = abs.(randn(n))+1
+    κ = GaussianKE(inv(PDiagMat(m)))
     q = randn(n)
     p = randn(n)
-    Σ = rand_PDmat(n)
-    ℓ = normal_density(randn(n), Σ)
+    Σ = rand_PDMat(n)
+    ℓ = MvNormal(randn(n), Σ)
     ϵ = find_stable_ϵ(κ, Σ)
     ∇ℓ(q) = loggradient(ℓ, q)
     q₂, p₂ = copy(q), copy(p)
@@ -95,16 +80,6 @@ end
     end
 end
 
-function rand_Hz(N)
-    μ = randn(N)
-    Σ = rand_PDmat(N)
-    U = Diagonal(1./abs.(randn(N)))
-    κ = GaussianKE(U)
-    H = Hamiltonian(normal_density(μ, Σ), κ)
-    z = phasepoint(H, μ)
-    H, z
-end
-
 @testset "find reasonable ϵ" begin
     for _ in 1:100
         H, z = rand_Hz(rand(3:5))
@@ -121,9 +96,16 @@ end
     "Test that the Hamiltonian is invariant using the leapfrog integrator."
     function test_hamiltonian_invariance(H, z, L, ϵ; atol = one(ϵ))
         π₀ = logdensity(H, z)
-        for _ in 1:L
+        warned = false
+        for i in 1:L
             z = leapfrog(H, z, ϵ)
             Δ = π₀ - logdensity(H, z)
+            if abs(Δ) ≥ atol && !warned
+                warn("Hamiltonian invariance violated: step $(i) of $(L), Δ = $(Δ)")
+                show(H)
+                show(z)
+                warned = true
+            end
             @test Δ ≈ 0 atol = atol
         end
     end
@@ -131,6 +113,6 @@ end
     for _ in 1:100
         H, z = rand_Hz(rand(2:5))
         ϵ = exp(find_reasonable_logϵ(H, z))
-        test_hamiltonian_invariance(H, z, 100, ϵ/10; atol = 1.0)
+        test_hamiltonian_invariance(H, z, 100, ϵ/20; atol = 2.0)
     end
 end

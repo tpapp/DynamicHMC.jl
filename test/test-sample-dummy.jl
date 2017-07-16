@@ -3,8 +3,6 @@ import DynamicHMC: logdensity, leapfrog, isturning, adjacent_tree, getp♯,
     rand_bool, leaf_proposal, TurnStatistic, combine_proposals,
     transition_logprob_logweight
 
-import Base.Random: GLOBAL_RNG
-
 struct DummyPosition{T}
     x::T
 end
@@ -47,9 +45,9 @@ end
 
 function dummy_H_sampler_z(; z_index = 0, args...)
     H = DummyHamiltonian(DummyPosition{Int}; args...)
-    sampler = DoublingMultinomialSampler(GLOBAL_RNG, H, 0.0, 1)
+    sampler = DoublingMultinomialSampler(RNG, H, 0.0, 1)
     q = DummyPosition(z_index)
-    z = phasepoint(H, q)
+    z = rand_phasepoint(RNG, H, q)
     H, sampler, z
 end
 

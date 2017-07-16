@@ -1,3 +1,5 @@
+export HMC_transition, HMCTransition, HMC_sample
+
 """
 Representation of a trajectory (and a proposal).
 
@@ -119,26 +121,34 @@ end
 @enum SamplerTermination MaxDepth AdjacentDivergent AdjacentTurn DoubledTurn
 
 struct HMCTransition{Tv,Tf}
-    "New point."
-    q::Tv
-    "Negative energy associated with new point."
-    π::Tf
+    "New phasepoint."
+    z::PhasePoint{Tv,Tf}
     "Depth of the tree."
     depth::Int
     "Reason for termination."
     termination::SamplerTermination
     "Average acceptance probability."
-    average_a::Tf
+    a::Tf
     "Number of leapfrog steps evaluated."
     steps::Int
 end
 
-function HMC_transition(rng, H, q, ϵ; args...)
-    z = phasepoint(H, q)
+function HMC_transition(rng, H, z, ϵ; args...)
     sampler = DoublingMultinomialSampler(rng, H, logdensity(H, z), ϵ; args...)
-    t, d, termination, depth = sample_trajectory(rng, sampler, z, ϵ)
-    z = t.proposal.z
-    HMCTransition(z.q, logdensity(H, z), depth, termination, acceptance_rate(d), d.steps)
+    t, d, termination, depth = sample_trajectory(sampler, z)
+    HMCTransition(t.proposal.z, depth, termination, acceptance_rate(d), d.steps)
 end
 
-HMC_transition(H, q, ϵ; args...) = HMC_transition(GLOBAL_RNG, H, q, ϵ; args...)
+HMC_transition(H, z, ϵ; args...) = HMC_transition(GLOBAL_RNG, H, z, ϵ; args...)
+
+function HMC_sample(rng, H, q::Tv, N, DA_params, A) where Tv
+    posterior = Vector{HMCTransition{Tv, Float64}}(N)
+    for i in 1:N
+        z = rand_phasepoint(rng, H, q)
+        trans = HMC_transition(H, z, exp(A.logϵ))
+        A = adapt(DA_params, A, trans.a)
+        q = trans.z.q
+        posterior[i] .= trans
+    end
+    posterior, A
+end

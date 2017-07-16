@@ -1,4 +1,8 @@
-export find_reasonable_logϵ, DualAveragingParameters, DualAveragingAdaptation, adapt
+export
+    find_reasonable_logϵ,
+    adapt,
+    DualAveragingParameters, DualAveragingAdaptation, adapting_logϵ,
+    FixedStepSize, fixed_logϵ
 
 const MAXITER_BRACKET = 50
 const MAXITER_BISECTION = 50
@@ -88,7 +92,7 @@ bracketing (with gently expanding steps) and rootfinding.
 Starts at `ϵ`, uses `maxiter` iterations for the bracketing and the
 rootfinding, respectively.
 """
-function find_reasonable_logϵ(H, z; tol = 0.5, a = 0.5, ϵ = 1.0,
+function find_reasonable_logϵ(H, z; tol = 0.15, a = 0.75, ϵ = 1.0,
                               maxiter_bracket = MAXITER_BRACKET,
                               maxiter_bisection = MAXITER_BISECTION)
     target = logdensity(H, z) + log(a)
@@ -131,6 +135,10 @@ end
 DualAveragingAdaptation(logϵ₀) =
     DualAveragingAdaptation(0, zero(logϵ₀), logϵ₀, zero(logϵ₀))
 
+function adapting_logϵ(logϵ; args...)
+    DualAveragingParameters(logϵ; args...), DualAveragingAdaptation(logϵ)
+end
+
 """
     A′ = adapt(parameters, A, a)
 
@@ -147,3 +155,11 @@ function adapt(parameters::DualAveragingParameters, A::DualAveragingAdaptation, 
     logϵ̄ += m^(-κ)*(logϵ - logϵ̄)
     DualAveragingAdaptation(m, H̄, logϵ, logϵ̄)
 end
+
+struct FixedStepSize{T}
+    logϵ::T
+end
+
+adapt(::Any, A::FixedStepSize, a) = A
+
+fixed_logϵ(logϵ) = nothing, FixedStepSize(logϵ)
