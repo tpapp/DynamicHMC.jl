@@ -1,5 +1,5 @@
 import DynamicHMC: GaussianKE, Hamiltonian, loggradient, logdensity,
-    phasepoint, rand_phasepoint, leapfrog
+    phasepoint, rand_phasepoint, Leapfrog, move
 
 ######################################################################
 # Hamiltonian and leapfrog
@@ -58,12 +58,13 @@ end
     Σ = rand_PDMat(n)
     ℓ = MvNormal(randn(n), Σ)
     ϵ = find_stable_ϵ(κ, Σ)
+    lf = Leapfrog(ϵ)
     ∇ℓ(q) = loggradient(ℓ, q)
     q₂, p₂ = copy(q), copy(p)
     q′, p′ = leapfrog_Gaussian(q, p, ∇ℓ, ϵ, m)
     H = Hamiltonian(ℓ, κ)
     z = phasepoint(H, q, p)
-    z′ = leapfrog(H, z, ϵ)
+    z′ = move(H, z, lf)
 
     ⩳(x, y) = isapprox(x, y, rtol = √eps(), atol = √eps())
 
@@ -74,7 +75,7 @@ end
 
     for i in 1:100
         q, p = leapfrog_Gaussian(q, p, ∇ℓ, ϵ, m)
-        z = leapfrog(H, z, ϵ)
+        z = move(H, z, lf)
         @test z.q ⩳ q
         @test z.p ⩳ p
     end
@@ -86,8 +87,8 @@ end
         a = 0.5
         tol = 0.2
         a = 0.5
-        ϵ = exp(find_reasonable_logϵ(H, z; tol = tol, a = a))
-        logA = logdensity(H, leapfrog(H, z, ϵ)) - logdensity(H, z)
+        ϵ = exp(find_reasonable_logϵ(H, z, Leapfrog; tol = tol, a = a))
+        logA = logdensity(H, move(H, z, Leapfrog(ϵ))) - logdensity(H, z)
         @test logA ≈ log(a) atol = tol
     end
 end
@@ -97,8 +98,9 @@ end
     function test_hamiltonian_invariance(H, z, L, ϵ; atol = one(ϵ))
         π₀ = logdensity(H, z)
         warned = false
+        lf = Leapfrog(ϵ)
         for i in 1:L
-            z = leapfrog(H, z, ϵ)
+            z = move(H, z, lf)
             Δ = π₀ - logdensity(H, z)
             if abs(Δ) ≥ atol && !warned
                 warn("Hamiltonian invariance violated: step $(i) of $(L), Δ = $(Δ)")
@@ -112,7 +114,7 @@ end
 
     for _ in 1:100
         H, z = rand_Hz(rand(2:5))
-        ϵ = exp(find_reasonable_logϵ(H, z))
+        ϵ = exp(find_reasonable_logϵ(H, z, Leapfrog))
         test_hamiltonian_invariance(H, z, 100, ϵ/20; atol = 2.0)
     end
 end

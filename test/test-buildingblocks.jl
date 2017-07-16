@@ -1,7 +1,7 @@
 import DynamicHMC:
-    TurnStatistic, isturning,
-    combine_proposals, ProposalPoint, ⊔,
-    DivergenceStatistic, acceptance_rate
+    TurnStatistic, isturning, combine_turnstats,
+    ProposalPoint, combine_proposals, 
+    DivergenceStatistic, ⊔, acceptance_rate
 
 import StatsFuns: logsumexp
 
@@ -11,9 +11,10 @@ import StatsFuns: logsumexp
     ρ₂ = 2*ρ₁
     p₁ = ρ₁
     p₂ = -ρ₁
-    ts₁ = TurnStatistic(p₁, p₁, ρ₁)
-    ts₂ = TurnStatistic(p₂, p₂, ρ₂)
-    @test ts₁ ⊔ ts₂ ≂ TurnStatistic(p₁, p₂, ρ₁+ρ₂)
+    τ₁ = TurnStatistic(p₁, p₁, ρ₁)
+    τ₂ = TurnStatistic(p₂, p₂, ρ₂)
+    @test combine_turnstats(τ₁, τ₂, true) ≂ TurnStatistic(p₁, p₂, ρ₁+ρ₂)
+    @test combine_turnstats(τ₁, τ₂, false) ≂ TurnStatistic(p₂, p₁, ρ₁+ρ₂)
     @test !isturning(TurnStatistic(p₁, p₁, ρ₁))
     @test isturning(TurnStatistic(p₁, p₂, ρ₁))
     @test isturning(TurnStatistic(p₂, p₂, ρ₁))
@@ -44,7 +45,7 @@ end
             else
                 @test prop.z ≂ prop1.z
             end
-            @test prop.logweight ≈ logsumexp(prop1.logweight, prop2.logweight)
+            @test prop.ω ≈ logsumexp(prop1.ω, prop2.ω)
         end
         @test count / N ≈ prob_prob2 atol = atol
     end

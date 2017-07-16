@@ -117,8 +117,14 @@ logdensity(H::Hamiltonian, z::PhasePoint) = z.ℓq + logdensity(H.κ, z.p, z.q)
 
 getp♯(H::Hamiltonian, z::PhasePoint) = getp♯(H.κ, z.p, z.q)
 
+"Leapfrog step with given stepsize."
+struct Leapfrog{Tf}
+    ϵ::Tf
+end
+
 "Take a leapfrog step in phase space."
-function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ)
+function move{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, lf::Leapfrog)
+    @unpack ϵ = lf
     @unpack ℓ, κ = H
     @unpack p, q, ∇ℓq = z
     pₘ = p + ϵ/2 * ∇ℓq
@@ -147,7 +153,7 @@ const MAXITER_BISECTION = 50
 Find `x₁`, `x₂′` that bracket `f(x) = 0`. `f` should be monotone, use
 `Δ > 0` for increasing and `Δ < 0` decreasing `f`.
 
-Return `x₁, x₂′, f(x₁), f(x₂)′`. `x₁` and `x₂′ are not necessarily
+Return `x₁, x₂′, f(x₁), f(x₂′)`. `x₁` and `x₂′ are not necessarily
 ordered.
 
 Algorithm: start at the given `x`, adjust by `Δ` — for increasing `f`,
@@ -211,12 +217,12 @@ function bracket_find_zero(f, x, Δ, C, tol;
 end
 
 """
-    find_reasonable_logϵ(H, z; tol, a, ϵ, maxiter)
+    find_reasonable_logϵ(H, z; tol, a, maxiter, integrator)
 
 Let
-
-``A(ϵ) = exp(logdensity(H, leapfrog(H, z, ϵ)) - logdensity(H, z))``,
-
+``z′(ϵ) = move(H, z, integrator(ϵ))
+and
+``A(ϵ) = exp(logdensity(H, z′) - logdensity(H, z))``,
 denote the ratio of densities between a point `z` and another point
 after one leapfrog step with stepsize `ϵ`.
 
@@ -226,12 +232,12 @@ bracketing (with gently expanding steps) and rootfinding.
 Starts at `ϵ`, uses `maxiter` iterations for the bracketing and the
 rootfinding, respectively.
 """
-function find_reasonable_logϵ(H, z; tol = 0.15, a = 0.75, ϵ = 1.0,
+function find_reasonable_logϵ(H, z, integrator; tol = 0.15, a = 0.75, ϵ = 1.0,
                               maxiter_bracket = MAXITER_BRACKET,
                               maxiter_bisection = MAXITER_BISECTION)
     target = logdensity(H, z) + log(a)
     function residual(logϵ)
-        z′ = leapfrog(H, z, exp(logϵ))
+        z′ = move(H, z, integrator(exp(logϵ)))
         logdensity(H, z′) - target
     end
     bracket_find_zero(residual, log(ϵ), log(0.5), 1.1, tol;
@@ -298,6 +304,151 @@ adapt(::Any, A::FixedStepSize, a) = A
 
 fixed_logϵ(logϵ) = nothing, FixedStepSize(logϵ)
 
+
+###############################################################################
+# random booleans
+######################################################################
+
+"""
+    rand_bool(rng, prob)
+
+Random boolean which is `true` with the given probability `prob`.
+
+This is the only entry point for random numbers in this library.
+"""
+rand_bool{T <: AbstractFloat}(rng, prob::T) = rand(rng, T) ≤ prob
+
+
+######################################################################
+# abstract trajectory interface
+######################################################################
+
+"""
+    ζ, τ, d, z = adjacent_tree(rng, trajectory, z, depth, fwd)
+
+Traverse the tree of given `depth` adjacent to point `z` in `trajectory`.
+
+`fwd` specifies the direction, `rng` is used for random numbers.
+
+Return:
+
+- `ζ`: the proposal from the tree, or `nothing` for invalidated trees (turning, or invalid
+  nodes), sampling from which would violate detailed balance.
+
+- `τ`: turn statistics, not necessarily meaningful when `ζ == nothing`.
+
+- `d`: divergence statistics, always valid.
+
+- `z`: the point at the end of the tree.
+
+`trajectory` should support the following interface:
+
+- `ζ, τ, d = leaf(trajectory, z, isinitial)`
+- `z = move(trajectory, z, fwd)`
+- `isturning(τ)`
+- `combine_proposals(ζ₁, ζ₂, bias₂)`
+- `combine_turnstats(τ₁, τ₂, fwd)`
+- `d₁ ⊔ d₂`
+"""
+function adjacent_tree(rng, trajectory, z, depth, fwd)
+    if depth == 0
+        z = move(trajectory, z, fwd)
+        ζ, τ, d = leaf(trajectory, z, false)
+        ζ, τ, d, z
+    else
+        ζ₋, τ₋, d₋, z = adjacent_tree(rng, trajectory, z, depth-1, fwd)
+        isvalid(ζ₋) || return ζ₋, τ₋, d₋, z
+        ζ₊, τ₊, d₊, z = adjacent_tree(rng, trajectory, z, depth-1, fwd)
+        d = d₋ ⊔ d₊
+        isvalid(ζ₊) || return ζ₊, τ₊, d, z
+        τ = combine_turnstats(τ₋, τ₊, fwd)
+        ζ = isturning(τ) ? nothing : combine_proposals(rng, ζ₋, ζ₊, false)
+        ζ, τ, d, z
+    end
+end
+
+"Reason for terminating a trajectory."
+@enum Termination MaxDepth AdjacentDivergent AdjacentTurn DoubledTurn
+
+"""
+    ζ, d, termination, depth = sample_trajectory(rng, trajectory, z)
+
+Sample a `trajectory` starting at `z`.
+
+Return:
+
+- `ζ`: proposal from the tree
+
+- `d`: divergence statistics
+
+- `termination`: reason for termination (see [`Termination`](@ref))
+
+- `depth`: the depth of the tree constructed.
+
+See [`adjacent_tree`](@ref) for the interface that needs to be supported by `trajectory`.
+"""
+function sample_trajectory(rng, trajectory, z)
+    @unpack max_depth, π₀, rng = 
+    ζ, τ, d = leaf(trajectory, z, true)
+    z₋ = z₊ = z
+    depth = 0
+    termination = MaxDepth
+    while depth < max_depth
+        fwd = rand_bool(rng, 0.5)
+        ζ′, τ′, d′, z = adjacent_tree(rng, trajectory, fwd ? z₊ : z₋, depth, fwd)
+        d = d ⊔ d′
+        isdivergent(d) && (termination = AdjacentDivergent; break)
+        isvalid(ζ′) || (termination = AdjacentTurn; break)
+        ζ = combine_proposals(rng, ζ, ζ′, true)
+        τ = combine_turnstats(τ, τ′, fwd)
+        fwd ? z₊ = z : z₋ = z
+        depth += 1
+        isturning(τ) && (termination = DoubledTurn; break)
+    end
+    t, d, termination, depth
+end
+
+######################################################################
+# proposals
+######################################################################
+
+"""
+Proposal that is propagated through by sampling recursively when
+building the trees.
+"""
+struct ProposalPoint{Tz,Tf}
+    "Proposed point."
+    z::Tz
+    "Log weight (log(∑ exp(Δ)) of trajectory/subtree)."
+    ω::Tf
+end
+
+"""
+    logprob, ω = combined_logprob_logweight(ω₁, ω₂, bias)
+
+Given (relative) log probabilities `ω₁` and `ω₂`, return the log probabiliy of drawing a
+sampel from the second (`logprob`) and the combined (relative) log probability (`ω`).
+
+When `bias`, biases towards the second argument, introducing anti-correlations.
+"""
+function combined_logprob_logweight(ω₁, ω₂, bias)
+    ω = logsumexp(ω₁, ω₂)
+    ω₂ - (bias ? ω₁ : ω), ω
+end
+
+"""
+    combine_proposals(rng, ζ₁, ζ₂, bias)
+
+Combine proposals from two trajectories, using their weights.
+
+When `bias`, biases towards the second proposal, introducing anti-correlations.
+"""
+function combine_proposals(rng, ζ₁::ProposalPoint, ζ₂::ProposalPoint, bias)
+    logprob, ω = combined_logprob_logweight(ζ₁.ω, ζ₂.ω, bias)
+    z = (logprob ≥ 0 || rand_bool(rng, exp(logprob))) ? ζ₂.z : ζ₁.z
+    ProposalPoint(z, ω)
+end
+
 ######################################################################
 # divergence statistics
 ######################################################################
@@ -322,56 +473,12 @@ end
 
 acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
 
-###############################################################################
-# proposal
-######################################################################
-
-"""
-    rand_bool(rng, prob)
-
-Random boolean which is `true` with the given`probability `prob`.
-"""
-rand_bool{T <: AbstractFloat}(rng::AbstractRNG, prob::T) = rand(rng, T) ≤ prob
-
-"""
-Proposal that is propagated through by sampling recursively when
-building the trees.
-"""
-struct ProposalPoint{Tz,Tf}
-    "Proposed point."
-    z::Tz
-    "Log weight (log(∑ exp(Δ)) of trajectory/subtree)."
-    logweight::Tf
-end
-
-function transition_logprob_logweight(logweight_x, logweight_y, bias_y)
-    logweight = logsumexp(logweight_x, logweight_y)
-    logweight_y - (bias_y ? logweight_x : logweight), logweight
-end
-
-"""
-    combine_proposal(x, y, bias)
-
-Combine proposals from two trajectories, using their weights.
-
-When `bias_y`, biases towards `y`, introducing anti-correlations.
-"""
-function combine_proposals(rng, x::ProposalPoint, y::ProposalPoint, bias_y)
-    logprob_y, logweight = transition_logprob_logweight(x.logweight, y.logweight, bias_y)
-    z = (logprob_y ≥ 0 || rand_bool(rng, exp(logprob_y))) ? y.z : x.z
-    ProposalPoint(z, logweight)
-end
-
-leaf_proposal(::Type{ProposalPoint}, z, Δ) = ProposalPoint(z, Δ)
-
 ######################################################################
 # turn analysis
 ######################################################################
 
 """
 Statistics for the identification of turning points. See Betancourt (2017).
-
-Note that the ± subscripts of p♯ indicate direction of expansion.
 """
 struct TurnStatistic{T}
     p♯₋::T
@@ -380,16 +487,24 @@ struct TurnStatistic{T}
 end
 
 """
-Combine turn statistics of two (adjacent) trajectories.
+    combine_turnstats(x, y, fwd)
+
+Combine turn statistics of two (adjacent) trajectories `x` and `y`. When `fwd`, `x` is
+before `y`, otherwise after.
 """
-⊔(x::TurnStatistic, y::TurnStatistic) = TurnStatistic(x.p♯₋, y.p♯₊, x.ρ + y.ρ)
+function combine_turnstats(x::TurnStatistic, y::TurnStatistic, fwd)
+    if !fwd
+        x, y = y, x
+    end
+    TurnStatistic(x.p♯₋, y.p♯₊, x.ρ + y.ρ)
+end
 
 """
 Test termination based on turn statistics. Uses the generalized NUTS
 criterion from Betancourt (2017).
 """
-function isturning(stats::TurnStatistic)
-    @unpack p♯₋, p♯₊, ρ = stats
+function isturning(x::TurnStatistic)
+    @unpack p♯₋, p♯₊, ρ = x
     dot(p♯₋, ρ) < 0 || dot(p♯₊, ρ) < 0
 end
 
@@ -397,157 +512,76 @@ end
 # sampling
 ######################################################################
 
-"""
-Representation of a trajectory (and a proposal).
+# struct DoublingTrajectory{TH,Tf,Tϵ,Tp}
+#     "Hamiltonian."
+#     H::TH
+#     "Log density of z (negative log energy) at initial point."
+#     π₀::Tf
+#     "Integrator (eg leapfrog)."
+#     integrator::Ti
+#     "Maximum depth of the binary tree."
+#     max_depth::Int
+#     "Smallest decrease allowed in the log density."
+#     min_Δ::Tf
+# end
 
-A *trajectory* is a contiguous set of points. A *proposal* is a point
-that was selected from this trajectory using multinomal sampling.
+# function DoublingMultinomialSampler(H::TH, π₀::Tf, integrator::Ti; max_depth::Int = 5,
+#                            min_Δ::Tf = -1000.0, proposal_type = ProposalPoint) where {Tr, TH, Tf, Tϵ}
+#     DoublingMultinomialSampler{Tr, TH, Tf, Tϵ, proposal_type}(rng, H, π₀, ϵ, max_depth, min_Δ)
+# end
 
-Some subtypes *may not have a valid proposal* (because of termination,
-divergence, etc). These are considered `invalid` trajectories, and the
-only information represented is the reason for that.
-"""
-struct Trajectory{Tp,Ts}
-    "Proposed parameter and its weight."
-    proposal::Tp
-    "Turn statistics."
-    turnstat::Ts
-end
+# proposal_type(::DoublingMultinomialSampler{Tr,TH,Tf,Tϵ,Tp}) where {Tr,TH,Tf,Tϵ,Tp} = Tp
 
+# function Δ_and_divergence(sampler, z)
+#     @unpack H, π₀, min_Δ = sampler
+#     Δ = logdensity(H, z) - π₀
+#     divergent = Δ < min_Δ
+#     Δ, DivergenceStatistic(divergent, Δ > 0 ? one(Δ) : exp(Δ), 1)
+# end
 
-struct DoublingMultinomialSampler{Tr,TH,Tf,Tϵ,Tp}
-    "Random number generator."
-    rng::Tr
-    "Hamiltonian."
-    H::TH
-    "Log density of z (negative log energy) at initial point."
-    π₀::Tf
-    "Stepsize for leapfrog  integrator (not necessarily a number)."
-    ϵ::Tϵ
-    "Maximum depth of the binary tree."
-    max_depth::Int
-    "Smallest decrease allowed in the log density."
-    min_Δ::Tf
-end
+# function leaf(sampler, z, Δ)
+#     p♯ = getp♯(sampler.H, z)
+#     Trajectory(leaf_proposal(proposal_type(sampler), z, Δ),
+#                TurnStatistic(p♯, p♯, z.p))
+# end
 
-function DoublingMultinomialSampler(rng::Tr, H::TH, π₀::Tf, ϵ::Tϵ; max_depth::Int = 5,
-                           min_Δ::Tf = -1000.0, proposal_type = ProposalPoint) where {Tr, TH, Tf, Tϵ}
-    DoublingMultinomialSampler{Tr, TH, Tf, Tϵ, proposal_type}(rng, H, π₀, ϵ, max_depth, min_Δ)
-end
+# isvalid(::Void) = false
 
-proposal_type(::DoublingMultinomialSampler{Tr,TH,Tf,Tϵ,Tp}) where {Tr,TH,Tf,Tϵ,Tp} = Tp
-
-function Δ_and_divergence(sampler, z)
-    @unpack H, π₀, min_Δ = sampler
-    Δ = logdensity(H, z) - π₀
-    divergent = Δ < min_Δ
-    Δ, DivergenceStatistic(divergent, Δ > 0 ? one(Δ) : exp(Δ), 1)
-end
-
-function leaf(sampler, z, Δ)
-    p♯ = getp♯(sampler.H, z)
-    Trajectory(leaf_proposal(proposal_type(sampler), z, Δ),
-               TurnStatistic(p♯, p♯, z.p))
-end
-
-isvalid(::Void) = false
-
-isvalid(::Trajectory) = true
-
-"""
-FIXME    Nullable(t), z′ = adjacent_tree(sampler, z, depth, ϵ)
-
-Return a tree `t` of given `depth` adjacent to point `z`, created
-using `sampler`, with stepsize `ϵ`. The tree `t` is wrapped in a
-`Nullable`, to indicate trees we cannot sample from because it would
-violate detailed balance (termination, divergence).
-
-`sampler` is the only argument which is modified, recording statistics
-for tuning ϵ, and divergence information.
-
-`z′` is returned to mark the end of the tree.
-"""
-function adjacent_tree(sampler, z, depth, fwd)
-    @unpack rng, H, ϵ = sampler
-    if depth == 0
-        z = leapfrog(H, z, fwd ? ϵ : -ϵ)
-        Δ, d = Δ_and_divergence(sampler, z)
-        isdivergent(d) ? nothing : leaf(sampler, z, Δ), d, z
-    else
-        t₋, d₋, z = adjacent_tree(sampler, z, depth-1, fwd)
-        isvalid(t₋) || return t₋, d₋, z
-        t₊, d₊, z = adjacent_tree(sampler, z, depth-1, fwd)
-        d = d₋ ⊔ d₊
-        isvalid(t₊) || return t₊, d, z
-        if !fwd
-            t₋, t₊ = t₋, t₊
-        end
-        turnstat = t₋.turnstat ⊔ t₊.turnstat
-        isturning(turnstat) ? nothing :
-            Trajectory(combine_proposals(rng, t₋.proposal, t₊.proposal, false),
-                       turnstat), d, z
-    end
-end
+# isvalid(::Trajectory) = true
 
 
-"""
-    sample_trajectory(sampler, z, ϵ)
-"""
-function sample_trajectory(sampler, z)
-    @unpack max_depth, π₀, rng = sampler
-    t = leaf(sampler, z, zero(π₀))
-    d = DivergenceStatistic()
-    z₋ = z₊ = z
-    depth = 0
-    termination = MaxDepth
-    while depth < max_depth
-        fwd = rand_bool(rng, 0.5)
-        t′, d′, z = adjacent_tree(sampler, fwd ? z₊ : z₋, depth, fwd)
-        d = d ⊔ d′
-        isdivergent(d) && (termination = AdjacentDivergent; break)
-        isvalid(t′) || (termination = AdjacentTurn; break)
-        proposal = combine_proposals(rng, t.proposal, t′.proposal, true)
-        t = Trajectory(proposal, t.turnstat ⊔ t′.turnstat)
-        fwd ? z₊ = z : z₋ = z
-        depth += 1
-        isturning(t.turnstat) && (termination = DoubledTurn; break)
-    end
-    t, d, termination, depth
-end
 
-@enum SamplerTermination MaxDepth AdjacentDivergent AdjacentTurn DoubledTurn
+# struct HMCTransition{Tv,Tf}
+#     "New phasepoint."
+#     z::PhasePoint{Tv,Tf}
+#     "Depth of the tree."
+#     depth::Int
+#     "Reason for termination."
+#     termination::SamplerTermination
+#     "Average acceptance probability."
+#     a::Tf
+#     "Number of leapfrog steps evaluated."
+#     steps::Int
+# end
 
-struct HMCTransition{Tv,Tf}
-    "New phasepoint."
-    z::PhasePoint{Tv,Tf}
-    "Depth of the tree."
-    depth::Int
-    "Reason for termination."
-    termination::SamplerTermination
-    "Average acceptance probability."
-    a::Tf
-    "Number of leapfrog steps evaluated."
-    steps::Int
-end
+# function HMC_transition(rng, H, z, ϵ; args...)
+#     sampler = DoublingMultinomialSampler(rng, H, logdensity(H, z), ϵ; args...)
+#     t, d, termination, depth = sample_trajectory(sampler, z)
+#     HMCTransition(t.proposal.z, depth, termination, acceptance_rate(d), d.steps)
+# end
 
-function HMC_transition(rng, H, z, ϵ; args...)
-    sampler = DoublingMultinomialSampler(rng, H, logdensity(H, z), ϵ; args...)
-    t, d, termination, depth = sample_trajectory(sampler, z)
-    HMCTransition(t.proposal.z, depth, termination, acceptance_rate(d), d.steps)
-end
+# HMC_transition(H, z, ϵ; args...) = HMC_transition(GLOBAL_RNG, H, z, ϵ; args...)
 
-HMC_transition(H, z, ϵ; args...) = HMC_transition(GLOBAL_RNG, H, z, ϵ; args...)
-
-function HMC_sample(rng, H, q::Tv, N, DA_params, A) where Tv
-    posterior = Vector{HMCTransition{Tv, Float64}}(N)
-    for i in 1:N
-        z = rand_phasepoint(rng, H, q)
-        trans = HMC_transition(H, z, exp(A.logϵ))
-        A = adapt(DA_params, A, trans.a)
-        q = trans.z.q
-        posterior[i] .= trans
-    end
-    posterior, A
-end
+# function HMC_sample(rng, H, q::Tv, N, DA_params, A) where Tv
+#     posterior = Vector{HMCTransition{Tv, Float64}}(N)
+#     for i in 1:N
+#         z = rand_phasepoint(rng, H, q)
+#         trans = HMC_transition(H, z, exp(A.logϵ))
+#         A = adapt(DA_params, A, trans.a)
+#         q = trans.z.q
+#         posterior[i] .= trans
+#     end
+#     posterior, A
+# end
 
 end # module

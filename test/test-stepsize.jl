@@ -23,7 +23,7 @@ end
     δ = 0.65
     params = DualAveragingParameters(logϵ₀; δ = δ)
     A = DualAveragingAdaptation(logϵ₀)
-    for _ in 1:1000
+    for _ in 1:2000
         A = adapt(params, A, dummy_acceptance_rate(A.logϵ))
     end
     @test dummy_acceptance_rate(A.logϵ, 0) ≈ δ atol = 0.02
