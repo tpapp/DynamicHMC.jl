@@ -1,7 +1,7 @@
 import DynamicHMC:
     TurnStatistic, isturning, combine_turnstats,
     ProposalPoint, combine_proposals, 
-    DivergenceStatistic, ⊔, acceptance_rate
+    DivergenceStatistic, combine_divstats, acceptance_rate
 
 import StatsFuns: logsumexp
 
@@ -27,7 +27,7 @@ end
     @test acceptance_rate(x) ≈ 0.3
     y = a(0.6)
     @test acceptance_rate(y) ≈ 0.6
-    z = x ⊔ x ⊔ y
+    z = reduce(combine_divstats, [x, x, y])
     @test acceptance_rate(z) ≈ 0.4
 end
 

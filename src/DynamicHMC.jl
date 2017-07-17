@@ -324,6 +324,15 @@ rand_bool{T <: AbstractFloat}(rng, prob::T) = rand(rng, T) ≤ prob
 ######################################################################
 
 """
+    isterminating(ζ)
+
+Test if a proposal is terminating tree construction.
+"""
+isterminating(::Void) = true
+
+isvalid(::Any) = true
+
+"""
     ζ, τ, d, z = adjacent_tree(rng, trajectory, z, depth, fwd)
 
 Traverse the tree of given `depth` adjacent to point `z` in `trajectory`.
@@ -332,10 +341,10 @@ Traverse the tree of given `depth` adjacent to point `z` in `trajectory`.
 
 Return:
 
-- `ζ`: the proposal from the tree, or `nothing` for invalidated trees (turning, or invalid
-  nodes), sampling from which would violate detailed balance.
+- `ζ`: the proposal from the tree. Only valid when `!isdivergent(d) && !isturning(τ)`,
+  otherwise the value should not be used.
 
-- `τ`: turn statistics, not necessarily meaningful when `ζ == nothing`.
+- `τ`: turn statistics. Only valid when `!isdivergent(d)`.
 
 - `d`: divergence statistics, always valid.
 
@@ -343,12 +352,14 @@ Return:
 
 `trajectory` should support the following interface:
 
-- `ζ, τ, d = leaf(trajectory, z, isinitial)`
-- `z = move(trajectory, z, fwd)`
-- `isturning(τ)`
-- `combine_proposals(ζ₁, ζ₂, bias₂)`
-- `combine_turnstats(τ₁, τ₂, fwd)`
-- `d₁ ⊔ d₂`
+- Starting from leaves: `ζ, τ, d = leaf(trajectory, z, isinitial)`
+
+- Moving along the trajectory: `z = move(trajectory, z, fwd)`
+
+- Testing for turning and divergence: `isturning(τ)`, `isdivergent(d)`
+
+- Combination of return values: `combine_proposals(ζ₁, ζ₂, bias)`,
+  `combine_turnstats(τ₁, τ₂)`, and `combine_divstats(d₁, d₂)`
 """
 function adjacent_tree(rng, trajectory, z, depth, fwd)
     if depth == 0
@@ -357,11 +368,11 @@ function adjacent_tree(rng, trajectory, z, depth, fwd)
         ζ, τ, d, z
     else
         ζ₋, τ₋, d₋, z = adjacent_tree(rng, trajectory, z, depth-1, fwd)
-        isvalid(ζ₋) || return ζ₋, τ₋, d₋, z
+        (isdivergent(d₋) || (depth > 1 && isturning(τ₋))) && return ζ₋, τ₋, d₋, z
         ζ₊, τ₊, d₊, z = adjacent_tree(rng, trajectory, z, depth-1, fwd)
-        d = d₋ ⊔ d₊
-        isvalid(ζ₊) || return ζ₊, τ₊, d, z
-        τ = combine_turnstats(τ₋, τ₊, fwd)
+        d = combine_divstats(d₋, d₊)
+        (isdivergent(d) || (depth > 1 && isturning(τ₊))) && return ζ₊, τ₊, d, z
+        τ = fwd ? combine_turnstats(τ₋, τ₊) : combine_turnstats(τ₊, τ₋)
         ζ = isturning(τ) ? nothing : combine_proposals(rng, ζ₋, ζ₊, false)
         ζ, τ, d, z
     end
@@ -371,7 +382,7 @@ end
 @enum Termination MaxDepth AdjacentDivergent AdjacentTurn DoubledTurn
 
 """
-    ζ, d, termination, depth = sample_trajectory(rng, trajectory, z)
+    ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth)
 
 Sample a `trajectory` starting at `z`.
 
@@ -383,12 +394,13 @@ Return:
 
 - `termination`: reason for termination (see [`Termination`](@ref))
 
-- `depth`: the depth of the tree constructed.
+- `depth`: the depth of the tree that as sampled from. Doubling steps that lead
+  to an invalid tree do not contribute to `depth`.
 
-See [`adjacent_tree`](@ref) for the interface that needs to be supported by `trajectory`.
+See [`adjacent_tree`](@ref) for the interface that needs to be supported by
+`trajectory`.
 """
-function sample_trajectory(rng, trajectory, z)
-    @unpack max_depth, π₀, rng = 
+function sample_trajectory(rng, trajectory, z, max_depth)
     ζ, τ, d = leaf(trajectory, z, true)
     z₋ = z₊ = z
     depth = 0
@@ -396,16 +408,16 @@ function sample_trajectory(rng, trajectory, z)
     while depth < max_depth
         fwd = rand_bool(rng, 0.5)
         ζ′, τ′, d′, z = adjacent_tree(rng, trajectory, fwd ? z₊ : z₋, depth, fwd)
-        d = d ⊔ d′
+        d = combine_divstats(d, d′)
         isdivergent(d) && (termination = AdjacentDivergent; break)
-        isvalid(ζ′) || (termination = AdjacentTurn; break)
+        (depth > 0 && isturning(τ′)) && (termination = AdjacentTurn; break)
         ζ = combine_proposals(rng, ζ, ζ′, true)
-        τ = combine_turnstats(τ, τ′, fwd)
+        τ = fwd ? combine_turnstats(τ, τ′) : combine_turnstats(τ′, τ)
         fwd ? z₊ = z : z₋ = z
         depth += 1
         isturning(τ) && (termination = DoubledTurn; break)
     end
-    t, d, termination, depth
+    ζ, d, termination, depth
 end
 
 ######################################################################
@@ -463,12 +475,26 @@ struct DivergenceStatistic{Tf}
     steps::Int
 end
 
-DivergenceStatistic() = DivergenceStatistic(false, 0.0, 0)
+"""
+    divergence_statistic()
+
+Empty divergence statistic (for initial node).
+"""
+divergence_statistic() = DivergenceStatistic(false, 0.0, 0)
+
+"""
+    divergence_statistic(isdivergent, Δ)
+
+Divergence statistic for leaves. `Δ` is the log density relative to the initial point.
+"""
+divergence_statistic(isdivergent, Δ) =
+    DivergenceStatistic(isdivergent, Δ ≥ 0 ? one(Δ) : exp(Δ), 1)
 
 isdivergent(x::DivergenceStatistic) = x.divergent
 
-function ⊔(x::DivergenceStatistic, y::DivergenceStatistic)
-    DivergenceStatistic(x.divergent || y.divergent, x.∑a + y.∑a, x.steps + y.steps)
+function combine_divstats(x::DivergenceStatistic, y::DivergenceStatistic)
+    DivergenceStatistic(x.divergent || y.divergent,
+                        x.∑a + y.∑a, x.steps + y.steps)
 end
 
 acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
@@ -500,11 +526,16 @@ function combine_turnstats(x::TurnStatistic, y::TurnStatistic, fwd)
 end
 
 """
-Test termination based on turn statistics. Uses the generalized NUTS
-criterion from Betancourt (2017).
+    isturning(τ)
+
+Test termination based on turn statistics. Uses the generalized NUTS criterion
+from Betancourt (2017).
+
+Note that this function should not be called with turn statistics returned by
+[`leaf`](@ref).
 """
-function isturning(x::TurnStatistic)
-    @unpack p♯₋, p♯₊, ρ = x
+function isturning(τ::TurnStatistic)
+    @unpack p♯₋, p♯₊, ρ = τ
     dot(p♯₋, ρ) < 0 || dot(p♯₊, ρ) < 0
 end
 
@@ -512,18 +543,18 @@ end
 # sampling
 ######################################################################
 
-# struct DoublingTrajectory{TH,Tf,Tϵ,Tp}
-#     "Hamiltonian."
-#     H::TH
-#     "Log density of z (negative log energy) at initial point."
-#     π₀::Tf
-#     "Integrator (eg leapfrog)."
-#     integrator::Ti
-#     "Maximum depth of the binary tree."
-#     max_depth::Int
-#     "Smallest decrease allowed in the log density."
-#     min_Δ::Tf
-# end
+struct DoublingTrajectory{TH,Tf,Ti}
+    "Hamiltonian."
+    H::TH
+    "Log density of z (negative log energy) at initial point."
+    π₀::Tf
+    "Integrator (eg leapfrog)."
+    integrator::Ti
+    "Maximum depth of the binary tree."
+    max_depth::Int
+    "Smallest decrease allowed in the log density."
+    min_Δ::Tf
+end
 
 # function DoublingMultinomialSampler(H::TH, π₀::Tf, integrator::Ti; max_depth::Int = 5,
 #                            min_Δ::Tf = -1000.0, proposal_type = ProposalPoint) where {Tr, TH, Tf, Tϵ}
@@ -539,11 +570,27 @@ end
 #     Δ, DivergenceStatistic(divergent, Δ > 0 ? one(Δ) : exp(Δ), 1)
 # end
 
-# function leaf(sampler, z, Δ)
-#     p♯ = getp♯(sampler.H, z)
-#     Trajectory(leaf_proposal(proposal_type(sampler), z, Δ),
-#                TurnStatistic(p♯, p♯, z.p))
-# end
+"""
+    ζ, τ, d = leaf(trajectory, z, isinitial)
+
+Construct a proposal, turn statistic, and divergence statistic for a single point `z` in
+`trajectory`. When `isinitial`, `z` is the initial point in the trajectory.
+
+Return
+
+- `ζ`: the proposal, which should only be used when `!isdivergent(d)`
+- `τ`: the turn statistic, which should only be used when `!isdivergent(d)`
+- `d`: divergence statistic
+"""
+function leaf(trajectory::DoublingTrajectory, z, isinitial)
+    Δ = isinitial ? zero(trajectory.π₀) :
+        logdensity(trajectory.H, z) - trajectory.π₀
+    isdiv = trajectory.min_Δ > Δ
+    d = isinitial ? divergence_statistic() : divergence_statistic(isdiv, Δ)
+    ζ = isdiv ? nothing : ProposalPoint(z, Δ)
+    τ = isdiv ? nothing : (p♯ = getp♯(sampler.H, z); TurnStatistic(p♯, p♯, z.p))
+    ζ, τ, d
+end
 
 # isvalid(::Void) = false
 

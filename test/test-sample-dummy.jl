@@ -1,127 +1,164 @@
-import DynamicHMC: logdensity, leapfrog, isturning, adjacent_tree, getp♯,
-    PhasePoint, phasepoint, DoublingMultinomialSampler, sample_trajectory,
-    rand_bool, leaf_proposal, TurnStatistic, combine_proposals,
-    transition_logprob_logweight
-
-struct DummyPosition{T}
-    x::T
-end
-
-Base.:+(x::DummyPosition, y::Real) = DummyPosition(x.x+y)
-
-Base.:+(x::DummyPosition, y::DummyPosition) = DummyPosition(x.x+y.x)
+import DynamicHMC:
+    rand_bool,
+    leaf, move,
+    combine_proposals, combine_turnstats, combined_logprob_logweight,
+    divergence_statistic, isdivergent,
+    isturning,
+    adjacent_tree, sample_trajectory
 
 """
-Structure that can take the place of a Hamiltonian for testing tree
-traversal and proposals.
+Structure that can take the place of a trajectory for testing tree traversal and
+proposals.
 """
-struct DummyHamiltonian{Tz, Tf}
-    zs::Vector{Tz}
-    forbidden::Tf
+struct DummyTrajectory{Tz}
+    "Initial position."
+    z₀::Tz
+    "Flag for collecting values."
     collecting::Bool
+    "History of positions `leaf` was called with, when `collecting`."
+    positions::Vector{Tz}
+    "Positions that mimic turning."
+    turning
+    "Positions that mimic divergence."
+    divergent
+    "Log density."
+    ℓ
 end
 
-DummyHamiltonian(T::Type; forbidden = Set{T}(), collecting = true) =
-    DummyHamiltonian(PhasePoint{T}[], forbidden, collecting)
-
-phasepoint(::DummyHamiltonian, q) = PhasePoint(q, q, q)
-
-function leapfrog(H::DummyHamiltonian, z, ϵ)
-    z′ = PhasePoint(z.q + ϵ, z.p + ϵ, z.q)
-    H.collecting && push!(H.zs, z′)
-    z′
+"Convenience constructor for DummyTrajectory."
+function DummyTrajectory(z₀::T; turning = Set{T}(), divergent = Set{T}(),
+                 collecting = true, ℓ = (z) -> 0.0) where T
+    DummyTrajectory(z₀, collecting, Vector{T}(0), turning, divergent, ℓ)
 end
 
-logdensity(H::DummyHamiltonian, z) = z.q.x ≤ 1000 ? 0.0 : -Inf
-
-function getp♯{T}(H::DummyHamiltonian, z::PhasePoint{DummyPosition{T}})
-    turning = z.p.x ∈ H.forbidden
-    DummyPosition(one(T) * (turning ? 1 : -1))
+"Dummy Turn statistic."
+struct DummyTurnStatistic
+    turning::Bool
 end
 
-function isturning{T <: DummyPosition}(stats::TurnStatistic{T})
-    stats.p♯₋.x > 0 || stats.p♯₊.x > 0
+combine_turnstats(τ₁::T, τ₂::T) where {T <: DummyTurnStatistic} =
+    T(τ₁.turning && τ₂.turning)
+
+isturning(τ::DummyTurnStatistic) = τ.turning
+
+struct TrajectoryDistribution{Tz, Tf}
+    "ordered positions"
+    positions::Vector{Tz}
+    "probabilities"
+    probabilities::Vector{Tf}
 end
 
-function dummy_H_sampler_z(; z_index = 0, args...)
-    H = DummyHamiltonian(DummyPosition{Int}; args...)
-    sampler = DoublingMultinomialSampler(RNG, H, 0.0, 1)
-    q = DummyPosition(z_index)
-    z = rand_phasepoint(RNG, H, q)
-    H, sampler, z
+function TrajectoryDistribution(positions, probabilities)
+    pos = collect(positions)
+    probs = collect(probabilities)
+    @argcheck length(pos) == length(probs)
+    @argcheck sum(probs) ≈ 1
+    p = sortperm(pos)
+    TrajectoryDistribution(pos[p], probs[p])
+end
+    
+"""
+Combine two `TrajectoryDistributions` such that the second one has the given
+probability.
+"""
+function mix(x::TrajectoryDistribution, y::TrajectoryDistribution, y_prob)
+    @argcheck isempty(x.positions ∩ y.positions)
+    @argcheck 0 ≤ y_prob ≤ 1
+    positions = vcat(x.positions, y.positions)
+    probabilities = vcat((1-y_prob) * x.probabilities, y_prob * y.probabilities)
+    p = sortperm(positions)
+    TrajectoryDistribution(positions[p], probabilities[p])
+end
+    
+@testset "trajectory distributions" begin
+    x = TrajectoryDistribution(0:1, [0.2, 0.8])
+    y = TrajectoryDistribution(2:3, [0.3, 0.7])
+    z = mix(x, y, 0.8)
+    @test z.positions == collect(0:3)
+    @test z.probabilities ≈ vcat(0.2*[0.2, 0.8], 0.8*[0.3, 0.7])
+end
+    
+"Keep track of all probabilities."
+struct ProposalDistribution{Tz, Tf}
+    dist::TrajectoryDistribution{Tz, Tf}
+    ω::Tf
 end
 
-index(z::PhasePoint{<: DummyPosition}) = z.q.x
+support(pd::ProposalDistribution) = pd.dist.positions
+
+function combine_proposals(rng, x::ProposalDistribution, y::ProposalDistribution, bias_y)
+    logprob_y, ω = combined_logprob_logweight(x.ω, y.ω, false)
+    prob_y = logprob_y ≥ 0 ? one(logprob_y) : exp(logprob_y)
+    dist = mix(x.dist, y.dist, prob_y)
+    ProposalDistribution(dist, ω)
+end
+
+function leaf(trajectory::DummyTrajectory, z, isinitial)
+    @unpack z₀, collecting, positions, turning, divergent, ℓ = trajectory
+    Δ = isinitial ? 0.0 : ℓ(z) - ℓ(z₀)
+    collecting && push!(positions, z)
+    d = isinitial ? divergence_statistic() : divergence_statistic(z ∈ divergent, Δ)
+    τ = DummyTurnStatistic(z ∈ turning)
+    ζ = d.divergent ? nothing : ProposalDistribution(TrajectoryDistribution([z],[1.0]), Δ)
+    ζ, τ, d
+end
+
+move(trajectory, z, fwd) = z + (fwd ? one(z) : -(one(z)))
 
 @testset "dummy adjacent tree full" begin
-    H, sampler, z = dummy_H_sampler_z()
-    t, d, z′ = adjacent_tree(sampler, z, 2, true)
-    @test index.(H.zs) == collect(1:4)
-    @test index(z′) == 4
-    @test !d.divergent
+    trajectory = DummyTrajectory(0)
+    ζ, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 2, true)
+    @test trajectory.positions == collect(1:4)
+    @test z′ == 4
+    @test !isturning(τ)
+    @test !isdivergent(d)
     @test d.∑a == 4.0
     @test d.steps == 4
-    @test index(t.proposal.z) ∈ 1:4
+    @test support(ζ) == collect(1:4)
 end
 
 @testset "dummy adjacent tree turning" begin
-    H, sampler, z = dummy_H_sampler_z(; forbidden = 5:7)
-    t, d, z′ = adjacent_tree(sampler, z, 3, true)
-    @test index.(H.zs) == collect(1:6) # [5,6] is turning
-    @test index(z′) == 6
-    @test !d.divergent
+    trajectory = DummyTrajectory(0; turning = 5:7)
+    ζ, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, true)
+    @test trajectory.positions == collect(1:6) # [5,6] is turning
+    @test z′ == 6
+    @test isturning(τ)
+    @test !isdivergent(d)
     @test d.∑a == 6.0
     @test d.steps == 6
-    @test t == nothing
 end
 
 @testset "dummy adjacent tree divergent" begin
-    H, sampler, z = dummy_H_sampler_z(; z_index = 1000)
-    t, d, z′ = adjacent_tree(sampler, z, 1, true)
-    @test index.(H.zs) == [1001] # 1001 is divergent
-    @test index(z′) == 1001
-    @test d.divergent
-    @test d.∑a == 0.0
-    @test d.steps == 1
-    @test t == nothing
+    trajectory = DummyTrajectory(0; divergent = 5:7)
+    ζ, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, true)
+    @test trajectory.positions == collect(1:5)
+    @test z′ == 5
+    @test isdivergent(d)
+    @test !isturning(τ)
+    @test d.∑a == 5.0
+    @test d.steps == 5
 end
 
 @testset "dummy adjacent tree full backward" begin
-    H, sampler, z = dummy_H_sampler_z()
-    t, d, z′ = adjacent_tree(sampler, z, 3, false)
-    @test index.(H.zs) == collect(-(1:8))
-    @test index(z′) == -8
-    @test !d.divergent
+    trajectory = DummyTrajectory(0)
+    ζ, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, false)
+    @test trajectory.positions == collect(-(1:8))
+    @test z′ == -8
+    @test !isdivergent(d)
+    @test !isturning(τ)
     @test d.∑a == 8.0
     @test d.steps == 8
-    @test index(t.proposal.z) ∈ -(1:8)
+    @test support(ζ) == collect(-8:-1)
 end
 
-struct ProposalDistribution{Tz, Tf}
-    probabilities::Dict{Tz,Tf}
-    logweight::Tf
-end
-
-leaf_proposal(::Type{ProposalDistribution}, z, Δ::T) where T =
-    ProposalDistribution(Dict(index(z) => one(T)), Δ)
-
-function combine_proposals(rng, x::ProposalDistribution, y::ProposalDistribution, bias_y)
-    logprob_y, logweight = transition_logprob_logweight(x.logweight, y.logweight, bias_y)
-    prob_y = logprob_y ≥ 0 ? one(logprob_y) : exp(logprob_y)
-    prob(probabilities::Dict{Tz,Tf}, z) where {Tz,Tf} = get(probabilities, z, zero(Tf))
-    prob(x::ProposalDistribution, z) = prob(x.probabilities, z)
-    probability(key) =  prob(x, key) * (1-prob_y) + prob(y, key) * prob_y
-    probabilities = Dict(key => probability(key)
-                         for key in keys(x.probabilities) ∪ keys(y.probabilities))
-    ProposalDistribution(probabilities, logweight)
-end
-
+"Random number generator replacement with predefined boolean results."
 mutable struct DummyRNG{T}
     state::T
     count::Int
 end
 
-function rand_bool(rng::DummyRNG, ::Any)
+"Generate specified random number placeholders using DummyRNG."
+function rand_bool(rng::DummyRNG, ::AbstractFloat)
     value = rng.state & 1 > 0
     rng.state >>= 1
     rng.count += 1
@@ -130,44 +167,78 @@ end
 
 @testset "dummy RNG" begin
     rng = DummyRNG(0b1001101, 0)
-    @test collect(rand_bool(rng, nothing) for _ in 1:8) == [true, false, true, true,
-                                                            false, false, true, false]
+    b = [true, false, true, true, false, false, true, false]
+    @test collect(rand_bool(rng, 0.0) for _ in 1:8) == b
 end
 
-function transition_probabilities(rng_state::Int, H, i, max_depth)
-    rng = DummyRNG(rng_state, 0)
-    z = phasepoint(H, DummyPosition(i))
-    sampler = DoublingMultinomialSampler(rng, H, 0.0, 1;
-                                         proposal_type = ProposalDistribution,
-                                         max_depth = max_depth)
-    t, d, termination, depth = sample_trajectory(sampler, z)
-    @test rng.count == depth
-    t.proposal.probabilities
-end
+"""
+    sample_dists(trajectory, z::T, max_depth)
 
-function transition_probabilities(H, i::T, max_depth; args...) where T
-    probabilities = Dict{T, Float64}()
+Return a vector of sampled `TrajectoryDistribution`s along `trajectory`,
+starting from `z`.
+
+They have uniform probability `0.5^max_depth`.
+"""
+function sample_dists(trajectory, z::T, max_depth) where T
     N = (2^max_depth)
-    for rng_state in 0:(N - 1)
-        probabilities′ = transition_probabilities(rng_state, H, i, max_depth)
-        for (z, p) in probabilities′
-            probabilities[z] = get(probabilities, z, 0) + p
-        end
+    function distribution(rng_state)
+        rng = DummyRNG(rng_state, 0)
+        ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth)
+        @test depth ≤ rng.count ≤ depth
+        ζ.dist
     end
-    Dict(z => p/N for (z,p) in probabilities if p > 0)
+    [distribution(rng_state) for rng_state in 0:(N-1)]
 end
 
-function test_detailed_balance(i::T, max_depth) where T
-    H = DummyHamiltonian(DummyPosition{T})
-    for (i′, p) in transition_probabilities(H, i, max_depth)
-        probabilities′ = transition_probabilities(H, i′, max_depth)
-        @test haskey(probabilities′, i)
-        @test probabilities′[i] ≈ p
+"""
+    transprob(dists, j)
+
+Transition probability to `j` according to `dists`.
+"""
+function transprob(dists, j)
+    p = 0.0
+    for d in dists
+        ix = findfirst(d.positions, j)
+        (ix > 0) && (p += d.probabilities[ix])
+    end
+    p / length(dists)
+end
+
+"""
+    test_detailed_balance(ℓ, z::T, max_depth; args...)
+
+For all transitions from `z`, test the detailed balance condition, ie
+
+``ℙ(z) ℙ(j ∣ z) = ℙ(j) ℙ(z ∣ j)``
+
+where ``ℙ(z) = exp(ℓ(z))`` and the transition probabilities ``ℙ(⋅∣⋅)`` are
+calculated using `sample_dist` and `transprob`.
+
+`z` is the starting point, and all `j`s are checked such that ``|z-j| <
+2^max_depth``.
+
+`args` can be used to specify extra keyword arguments (turning, divergence) to
+the `DummyTrajectory` constructor.
+"""
+function test_detailed_balance(ℓ, z::T, max_depth; args...) where T
+    DT(z) = DummyTrajectory(z; ℓ = ℓ, collecting = false, args...)
+    K = (max_depth)-1
+    dists = sample_dists(DT(z), z, max_depth)
+    for j in (z-K):(z+K) 
+        p1 = exp(ℓ(z)) * transprob(dists, j)
+        p2 = exp(ℓ(j)) * transprob(sample_dists(DT(j), j, max_depth), z)
+        @test p1 ≈ p2
     end
 end
 
 @testset "detailed balance flat" begin
     for max_depth in 1:5
-        test_detailed_balance(0, max_depth)
+        test_detailed_balance(_->0.0, 0, max_depth)
+    end
+end
+
+@testset "detailed balance non-flat" begin
+    for max_depth in 1:5
+        test_detailed_balance(x->x*0.02, 0, max_depth)
     end
 end
