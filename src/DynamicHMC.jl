@@ -1,6 +1,22 @@
 """
 Notation follows Betancourt (2017), with some differences.
 
+Instead of energies, densities (= - energy) are used in the code.
+
+ℓ: log density (we sample from)
+κ: distribution/density that corresponds to kinetic energy 
+H: Hamiltonian
+q: position
+p: momentum
+z: point in phase space (q,p)
+ϵ: stepsize
+a: acceptance rate
+A: acceptance tuning state
+ζ: proposal from trajectory (phase point and weight)
+τ: turn statistic
+d: divergence statistic
+π: log density (**different from papers**)
+Δ: logdensity relative to initial point of trajectory
 """
 module DynamicHMC
 
@@ -8,7 +24,7 @@ using ArgCheck
 using Parameters
 using PDMats
 
-import Base: rand
+import Base: rand, length
 import StatsFuns: logsumexp
 
 ######################################################################
@@ -20,7 +36,9 @@ export
     Hamiltonian,
     KineticEnergy, EuclideanKE, GaussianKE,
     PhasePoint, phasepoint,
-    HMCTransition, HMC_transition, HMC_sample
+    HMCTransition, HMC_transition, HMC_adapting_sample,
+    EBFMI, TuneState, TuneStepsize, TuneStepsizeCov, tunestate_init, tune,
+    TuneSequence, bracketed_doubling_tune
 
 """
 Kinetic energy specifications.
@@ -51,6 +69,10 @@ struct GaussianKE{T <: AbstractPDMat} <: EuclideanKE
     Minv::T
 end
 
+GaussianKE(Minv::Matrix) = GaussianKE(PDMat(Minv))
+
+GaussianKE(Minv::Diagonal) = GaussianKE(PDiagMat(diag(Minv)))
+
 """
     logdensity(κ, p[, q])
 
@@ -68,8 +90,8 @@ rand(rng, κ::GaussianKE, q = nothing) = whiten(κ.Minv, randn(rng, dim(κ.Minv)
 """
     Hamiltonian(ℓ, κ)
 
-Construct a Hamiltonian from the posterior density `ℓ`, and the
-kinetic energy specification `κ`.
+Construct a Hamiltonian from the log density `ℓ`, and the kinetic energy
+specification `κ`.
 """
 struct Hamiltonian{Tℓ, Tκ}
     "The (log) density we are sampling from."
@@ -133,10 +155,6 @@ function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePo
     PhasePoint(q′, p′, ∇ℓq′, logdensity(ℓ, q))
 end
 
-function move(H, z, integrator::Leapfrog, fwd = true)
-    @unpack ϵ = integrator
-    leapfrog(H, z, fwd ? ϵ : -ϵ)
-end
 
 ######################################################################
 # stepsize heuristics and adaptation
@@ -221,12 +239,18 @@ function bracket_find_zero(f, x, Δ, C, tol;
 end
 
 """
-    find_reasonable_logϵ(H, z, Integrator; tol, a, ϵ₀, maxiter_bracket,
-                         maxiter_bisection)
+    find_reasonable_logϵ(H, z; tol, a, ϵ₀, maxiter_bracket, maxiter_bisection)
 
-Let ``z′(ϵ) = move(H, z, Integrator(ϵ)) and ``A(ϵ) = exp(logdensity(H, z′) -
-logdensity(H, z))``, denote the ratio of densities between a point `z` and
-another point after one leapfrog step with stepsize `ϵ`.
+Let
+
+``z′(ϵ) = leapfrog(H, z, ϵ)``
+
+and
+
+``A(ϵ) = exp(logdensity(H, z′) - logdensity(H, z))``
+
+denote the ratio of densities between a point `z` and another point after one
+leapfrog step with stepsize `ϵ`.
 
 Returns an `ϵ` such that `|log(A(ϵ)) - log(a)| ≤ tol`. Uses iterative bracketing
 (with gently expanding steps) and rootfinding.
@@ -234,12 +258,12 @@ Returns an `ϵ` such that `|log(A(ϵ)) - log(a)| ≤ tol`. Uses iterative bracke
 Starts at `ϵ₀`, uses `maxiter` iterations for the bracketing and the
 rootfinding, respectively.
 """
-function find_reasonable_logϵ(H, z, Integrator; tol = 0.15, a = 0.75, ϵ₀ = 1.0,
+function find_reasonable_logϵ(H, z; tol = 0.15, a = 0.75, ϵ₀ = 1.0,
                               maxiter_bracket = MAXITER_BRACKET,
                               maxiter_bisection = MAXITER_BISECTION)
     target = logdensity(H, z) + log(a)
     function residual(logϵ)
-        z′ = move(H, z, Integrator(exp(logϵ)))
+        z′ = leapfrog(H, z, exp(logϵ))
         logdensity(H, z′) - target
     end
     bracket_find_zero(residual, log(ϵ₀), log(0.5), 1.1, tol;
@@ -419,8 +443,8 @@ end
 ######################################################################
 
 """
-Proposal that is propagated through by sampling recursively when
-building the trees.
+Proposal that is propagated through by sampling recursively when building the
+trees.
 """
 struct Proposal{Tz,Tf}
     "Proposed point."
@@ -548,8 +572,8 @@ struct Trajectory{TH,Tf,Ti}
     H::TH
     "Log density of z (negative log energy) at initial point."
     π₀::Tf
-    "Integrator (eg leapfrog)."
-    integrator::Ti
+    "Stepsize for leapfrog."
+    ϵ::Tf
     "Smallest decrease allowed in the log density."
     min_Δ::Tf
 end
@@ -559,8 +583,7 @@ end
 
 Convenience constructor for trajectory. Uses the leapfrog integrator.
 """
-Trajectory(H, π₀, ϵ; min_Δ = -1000.0) =
-    Trajectory(H, π₀, Leapfrog(ϵ), max_depth, min_Δ)
+Trajectory(H, π₀, ϵ; min_Δ = -1000.0) = Trajectory(H, π₀, ϵ, max_depth, min_Δ)
 
 """
     ζ, τ, d = leaf(trajectory, z, isinitial)
@@ -585,41 +608,168 @@ function leaf(trajectory::Trajectory, z, isinitial)
 end
 
 function move(trajectory::Trajectory, z, fwd)
-    @unpack H, integrator = trajectory
-    move(H, z, integrator, fwd)
+    @unpack H, ϵ = trajectory
+    leapfrog(H, z, fwd ? ϵ : -ϵ)
 end
 
-# struct HMCTransition{Tv,Tf}
-#     "New phasepoint."
-#     z::PhasePoint{Tv,Tf}
-#     "Depth of the tree."
-#     depth::Int
-#     "Reason for termination."
-#     termination::SamplerTermination
-#     "Average acceptance probability."
-#     a::Tf
-#     "Number of leapfrog steps evaluated."
-#     steps::Int
-# end
+struct HMCTransition{Tv,Tf}
+    "New phasepoint."
+    q::Tv
+    "Log density."
+    π::Tf
+    "Depth of the tree."
+    depth::Int
+    "Reason for termination."
+    termination::Termination
+    "Average acceptance probability."
+    a::Tf
+    "Number of leapfrog steps evaluated."
+    steps::Int
+end
 
-# function HMC_transition(rng, H, z, ϵ; args...)
-#     sampler = DoublingMultinomialSampler(rng, H, logdensity(H, z), ϵ; args...)
-#     t, d, termination, depth = sample_trajectory(sampler, z)
-#     HMCTransition(t.proposal.z, depth, termination, acceptance_rate(d), d.steps)
-# end
+"""
+    HMC_transition(rng, H, z, ϵ, max_depth; args...)
 
-# HMC_transition(H, z, ϵ; args...) = HMC_transition(GLOBAL_RNG, H, z, ϵ; args...)
+Hamiltonian Monte Carlo transition, using Hamiltonian `H`, starting phase point
+`z`, stepsize `ϵ`. Builds a doubling dynamic tree of maximum depth
+`max_depth`. `args` are passed to the `Trajectory` constructor. `rng` is the
+random number generator used.
+"""
+function HMC_transition(rng, H, z, ϵ, max_depth; args...)
+    trajectory = Trajectory(H, logdensity(H, z), ϵ; args...)
+    ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth)
+    HMCTransition(ζ.z.q, logdensity(H, ζ.z), depth, termination, acceptance_rate(d), d.steps)
+end
 
-# function HMC_sample(rng, H, q::Tv, N, DA_params, A) where Tv
-#     posterior = Vector{HMCTransition{Tv, Float64}}(N)
-#     for i in 1:N
-#         z = rand_phasepoint(rng, H, q)
-#         trans = HMC_transition(H, z, exp(A.logϵ))
-#         A = adapt(DA_params, A, trans.a)
-#         q = trans.z.q
-#         posterior[i] .= trans
-#     end
-#     posterior, A
-# end
+function HMC_adapting_sample(rng, H, q::Tv, N, DA_params, A) where Tv
+    sample = Vector{HMCTransition{Tv, Float64}}(N)
+    for i in 1:N
+        z = rand_phasepoint(rng, H, q)
+        trans = HMC_transition(H, z, exp(A.logϵ))
+        A = adapt(DA_params, A, trans.a)
+        q = trans.z.q
+        sample[i] .= trans
+    end
+    sample, A
+end
+
+"""
+    sample_matrix(posterior)
+
+Return the samples of the parameter vector as rows of a matrix.
+"""
+sample_matrix(sample) = vcat(map(x->x.q, sample)...)
+
+
+######################################################################
+# tuning and diagnostics
+######################################################################
+
+"""
+    EBFMI(sample)
+
+Energy Bayesian fraction of missing information. Useful for diagnosing poorly
+chosen kinetic energies.
+"""
+function EBFMI(sample)
+    πs = [s.π for s in sample]
+    sum(abs2, diff(πs)) / var(πs)
+end
+
+"State information for the tuner."
+struct TuneState{TH, TP, TA, Tv}
+    "Hamiltonian"
+    H::TH
+    "position"
+    q::Tv
+    "Dual averaging parameters."
+    DA_params::TP
+    "Dual averaging state."
+    A::TA
+end
+
+"""
+    tunestate_init(rng, ℓ, q; Minv = I)
+
+Given a density `ℓ` and a position `q`, return an initial tunestate using local
+information.
+"""
+function tunestate_init(rng, ℓ, q; Minv = Diagonal(ones(length(q))))
+    κ = GaussianKE(Minv)
+    H = Hamiltonian(ℓ, κ)
+    z = rand_phasepoint(rng, H, q)
+    logϵ = find_reasonable_logϵ(H, z)
+    TuneState(H, q, adapting_logϵ(logϵ)...)
+end
+
+"Tune the integrator stepsize."
+struct TuneStepsize
+    N::Int
+end
+
+length(tune::TuneStepsize) = tune.N
+
+"""
+    tune(rng, tunestate, tune)
+
+Given a `tunestate` and a tuning procedure `tune`, return the updated tune
+state. Use `rng` as a random number generator.
+"""
+function tune(rng, tunestate::TuneState, tune::TuneStepsize)
+    @unpack H, q, DA_params, A = tunestate
+    sample, A = HMC_adapting_sample(rng, H, q, tune.N, DA_params, A)
+    TuneState(H, sample[end].q, DA_params, A)
+end
+
+struct TuneStepsizeCov{Tf}
+    "Number of samples."
+    N::Int
+    """
+    Shrinkage factor for normalizing variance. Effectively equivalent to a prior
+    from `shrink` pseudo-observations with unit values.
+    """
+    shrink::Tf
+end
+
+length(tune::TuneStepsizeCov) = tune.N
+
+function tune(rng, tunestate::TuneState, tune::TuneStepsizeCov)
+    @unpack H, q, DA_params, A = tunestate
+    @unpack shrink, N = tune
+    sample, A = HMC_sample(rng, H, q, N, DA_params, A)
+    qs = sample_matrix(sample)
+    Σ = cov(qs, 2)
+    Σ .+= (I-Σ) * shrink/N
+    κ = GaussianKE(Σ)
+    TuneState(Hamiltonian(H.ℓ, κ), sample[end].q, DA_params, A)
+end
+
+struct TuneSequence{T}
+    tunes::T
+end
+
+length(seq::TuneSequence) = sum(length, seq.tunes)
+
+"""
+    bracketed_doubling_warmup(; [init], [mid], [M], [term], [shrink])
+
+FIXME
+"""
+function bracketed_doubling_tune(; init = 75, mid = 25, M = 5, term = 50, shrink = 10.0)
+    tunes = Any[TuneStepsize(init)]
+    for _ in 1:M
+        tunes = push!(tunes, TuneStepsizeCov(mid, shrink))
+        mid *= 2
+    end
+    push!(tunes, TuneStepsize(term))
+    TuneSequence(tunes)
+end
+
+function tune(rng, tunestate::TuneState, seq::TuneSequence)
+    for tune in seq.tunes
+        tunestate = tune(rng, tunestate, tune)
+    end
+    tunestate
+end
 
 end # module
