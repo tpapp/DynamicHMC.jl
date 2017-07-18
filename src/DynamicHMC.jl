@@ -533,17 +533,13 @@ struct TurnStatistic{T}
 end
 
 """
-    combine_turnstats(x, y, fwd)
+    combine_turnstats(x, y)
 
-Combine turn statistics of two (adjacent) trajectories `x` and `y`. When `fwd`, `x` is
-before `y`, otherwise after.
+Combine turn statistics of two trajectories `x` and `y`, which are assume to be
+adjacent and in that order.
 """
-function combine_turnstats(x::TurnStatistic, y::TurnStatistic, fwd)
-    if !fwd
-        x, y = y, x
-    end
+combine_turnstats(x::TurnStatistic, y::TurnStatistic) =
     TurnStatistic(x.p♯₋, y.p♯₊, x.ρ + y.ρ)
-end
 
 """
     isturning(τ)

@@ -13,8 +13,7 @@ import StatsFuns: logsumexp
     p₂ = -ρ₁
     τ₁ = TurnStatistic(p₁, p₁, ρ₁)
     τ₂ = TurnStatistic(p₂, p₂, ρ₂)
-    @test combine_turnstats(τ₁, τ₂, true) ≂ TurnStatistic(p₁, p₂, ρ₁+ρ₂)
-    @test combine_turnstats(τ₁, τ₂, false) ≂ TurnStatistic(p₂, p₁, ρ₁+ρ₂)
+    @test combine_turnstats(τ₁, τ₂) ≂ TurnStatistic(p₁, p₂, ρ₁+ρ₂)
     @test !isturning(TurnStatistic(p₁, p₁, ρ₁))
     @test isturning(TurnStatistic(p₁, p₂, ρ₁))
     @test isturning(TurnStatistic(p₂, p₂, ρ₁))
