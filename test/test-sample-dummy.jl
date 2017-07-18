@@ -86,8 +86,9 @@ end
 
 support(pd::ProposalDistribution) = pd.dist.positions
 
-function combine_proposals(rng, x::ProposalDistribution, y::ProposalDistribution, bias_y)
-    logprob_y, ω = combined_logprob_logweight(x.ω, y.ω, false)
+function combine_proposals(rng, x::ProposalDistribution,
+                           y::ProposalDistribution, bias_y)
+    logprob_y, ω = combined_logprob_logweight(x.ω, y.ω, bias_y)
     prob_y = logprob_y ≥ 0 ? one(logprob_y) : exp(logprob_y)
     dist = mix(x.dist, y.dist, prob_y)
     ProposalDistribution(dist, ω)
@@ -184,7 +185,7 @@ function sample_dists(trajectory, z::T, max_depth) where T
     function distribution(rng_state)
         rng = DummyRNG(rng_state, 0)
         ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth)
-        @test depth ≤ rng.count ≤ depth
+        @test depth ≤ rng.count ≤ depth+1
         ζ.dist
     end
     [distribution(rng_state) for rng_state in 0:(N-1)]
@@ -240,5 +241,11 @@ end
 @testset "detailed balance non-flat" begin
     for max_depth in 1:5
         test_detailed_balance(x->x*0.02, 0, max_depth)
+    end
+end
+
+@testset "detailed balance non-flat" begin
+    for max_depth in 1:5
+        test_detailed_balance(x->x*0.02, 0, max_depth; turning = 2:3)
     end
 end
