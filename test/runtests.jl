@@ -1,4 +1,5 @@
 include("setup-and-utilities.jl")
+include("test-utilities.jl")
 include("test-basics.jl")
 include("test-Hamiltonian-leapfrog.jl")
 include("test-buildingblocks.jl")
