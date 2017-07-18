@@ -1,7 +1,19 @@
-import DynamicHMC: logdensity, loggradient
-import ForwardDiff: gradient
+using DynamicHMC
 using Distributions
 using PDMats
+using Base.Test
+using Parameters
+using ArgCheck
+
+import DynamicHMC: logdensity, loggradient
+import ForwardDiff: gradient
+
+# consistent testing
+const RNG = srand(UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
+
+import DynamicHMC: GaussianKE, Hamiltonian, loggradient, logdensity,
+    phasepoint, rand_phasepoint, leapfrog, move
+
 
 "Random positive definite matrix of size `n` x `n` (for testing)."
 function rand_PDMat(n)
