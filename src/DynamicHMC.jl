@@ -36,9 +36,9 @@ export
     Hamiltonian,
     KineticEnergy, EuclideanKE, GaussianKE,
     PhasePoint, phasepoint,
-    HMCTransition, HMC_transition, HMC_adapting_sample,
-    EBFMI, TuneState, TuneStepsize, TuneStepsizeCov, tunestate_init, tune,
-    TuneSequence, bracketed_doubling_tune
+    HMCTransition, HMC_transition, HMC_adapting_sample, sample_matrix, sample_cov,
+    EBFMI, TuneState, TunerStepsize, TunerStepsizeCov, tunestate_init, tune,
+    TunerSequence, bracketed_doubling_tuner
 
 """
 Kinetic energy specifications.
@@ -563,7 +563,7 @@ end
 Representation of a trajectory, ie a Hamiltonian with a discrete integrator that
 also checks for divergence.
 """
-struct Trajectory{TH,Tf,Ti}
+struct Trajectory{TH,Tf}
     "Hamiltonian."
     H::TH
     "Log density of z (negative log energy) at initial point."
@@ -579,7 +579,7 @@ end
 
 Convenience constructor for trajectory. Uses the leapfrog integrator.
 """
-Trajectory(H, π₀, ϵ; min_Δ = -1000.0) = Trajectory(H, π₀, ϵ, max_depth, min_Δ)
+Trajectory(H, π₀, ϵ; min_Δ = -1000.0) = Trajectory(H, π₀, ϵ, min_Δ)
 
 """
     ζ, τ, d = leaf(trajectory, z, isinitial)
@@ -599,7 +599,7 @@ function leaf(trajectory::Trajectory, z, isinitial)
     isdiv = min_Δ > Δ
     d = isinitial ? divergence_statistic() : divergence_statistic(isdiv, Δ)
     ζ = isdiv ? nothing : Proposal(z, Δ)
-    τ = isdiv ? nothing : (p♯ = getp♯(sampler.H, z); TurnStatistic(p♯, p♯, z.p))
+    τ = isdiv ? nothing : (p♯ = getp♯(trajectory.H, z); TurnStatistic(p♯, p♯, z.p))
     ζ, τ, d
 end
 
@@ -624,26 +624,26 @@ struct HMCTransition{Tv,Tf}
 end
 
 """
-    HMC_transition(rng, H, z, ϵ, max_depth; args...)
+    HMC_transition(rng, H, q, ϵ, max_depth; args...)
 
-Hamiltonian Monte Carlo transition, using Hamiltonian `H`, starting phase point
-`z`, stepsize `ϵ`. Builds a doubling dynamic tree of maximum depth
+Hamiltonian Monte Carlo transition, using Hamiltonian `H`, starting at position
+`q`, using stepsize `ϵ`. Builds a doubling dynamic tree of maximum depth
 `max_depth`. `args` are passed to the `Trajectory` constructor. `rng` is the
 random number generator used.
 """
-function HMC_transition(rng, H, z, ϵ, max_depth; args...)
+function HMC_transition(rng, H, q, ϵ, max_depth; args...)
+    z = rand_phasepoint(rng, H, q)
     trajectory = Trajectory(H, logdensity(H, z), ϵ; args...)
     ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth)
     HMCTransition(ζ.z.q, logdensity(H, ζ.z), depth, termination, acceptance_rate(d), d.steps)
 end
 
-function HMC_adapting_sample(rng, H, q::Tv, N, DA_params, A) where Tv
+function HMC_adapting_sample(rng, H, max_depth::Int, q::Tv, N::Int, DA_params, A) where Tv
     sample = Vector{HMCTransition{Tv, Float64}}(N)
     for i in 1:N
-        z = rand_phasepoint(rng, H, q)
-        trans = HMC_transition(H, z, exp(A.logϵ))
+        trans = HMC_transition(rng, H, q, exp(A.logϵ), max_depth)
         A = adapt(DA_params, A, trans.a)
-        q = trans.z.q
+        q = trans.q
         sample[i] .= trans
     end
     sample, A
@@ -654,12 +654,18 @@ end
 
 Return the samples of the parameter vector as rows of a matrix.
 """
-sample_matrix(sample) = vcat(map(x->x.q, sample)...)
-
+sample_matrix(sample) = vcat(map(x->x.q', sample)...)
 
 ######################################################################
 # tuning and diagnostics
 ######################################################################
+
+"""
+    sample_cov(sample)
+
+Covariance matrix of the sample.
+"""
+sample_cov(sample) = cov(sample_matrix(sample), 2)
 
 """
     EBFMI(sample)
@@ -682,6 +688,23 @@ struct TuneState{TH, TP, TA, Tv}
     DA_params::TP
     "Dual averaging state."
     A::TA
+    "maximum depth of the tree"
+    max_depth::Int
+end
+
+# FIXME one of these days this should not be necessary
+function TuneState(tunestate::TuneState;
+                   H = tunestate.H,
+                   q = tunestate.q,
+                   DA_params = tunestate.DA_params,
+                   A = tunestate.A,
+                   max_depth = tunestate.max_depth)
+    TuneState(H, q, DA_params, A, max_depth)
+end
+
+function HMC_adapting_sample(rng, tunestate::TuneState, N)
+    @unpack H, q, DA_params, A, max_depth = tunestate
+    HMC_adapting_sample(rng, H, max_depth, q, N, DA_params, A)
 end
 
 """
@@ -690,34 +713,38 @@ end
 Given a density `ℓ` and a position `q`, return an initial tunestate using local
 information.
 """
-function tunestate_init(rng, ℓ, q; Minv = Diagonal(ones(length(q))))
+function tunestate_init(rng, ℓ, q; Minv = Diagonal(ones(length(q))), max_depth = 5)
     κ = GaussianKE(Minv)
     H = Hamiltonian(ℓ, κ)
     z = rand_phasepoint(rng, H, q)
     logϵ = find_reasonable_logϵ(H, z)
-    TuneState(H, q, adapting_logϵ(logϵ)...)
+    DA_params, A = adapting_logϵ(logϵ)
+    TuneState(H, q, DA_params, A, max_depth)
 end
 
 "Tune the integrator stepsize."
-struct TuneStepsize
+struct TunerStepsize
     N::Int
 end
 
-length(tune::TuneStepsize) = tune.N
+length(tuner::TunerStepsize) = tuner.N
 
 """
     tune(rng, tunestate, tune)
 
-Given a `tunestate` and a tuning procedure `tune`, return the updated tune
-state. Use `rng` as a random number generator.
+Given a `tunestate` and a `tuner`, return the updated tune state. Use `rng` as a
+random number generator.
 """
-function tune(rng, tunestate::TuneState, tune::TuneStepsize)
-    @unpack H, q, DA_params, A = tunestate
-    sample, A = HMC_adapting_sample(rng, H, q, tune.N, DA_params, A)
-    TuneState(H, sample[end].q, DA_params, A)
+function tune(rng, tunestate::TuneState, tuner::TunerStepsize)
+    sample, A = HMC_adapting_sample(rng, tunestate, tuner.N)
+    TuneState(tunestate; q = sample[end].q, A = A)
 end
 
-struct TuneStepsizeCov{Tf}
+"""
+Tune the integrator stepsize and covariance. Covariance tuning is from scratch
+(no prior information is used), regularized towards the identity matrix.
+"""
+struct TunerStepsizeCov{Tf}
     "Number of samples."
     N::Int
     """
@@ -727,43 +754,41 @@ struct TuneStepsizeCov{Tf}
     shrink::Tf
 end
 
-length(tune::TuneStepsizeCov) = tune.N
+length(tuner::TunerStepsizeCov) = tuner.N
 
-function tune(rng, tunestate::TuneState, tune::TuneStepsizeCov)
-    @unpack H, q, DA_params, A = tunestate
-    @unpack shrink, N = tune
-    sample, A = HMC_sample(rng, H, q, N, DA_params, A)
-    qs = sample_matrix(sample)
-    Σ = cov(qs, 2)
+function tune(rng, tunestate::TuneState, tuner::TunerStepsizeCov)
+    @unpack shrink, N = tuner
+    sample, A = HMC_adapting_sample(rng, tunestate, N)
+    Σ = sample_cov(sample)
     Σ .+= (I-Σ) * shrink/N
     κ = GaussianKE(Σ)
-    TuneState(Hamiltonian(H.ℓ, κ), sample[end].q, DA_params, A)
+    TuneState(tunestate; H = Hamiltonian(H.ℓ, κ), q = sample[end].q, A = A)
 end
 
-struct TuneSequence{T}
-    tunes::T
+struct TunerSequence{T}
+    tuners::T
 end
 
-length(seq::TuneSequence) = sum(length, seq.tunes)
+length(seq::TunerSequence) = sum(length, seq.tunes)
 
 """
     bracketed_doubling_warmup(; [init], [mid], [M], [term], [shrink])
 
 FIXME
 """
-function bracketed_doubling_tune(; init = 75, mid = 25, M = 5, term = 50, shrink = 10.0)
-    tunes = Any[TuneStepsize(init)]
+function bracketed_doubling_tuner(; init = 75, mid = 25, M = 5, term = 50, shrink = 10.0)
+    tunes = Any[TunerStepsize(init)]
     for _ in 1:M
-        tunes = push!(tunes, TuneStepsizeCov(mid, shrink))
+        tunes = push!(tunes, TunerStepsizeCov(mid, shrink))
         mid *= 2
     end
-    push!(tunes, TuneStepsize(term))
-    TuneSequence(tunes)
+    push!(tunes, TunerStepsize(term))
+    TunerSequence(tunes)
 end
 
-function tune(rng, tunestate::TuneState, seq::TuneSequence)
-    for tune in seq.tunes
-        tunestate = tune(rng, tunestate, tune)
+function tune(rng, tunestate::TuneState, seq::TunerSequence)
+    for tuner in seq.tuners
+        tunestate = tune(rng, tunestate, tuner)
     end
     tunestate
 end
