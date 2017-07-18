@@ -123,8 +123,7 @@ struct Leapfrog{Tf}
 end
 
 "Take a leapfrog step in phase space."
-function move{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, lf::Leapfrog)
-    @unpack ϵ = lf
+function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ)
     @unpack ℓ, κ = H
     @unpack p, q, ∇ℓq = z
     pₘ = p + ϵ/2 * ∇ℓq
@@ -132,6 +131,11 @@ function move{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint,
     ∇ℓq′ = loggradient(ℓ, q′)
     p′ = pₘ + ϵ/2 * ∇ℓq′
     PhasePoint(q′, p′, ∇ℓq′, logdensity(ℓ, q))
+end
+
+function move(H, z, integrator::Leapfrog, fwd = true)
+    @unpack ϵ = integrator
+    leapfrog(H, z, fwd ? ϵ : -ϵ)
 end
 
 ######################################################################
@@ -217,30 +221,28 @@ function bracket_find_zero(f, x, Δ, C, tol;
 end
 
 """
-    find_reasonable_logϵ(H, z; tol, a, maxiter, integrator)
+    find_reasonable_logϵ(H, z, Integrator; tol, a, ϵ₀, maxiter_bracket,
+                         maxiter_bisection)
 
-Let
-``z′(ϵ) = move(H, z, integrator(ϵ))
-and
-``A(ϵ) = exp(logdensity(H, z′) - logdensity(H, z))``,
-denote the ratio of densities between a point `z` and another point
-after one leapfrog step with stepsize `ϵ`.
+Let ``z′(ϵ) = move(H, z, Integrator(ϵ)) and ``A(ϵ) = exp(logdensity(H, z′) -
+logdensity(H, z))``, denote the ratio of densities between a point `z` and
+another point after one leapfrog step with stepsize `ϵ`.
 
-Returns an `ϵ` such that `|log(A(ϵ)) - log(a)| ≤ tol`. Uses iterative
-bracketing (with gently expanding steps) and rootfinding.
+Returns an `ϵ` such that `|log(A(ϵ)) - log(a)| ≤ tol`. Uses iterative bracketing
+(with gently expanding steps) and rootfinding.
 
-Starts at `ϵ`, uses `maxiter` iterations for the bracketing and the
+Starts at `ϵ₀`, uses `maxiter` iterations for the bracketing and the
 rootfinding, respectively.
 """
-function find_reasonable_logϵ(H, z, integrator; tol = 0.15, a = 0.75, ϵ = 1.0,
+function find_reasonable_logϵ(H, z, Integrator; tol = 0.15, a = 0.75, ϵ₀ = 1.0,
                               maxiter_bracket = MAXITER_BRACKET,
                               maxiter_bisection = MAXITER_BISECTION)
     target = logdensity(H, z) + log(a)
     function residual(logϵ)
-        z′ = move(H, z, integrator(exp(logϵ)))
+        z′ = move(H, z, Integrator(exp(logϵ)))
         logdensity(H, z′) - target
     end
-    bracket_find_zero(residual, log(ϵ), log(0.5), 1.1, tol;
+    bracket_find_zero(residual, log(ϵ₀), log(0.5), 1.1, tol;
                       maxiter_bracket = MAXITER_BRACKET,
                       maxiter_bisection = MAXITER_BISECTION)
 end
@@ -322,15 +324,6 @@ rand_bool{T <: AbstractFloat}(rng, prob::T) = rand(rng, T) ≤ prob
 ######################################################################
 # abstract trajectory interface
 ######################################################################
-
-"""
-    isterminating(ζ)
-
-Test if a proposal is terminating tree construction.
-"""
-isterminating(::Void) = true
-
-isvalid(::Any) = true
 
 """
     ζ, τ, d, z = adjacent_tree(rng, trajectory, z, depth, fwd)
@@ -420,6 +413,7 @@ function sample_trajectory(rng, trajectory, z, max_depth)
     ζ, d, termination, depth
 end
 
+
 ######################################################################
 # proposals
 ######################################################################
@@ -428,7 +422,7 @@ end
 Proposal that is propagated through by sampling recursively when
 building the trees.
 """
-struct ProposalPoint{Tz,Tf}
+struct Proposal{Tz,Tf}
     "Proposed point."
     z::Tz
     "Log weight (log(∑ exp(Δ)) of trajectory/subtree)."
@@ -455,11 +449,12 @@ Combine proposals from two trajectories, using their weights.
 
 When `bias`, biases towards the second proposal, introducing anti-correlations.
 """
-function combine_proposals(rng, ζ₁::ProposalPoint, ζ₂::ProposalPoint, bias)
+function combine_proposals(rng, ζ₁::Proposal, ζ₂::Proposal, bias)
     logprob, ω = combined_logprob_logweight(ζ₁.ω, ζ₂.ω, bias)
     z = (logprob ≥ 0 || rand_bool(rng, exp(logprob))) ? ζ₂.z : ζ₁.z
-    ProposalPoint(z, ω)
+    Proposal(z, ω)
 end
+
 
 ######################################################################
 # divergence statistics
@@ -498,6 +493,7 @@ function combine_divstats(x::DivergenceStatistic, y::DivergenceStatistic)
 end
 
 acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
+
 
 ######################################################################
 # turn analysis
@@ -543,32 +539,28 @@ end
 # sampling
 ######################################################################
 
-struct DoublingTrajectory{TH,Tf,Ti}
+"""
+Representation of a trajectory, ie a Hamiltonian with a discrete integrator that
+also checks for divergence.
+"""
+struct Trajectory{TH,Tf,Ti}
     "Hamiltonian."
     H::TH
     "Log density of z (negative log energy) at initial point."
     π₀::Tf
     "Integrator (eg leapfrog)."
     integrator::Ti
-    "Maximum depth of the binary tree."
-    max_depth::Int
     "Smallest decrease allowed in the log density."
     min_Δ::Tf
 end
 
-# function DoublingMultinomialSampler(H::TH, π₀::Tf, integrator::Ti; max_depth::Int = 5,
-#                            min_Δ::Tf = -1000.0, proposal_type = ProposalPoint) where {Tr, TH, Tf, Tϵ}
-#     DoublingMultinomialSampler{Tr, TH, Tf, Tϵ, proposal_type}(rng, H, π₀, ϵ, max_depth, min_Δ)
-# end
+"""
+    Trajectory(H, π₀, ϵ; min_Δ = -1000.0)
 
-# proposal_type(::DoublingMultinomialSampler{Tr,TH,Tf,Tϵ,Tp}) where {Tr,TH,Tf,Tϵ,Tp} = Tp
-
-# function Δ_and_divergence(sampler, z)
-#     @unpack H, π₀, min_Δ = sampler
-#     Δ = logdensity(H, z) - π₀
-#     divergent = Δ < min_Δ
-#     Δ, DivergenceStatistic(divergent, Δ > 0 ? one(Δ) : exp(Δ), 1)
-# end
+Convenience constructor for trajectory. Uses the leapfrog integrator.
+"""
+Trajectory(H, π₀, ϵ; min_Δ = -1000.0) =
+    Trajectory(H, π₀, Leapfrog(ϵ), max_depth, min_Δ)
 
 """
     ζ, τ, d = leaf(trajectory, z, isinitial)
@@ -582,21 +574,20 @@ Return
 - `τ`: the turn statistic, which should only be used when `!isdivergent(d)`
 - `d`: divergence statistic
 """
-function leaf(trajectory::DoublingTrajectory, z, isinitial)
-    Δ = isinitial ? zero(trajectory.π₀) :
-        logdensity(trajectory.H, z) - trajectory.π₀
-    isdiv = trajectory.min_Δ > Δ
+function leaf(trajectory::Trajectory, z, isinitial)
+    @unpack H, π₀, min_Δ = trajectory
+    Δ = isinitial ? zero(π₀) : logdensity(H, z) - π₀
+    isdiv = min_Δ > Δ
     d = isinitial ? divergence_statistic() : divergence_statistic(isdiv, Δ)
-    ζ = isdiv ? nothing : ProposalPoint(z, Δ)
+    ζ = isdiv ? nothing : Proposal(z, Δ)
     τ = isdiv ? nothing : (p♯ = getp♯(sampler.H, z); TurnStatistic(p♯, p♯, z.p))
     ζ, τ, d
 end
 
-# isvalid(::Void) = false
-
-# isvalid(::Trajectory) = true
-
-
+function move(trajectory::Trajectory, z, fwd)
+    @unpack H, integrator = trajectory
+    move(H, z, integrator, fwd)
+end
 
 # struct HMCTransition{Tv,Tf}
 #     "New phasepoint."

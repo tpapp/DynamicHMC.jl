@@ -1,6 +1,6 @@
 import DynamicHMC:
     TurnStatistic, isturning, combine_turnstats,
-    ProposalPoint, combine_proposals, 
+    Proposal, combine_proposals, 
     DivergenceStatistic, combine_divstats, acceptance_rate
 
 import StatsFuns: logsumexp
@@ -49,9 +49,9 @@ end
         end
         @test count / N ≈ prob_prob2 atol = atol
     end
-    prop1 = ProposalPoint(1, log(1.0))
-    prop2 = ProposalPoint(2, log(3.0))
-    prop3 = ProposalPoint(3, log(1/3))
+    prop1 = Proposal(1, log(1.0))
+    prop2 = Proposal(2, log(3.0))
+    prop3 = Proposal(3, log(1/3))
     test_sample(RNG, prop1, prop2, true, 1; atol = 0, N = 100)
     test_sample(RNG, prop1, prop2, false, 0.75)
     test_sample(RNG, prop1, prop3, true, 1/3)
