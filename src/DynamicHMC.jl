@@ -23,7 +23,7 @@ module DynamicHMC
 using ArgCheck
 using Parameters
 
-import Base: rand, length
+import Base: rand, length, show
 import Base.LinAlg.checksquare
 import StatsFuns: logsumexp
 
@@ -36,7 +36,9 @@ export
     Hamiltonian,
     KineticEnergy, EuclideanKE, GaussianKE,
     PhasePoint, phasepoint,
-    HMCTransition, HMC_transition, HMC_adapting_sample, sample_matrix, sample_cov,
+    find_reasonable_logϵ, adapt, DualAveragingParameters, DualAveragingAdaptation,
+    adapting_logϵ, FixedStepSize, fixed_logϵ,
+    HMCTransition, HMC_transition, HMC_adapting_sample, HMC_sample, sample_matrix, sample_cov,
     EBFMI, TuneState, TunerStepsize, TunerStepsizeCov, tunestate_init, tune,
     TunerSequence, bracketed_doubling_tuner
 
@@ -167,12 +169,6 @@ end
 # stepsize heuristics and adaptation
 ######################################################################
 
-export
-    find_reasonable_logϵ,
-    adapt,
-    DualAveragingParameters, DualAveragingAdaptation, adapting_logϵ,
-    FixedStepSize, fixed_logϵ
-
 const MAXITER_BRACKET = 50
 const MAXITER_BISECTION = 50
 
@@ -279,11 +275,11 @@ function find_reasonable_logϵ(H, z; tol = 0.15, a = 0.75, ϵ₀ = 1.0,
 end
 
 """
-Parameters for the dual averaging algorithm of Gelman and Hoffman
-(2014, Algorithm 6).
+Parameters for the dual averaging algorithm of Gelman and Hoffman (2014,
+Algorithm 6).
 
-To get reasonable defaults, initialize with
-`DualAveragingParameters(logϵ₀)`.
+To get reasonable defaults, initialize with `DualAveragingParameters(logϵ₀)`.
+See [`adapting_logϵ`](@ref) for a joint constructor.
 """
 struct DualAveragingParameters{T}
     μ::T
@@ -657,6 +653,16 @@ function HMC_adapting_sample(rng, H, max_depth::Int, q::Tv, N::Int, DA_params, A
     sample, A
 end
 
+function HMC_sample(rng, H, max_depth::Int, ϵ, q::Tv, N::Int) where Tv
+    sample = Vector{HMCTransition{Tv, Float64}}(N)
+    for i in 1:N
+        trans = HMC_transition(rng, H, q, ϵ, max_depth)
+        q = trans.q
+        sample[i] .= trans
+    end
+    sample
+end
+
 """
     sample_matrix(posterior)
 
@@ -715,17 +721,27 @@ function HMC_adapting_sample(rng, tunestate::TuneState, N)
     HMC_adapting_sample(rng, H, max_depth, q, N, DA_params, A)
 end
 
+function HMC_sample(rng, tunestate::TuneState, N)
+    @unpack H, q, A, max_depth = tunestate
+    HMC_sample(rng, H, max_depth, exp(A.logϵ), q, N)
+end
+
 """
-    tunestate_init(rng, ℓ, q; Minv = I)
+    tunestate_init(rng, ℓ, q; Minv = I, logϵ)
 
 Given a density `ℓ` and a position `q`, return an initial tunestate using local
 information.
 """
-function tunestate_init(rng, ℓ, q; Minv = Diagonal(ones(length(q))), max_depth = 5)
+function tunestate_init(rng, ℓ, q;
+                        Minv = Diagonal(ones(length(q))),
+                        max_depth = 5,
+                        logϵ = nothing)
     κ = GaussianKE(Minv)
     H = Hamiltonian(ℓ, κ)
     z = rand_phasepoint(rng, H, q)
-    logϵ = find_reasonable_logϵ(H, z)
+    if logϵ == nothing
+        logϵ = find_reasonable_logϵ(H, z)
+    end
     DA_params, A = adapting_logϵ(logϵ)
     TuneState(H, q, DA_params, A, max_depth)
 end
@@ -733,6 +749,10 @@ end
 "Tune the integrator stepsize."
 struct TunerStepsize
     N::Int
+end
+
+function show(io::IO, tuner::TunerStepsize)
+    println(io, "Stepsize tuner, $(tuner.N) samples")
 end
 
 length(tuner::TunerStepsize) = tuner.N
@@ -762,10 +782,15 @@ struct TunerStepsizeCov{Tf}
     shrink::Tf
 end
 
+function show(io::IO, tuner::TunerStepsizeCov)
+    println(io, "Stepsize and covariance tuner, $(tuner.N) samples, regularization: $(tuner.shrink)")
+end
+
 length(tuner::TunerStepsizeCov) = tuner.N
 
 function tune(rng, tunestate::TuneState, tuner::TunerStepsizeCov)
     @unpack shrink, N = tuner
+    @unpack H =tunestate
     sample, A = HMC_adapting_sample(rng, tunestate, N)
     Σ = sample_cov(sample)
     Σ .+= (I-Σ) * shrink/N
@@ -773,11 +798,33 @@ function tune(rng, tunestate::TuneState, tuner::TunerStepsizeCov)
     TuneState(tunestate; H = Hamiltonian(H.ℓ, κ), q = sample[end].q, A = A)
 end
 
+"Stop tuning."
+struct StopTuning end
+
+show(io::IO, tuner::StopTuning) = println(io, "Stop tuning")
+
+length(tuner::StopTuning) = 0
+
+function tune(rng, tunestate::TuneState, tuner::StopTuning)
+    DA_params, A = fixed_logϵ(tunestate.A.logϵ)
+    TuneState(tunestate; DA_params = DA_params, A = A)
+end
+
+"Sequence of tuners, applied in the given order."
 struct TunerSequence{T}
     tuners::T
 end
 
-length(seq::TunerSequence) = sum(length, seq.tunes)
+function show(io::IO, tuner::TunerSequence)
+    @unpack tuners = tuner
+    println(io, "Sequence of $(length(tuners)) tuners, $(length(tuner)) total samples")
+    for t in tuners
+        print(io, "  ")
+        show(io, t)
+    end
+end
+
+length(seq::TunerSequence) = sum(length, seq.tuners)
 
 """
     bracketed_doubling_warmup(; [init], [mid], [M], [term], [shrink])
@@ -791,11 +838,13 @@ function bracketed_doubling_tuner(; init = 75, mid = 25, M = 5, term = 50, shrin
         mid *= 2
     end
     push!(tunes, TunerStepsize(term))
+    push!(tunes, StopTuning())
     TunerSequence(tunes)
 end
 
 function tune(rng, tunestate::TuneState, seq::TunerSequence)
     for tuner in seq.tuners
+        println("tuning")
         tunestate = tune(rng, tunestate, tuner)
     end
     tunestate

@@ -1,11 +1,3 @@
-using DynamicHMC
-using Base.Test
-using DataStructures
-
-import DynamicHMC: rand_bool, Trajectory, sample_trajectory
-
-include(Pkg.dir("DynamicHMC", "test","setup-and-utilities.jl"))
-
 @testset "unit normal simple HMC" begin
     function simple_HMC(rng, H, z::PhasePoint, ϵ, L)
         π₀ = logdensity(H, z)
@@ -55,4 +47,18 @@ end
         @test vec(m) ≈ mean(ℓ) atol = 0.1 rtol = maximum(diag(C))*0.02 norm = x->vecnorm(x,1)
         @test cov(qs, 1) ≈ cov(ℓ) atol = 0.1 rtol = 0.1
     end
+end
+
+@testset "tuning building blocks" begin
+    K = 4
+    ℓ = MvNormal(zeros(K), fill(2.0, K))
+    q = randn(K)
+    tunestate = tunestate_init(RNG, ℓ, q)
+    tuner = TunerStepsize(100)
+    tunestate2 = tune(RNG, tunestate, tuner)
+    tuner2 = TunerStepsizeCov(200, 10)
+    @test tunestate2.A.m == 100
+    tunestate3 = tune(RNG, tunestate, tuner2)
+    @test all(diag(tunestate3.H.κ.Minv) .≥ 2)
+    @test tunestate3.A.m == 200
 end
