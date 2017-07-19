@@ -1,14 +1,23 @@
 using DynamicHMC
-using Distributions
+import DynamicHMC:
+    logdensity,
+    loggradient,
+    GaussianKE,
+    Hamiltonian,
+    loggradient,
+    logdensity,
+    phasepoint,
+    rand_phasepoint,
+    leapfrog,
+    move
+
 using Base.Test
-using Parameters
+
 using ArgCheck
-
-import DynamicHMC: logdensity, loggradient
+using Distributions
 import ForwardDiff: gradient
-
-import DynamicHMC: GaussianKE, Hamiltonian, loggradient, logdensity,
-    phasepoint, rand_phasepoint, leapfrog, move
+using Parameters
+using StatsBase
 
 "RNG for consistent test environment"
 const RNG = srand(UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
