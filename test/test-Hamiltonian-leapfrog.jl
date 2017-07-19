@@ -29,26 +29,6 @@ end
     end
 end
 
-"""
-    find_stable_ϵ(κ, Σ)
-
-Return a reasonable estimate for the largest stable stepsize (which may not be
-stable, but is a good starting point for finding that).
-
-`q` is assumed to be normal with variance `Σ`. `κ` is the kinetic energy.
-
-Using the transformation ``p̃ = W⁻¹ p``, the kinetic energy is
-
-``p'M⁻¹p = p'W⁻¹'W⁻¹p/2=p̃'p̃/2``
-
-Transforming to ``q̃=W'q``, the variance of which becomes ``W' Σ W``. Return the
-square root of its smallest eigenvalue, following Neal (2011, p 136).
-
-When ``Σ⁻¹=M=WW'``, this the variance of `q̃` is ``W' Σ W=W' W'⁻¹W⁻¹W=I``, and
-thus decorrelates the density perfectly.
-"""
-find_stable_ϵ(κ::GaussianKE, Σ) = √eigmin(κ.W'*Σ*κ.W)
-
 @testset "phasepoint internal consistency" begin
     # when this breaks, interface was modified, rewrite tests
     @test fieldnames(PhasePoint) == [:q, :p, :∇ℓq, :ℓq]
@@ -61,7 +41,7 @@ find_stable_ϵ(κ::GaussianKE, Σ) = √eigmin(κ.W'*Σ*κ.W)
     end
     H, z = rand_Hz(rand(3:10))
     test_consistency(H, z)
-    ϵ = find_stable_ϵ(H.κ, cov(H.ℓ))
+    ϵ = find_stable_ϵ(H)
     for _ in 1:10
         z = leapfrog(H, z, ϵ)
         test_consistency(H, z)
@@ -90,11 +70,11 @@ end
     p = randn(n)
     Σ = rand_Σ(n)
     ℓ = MvNormal(randn(n), full(Σ))
-    ϵ = find_stable_ϵ(κ, Σ)
     ∇ℓ(q) = loggradient(ℓ, q)
     q₂, p₂ = copy(q), copy(p)
     q′, p′ = leapfrog_Gaussian(q, p, ∇ℓ, ϵ, m)
     H = Hamiltonian(ℓ, κ)
+    ϵ = find_stable_ϵ(H)
     z = phasepoint(H, q, p)
     z′ = leapfrog(H, z, ϵ)
 
