@@ -1,4 +1,4 @@
-import DynamicHMC: GaussianKE, Hamiltonian, loggradient, logdensity,
+import DynamicHMC: GaussianKE, Hamiltonian, PhasePoint, loggradient, logdensity,
     phasepoint, rand_phasepoint, leapfrog, move
 
 ######################################################################
@@ -48,6 +48,25 @@ When ``Σ⁻¹=M=WW'``, this the variance of `q̃` is ``W' Σ W=W' W'⁻¹W⁻¹
 thus decorrelates the density perfectly.
 """
 find_stable_ϵ(κ::GaussianKE, Σ) = √eigmin(κ.W'*Σ*κ.W)
+
+@testset "phasepoint internal consistency" begin
+    # when this breaks, interface was modified, rewrite tests
+    @test fieldnames(PhasePoint) == [:q, :p, :∇ℓq, :ℓq]
+    "Test the consistency of cached values."
+    function test_consistency(H, z)
+        @unpack q, ℓq, ∇ℓq = z
+        @unpack ℓ = H
+        @test logdensity(ℓ, q) == ℓq
+        @test loggradient(ℓ, q) == ∇ℓq
+    end
+    H, z = rand_Hz(rand(3:10))
+    test_consistency(H, z)
+    ϵ = find_stable_ϵ(H.κ, cov(H.ℓ))
+    for _ in 1:10
+        z = leapfrog(H, z, ϵ)
+        test_consistency(H, z)
+    end
+end
 
 @testset "leapfrog" begin
     """

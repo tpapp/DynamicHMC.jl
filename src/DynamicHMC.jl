@@ -128,7 +128,8 @@ end
 
 Preferred constructor for phasepoints, computes cached information.
 """
-phasepoint(H, q, p) = PhasePoint(q, p, loggradient(H.ℓ, q), logdensity(H.ℓ, q))
+phasepoint(H, q, p, ∇ℓq = loggradient(H.ℓ, q), ℓq = logdensity(H.ℓ, q)) =
+    PhasePoint(q, p, ∇ℓq, ℓq)
 
 """
     rand_phasepoint(rng, H, q)
@@ -158,7 +159,7 @@ function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePo
     q′ = q - ϵ * loggradient(κ, pₘ)
     ∇ℓq′ = loggradient(ℓ, q′)
     p′ = pₘ + ϵ/2 * ∇ℓq′
-    PhasePoint(q′, p′, ∇ℓq′, logdensity(ℓ, q))
+    phasepoint(H, q′, p′, ∇ℓq′)
 end
 
 
