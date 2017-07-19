@@ -330,6 +330,7 @@ adapt(::Any, A::FixedStepSize, a) = A
 
 fixed_logϵ(logϵ) = nothing, FixedStepSize(logϵ)
 
+fixed_logϵ(A::DualAveragingAdaptation) = fixed_logϵ(A.logϵ)
 
 ###############################################################################
 # random booleans
