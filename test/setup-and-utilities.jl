@@ -65,5 +65,5 @@ function simulated_meancov(f, N)
     for i in 1:N
         x[i, :] = f()
     end
-    mean(x, 1), cov(x, 1)
+    vec(mean(x, 1)), cov(x, 1)
 end
