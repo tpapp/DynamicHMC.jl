@@ -15,7 +15,7 @@ end
     for _ in 1:5000
         A = adapt(params, A, dummy_acceptance_rate(A.logϵ))
     end
-    @test dummy_acceptance_rate(A.logϵ, 0) ≈ δ atol = 0.02
+    @test dummy_acceptance_rate(A.logϵ, 0) ≈ δ atol = 0.03
 end
 
 @testset "dual averaging close" begin
@@ -26,5 +26,5 @@ end
     for _ in 1:2000
         A = adapt(params, A, dummy_acceptance_rate(A.logϵ))
     end
-    @test dummy_acceptance_rate(A.logϵ, 0) ≈ δ atol = 0.02
+    @test dummy_acceptance_rate(A.logϵ, 0) ≈ δ atol = 0.03
 end
