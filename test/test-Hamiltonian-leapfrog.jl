@@ -70,11 +70,11 @@ end
     p = randn(n)
     Σ = rand_Σ(n)
     ℓ = MvNormal(randn(n), full(Σ))
+    H = Hamiltonian(ℓ, κ)
+    ϵ = find_stable_ϵ(H)
     ∇ℓ(q) = loggradient(ℓ, q)
     q₂, p₂ = copy(q), copy(p)
     q′, p′ = leapfrog_Gaussian(q, p, ∇ℓ, ϵ, m)
-    H = Hamiltonian(ℓ, κ)
-    ϵ = find_stable_ϵ(H)
     z = phasepoint(H, q, p)
     z′ = leapfrog(H, z, ϵ)
 
