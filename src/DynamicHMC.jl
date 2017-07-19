@@ -74,10 +74,10 @@ GaussianKE(Minv::Matrix) = GaussianKE(PDMat(Minv))
 GaussianKE(Minv::Diagonal) = GaussianKE(PDiagMat(diag(Minv)))
 
 """
-    logdensity(κ, p[, q])
+    logdensity(κ, p, [q])
 
 Return the log density of kinetic energy `κ`, at momentum `p`. Some
-kinetic energies (eg Riemannian geometry)  will need `q`, too.
+kinetic energies (eg Riemannian geometry) will need `q`, too.
 """
 logdensity(κ::GaussianKE, p, q = nothing) = -quad(κ.Minv, p) / 2
 
