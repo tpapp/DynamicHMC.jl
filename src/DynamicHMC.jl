@@ -22,9 +22,9 @@ module DynamicHMC
 
 using ArgCheck
 using Parameters
-using PDMats
 
 import Base: rand, length
+import Base.LinAlg.checksquare
 import StatsFuns: logsumexp
 
 ######################################################################
@@ -64,14 +64,20 @@ p | q ∼ Normal(0, M)     (importantly, independent of q)
 
 The inverse M⁻¹ is stored.
 """
-struct GaussianKE{T <: AbstractPDMat} <: EuclideanKE
+struct GaussianKE{T <: AbstractMatrix, S <: AbstractMatrix} <: EuclideanKE
     "M⁻¹"
     Minv::T
+    "W such that W*W'=M. Used for generating random draws."
+    W::S
+    function GaussianKE{T, S}(Minv, W) where {T, S}
+        @argcheck checksquare(Minv) == checksquare(W)
+        new(Minv, W)
+    end
 end
 
-GaussianKE(Minv::Matrix) = GaussianKE(PDMat(Minv))
+GaussianKE(M::T, W::S) where {T,S} = GaussianKE{T,S}(M, W)
 
-GaussianKE(Minv::Diagonal) = GaussianKE(PDiagMat(diag(Minv)))
+GaussianKE(Minv::AbstractMatrix) = GaussianKE(Minv, inv(chol(Minv)))
 
 """
     logdensity(κ, p, [q])
@@ -79,13 +85,13 @@ GaussianKE(Minv::Diagonal) = GaussianKE(PDiagMat(diag(Minv)))
 Return the log density of kinetic energy `κ`, at momentum `p`. Some
 kinetic energies (eg Riemannian geometry) will need `q`, too.
 """
-logdensity(κ::GaussianKE, p, q = nothing) = -quad(κ.Minv, p) / 2
+logdensity(κ::GaussianKE, p, q = nothing) = -dot(p, κ.Minv * p) / 2
 
 getp♯(κ::GaussianKE, p, q = nothing) = κ.Minv * p
 
 loggradient(κ::GaussianKE, p, q = nothing) = -getp♯(κ, p)
 
-rand(rng, κ::GaussianKE, q = nothing) = whiten(κ.Minv, randn(rng, dim(κ.Minv)))
+rand(rng, κ::GaussianKE, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
 
 """
     Hamiltonian(ℓ, κ)

@@ -5,36 +5,49 @@ import DynamicHMC: GaussianKE, Hamiltonian, loggradient, logdensity,
 # Hamiltonian and leapfrog
 ######################################################################
 
-@testset "loggradient" begin
-    for _ in 1:10
-        κ = GaussianKE(rand_PDMat(3))
-        for _ in 1:100
-            test_loggradient(κ, randn(3))
-        end
+@testset "Gaussian KE full" begin
+    for _ in 1:100
+        K = rand(2:10)
+        Σ = rand_Σ(Symmetric, K)
+        κ = GaussianKE(inv(Σ))
+        @test κ.Minv * κ.W * κ.W' ≈ Diagonal(ones(K))
+        m, C = simulated_meancov(()->rand(RNG, κ), 10000)
+        @test full(Σ) ≈ C rtol = 0.1
+        test_loggradient(κ, randn(K))
+    end
+end
+
+@testset "Gaussian KE diagonal" begin
+    for _ in 1:100
+        K = rand(2:10)
+        Σ = rand_Σ(Diagonal, K)
+        κ = GaussianKE(inv(Σ))
+        @test κ.Minv * κ.W * κ.W' ≈ Diagonal(ones(K))
+        m, C = simulated_meancov(()->rand(RNG, κ), 10000)
+        @test full(Σ) ≈ C rtol = 0.1
+        test_loggradient(κ, randn(K))
     end
 end
 
 """
     find_stable_ϵ(κ, Σ)
 
-Return a reasonable estimate for the largest stable stepsize (which
-may not be stable, but is a good starting point for finding that).
+Return a reasonable estimate for the largest stable stepsize (which may not be
+stable, but is a good starting point for finding that).
 
-`Σ` is the (assumed, approximate) variance `q`. `κ` is the kinetic
-energy.
+`q` is assumed to be normal with variance `Σ`. `κ` is the kinetic energy.
 
-Using the transformation ``p̃ = U p``, the kinetic energy is
-``p'U'Up/2=p̃'p̃/2``. Transforming to ``q̃=U'⁻¹q``, the variance of which
-becomes ``U'⁻¹ Σ U⁻¹'``. Return the square root of its smallest
-eigenvalue, following Neal (2011, p 136).
+Using the transformation ``p̃ = W⁻¹ p``, the kinetic energy is
 
-When ``Σ=U'U``, this is ``U'⁻¹ Σ U⁻¹'=I``, and thus decorrelates the
-density perfectly.
+``p'M⁻¹p = p'W⁻¹'W⁻¹p/2=p̃'p̃/2``
+
+Transforming to ``q̃=W'q``, the variance of which becomes ``W' Σ W``. Return the
+square root of its smallest eigenvalue, following Neal (2011, p 136).
+
+When ``Σ⁻¹=M=WW'``, this the variance of `q̃` is ``W' Σ W=W' W'⁻¹W⁻¹W=I``, and
+thus decorrelates the density perfectly.
 """
-function find_stable_ϵ(κ::GaussianKE, Σ)
-    invU = inv(chol(full(κ.Minv)))
-    √eigmin(Xt_A_X(Σ, full(invU)))
-end
+find_stable_ϵ(κ::GaussianKE, Σ) = √eigmin(κ.W'*Σ*κ.W)
 
 @testset "leapfrog" begin
     """
@@ -51,12 +64,13 @@ end
     end
 
     n = 3
-    m = abs.(randn(n))+1
-    κ = GaussianKE(inv(PDiagMat(m)))
+    M = rand_Σ(Diagonal, n)
+    m = diag(M)
+    κ = GaussianKE(inv(M))
     q = randn(n)
     p = randn(n)
-    Σ = rand_PDMat(n)
-    ℓ = MvNormal(randn(n), Σ)
+    Σ = rand_Σ(n)
+    ℓ = MvNormal(randn(n), full(Σ))
     ϵ = find_stable_ϵ(κ, Σ)
     ∇ℓ(q) = loggradient(ℓ, q)
     q₂, p₂ = copy(q), copy(p)

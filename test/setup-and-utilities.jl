@@ -1,6 +1,5 @@
 using DynamicHMC
 using Distributions
-using PDMats
 using Base.Test
 using Parameters
 using ArgCheck
@@ -8,18 +7,21 @@ using ArgCheck
 import DynamicHMC: logdensity, loggradient
 import ForwardDiff: gradient
 
-# consistent testing
-const RNG = srand(UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
-
 import DynamicHMC: GaussianKE, Hamiltonian, loggradient, logdensity,
     phasepoint, rand_phasepoint, leapfrog, move
 
+"RNG for consistent test environment"
+const RNG = srand(UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
 
 "Random positive definite matrix of size `n` x `n` (for testing)."
-function rand_PDMat(n)
-    A = randn(n,n)
-    PDMat(A'*A)
+function rand_Σ(::Type{Symmetric}, n)
+    A = randn(RNG, n,n)
+    Symmetric(A'*A+0.01)
 end
+
+rand_Σ(::Type{Diagonal}, n) = Diagonal(randn(RNG, n).^2+0.01)
+
+rand_Σ(n::Int) = rand_Σ(Symmetric, n)
 
 "Test `loggradient` vs autodiff `logdensity`."
 function test_loggradient(ℓ, x)
@@ -32,7 +34,6 @@ end
 logdensity(ℓ::MvNormal, p) = logpdf(ℓ, p)
 loggradient(ℓ::MvNormal, p) = -(ℓ.Σ \ (p - ℓ.μ))
 
-
 "Lenient comparison operator for `struct`, both mutable and immutable."
 @generated function ≂(x, y)
     if !isempty(fieldnames(x)) && x == y
@@ -42,12 +43,27 @@ loggradient(ℓ::MvNormal, p) = -(ℓ.Σ \ (p - ℓ.μ))
     end
 end
 
-"Random Hamiltonian H with phasepoint z."
-function rand_Hz(N)
-    μ = randn(N)
-    Σ = rand_PDMat(N)
-    κ = GaussianKE(PDiagMat(1./abs.(randn(N))))
-    H = Hamiltonian(MvNormal(μ, Σ), κ)
+"Random Hamiltonian `H` with phasepoint `z`, with dimension `K`."
+function rand_Hz(K)
+    μ = randn(K)
+    Σ = rand_Σ(K)
+    κ = GaussianKE(inv(rand_Σ(Diagonal, K)))
+    H = Hamiltonian(MvNormal(μ, full(Σ)), κ)
     z = rand_phasepoint(RNG, H, μ)
     H, z
+end
+
+"""
+    simulated_meancov(f, N)
+
+Simulated mean and covariance of `N` values from `f()`.
+"""
+function simulated_meancov(f, N)
+    s = f()
+    K = length(s)
+    x = similar(s, (N, K))
+    for i in 1:N
+        x[i, :] = f()
+    end
+    mean(x, 1), cov(x, 1)
 end

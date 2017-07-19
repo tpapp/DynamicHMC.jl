@@ -1,9 +1,9 @@
 @testset "MvNormal loggradient" begin
     for _ in 1:10
-        n = rand(2:6)
-        ℓ = MvNormal(randn(n), rand_PDMat(n))
+        K = rand(2:6)
+        ℓ = MvNormal(randn(K), full(rand_Σ(K)))
         for _ in 1:10
-            test_loggradient(ℓ, randn(n))
+            test_loggradient(ℓ, randn(K))
         end
     end
 end
