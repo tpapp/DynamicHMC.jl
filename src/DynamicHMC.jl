@@ -666,7 +666,7 @@ sample_matrix(sample) = vcat(map(x->x.q', sample)...)
 
 Covariance matrix of the sample.
 """
-sample_cov(sample) = cov(sample_matrix(sample), 2)
+sample_cov(sample) = cov(sample_matrix(sample), 1)
 
 """
     EBFMI(sample)
