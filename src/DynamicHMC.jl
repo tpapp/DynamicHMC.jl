@@ -342,6 +342,7 @@ Update the adaptation `A` of log stepsize `logϵ` with acceptance rate
 Algorithm 6). Return the new adaptation.
 """
 function adapt(parameters::DualAveragingParameters, A::DualAveragingAdaptation, a)
+    @argcheck 0 ≤ a ≤ 1
     @unpack μ, δ, γ, κ, t₀ = parameters
     @unpack m, H̄, logϵ, logϵ̄ = A
     m += 1
