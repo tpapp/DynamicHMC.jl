@@ -21,6 +21,7 @@ d: divergence statistic
 module DynamicHMC
 
 using ArgCheck
+using DataStructures
 using Parameters
 
 import Base: rand, length, show
@@ -866,6 +867,57 @@ function tune(rng, sampler, seq::TunerSequence)
         sampler = tune(rng, sampler, tuner)
     end
     sampler
+end
+
+const ACCEPTANCE_QUANTILES = linspace(0,1,5)
+
+struct HMCStatistics{T <: Real,
+                     DT <: Associative{Termination,Int},
+                     DD <: Associative{Int,Int}}
+    "Sample length."
+    N::Int
+    "average_acceptance"
+    a_mean::T
+    "acceptance quantiles"
+    a_quantiles::Vector{T}
+    "termination counts"
+    termination_counts::DT
+    "depth counts"
+    depth_counts::DD
+end
+
+"""
+    HMC_statistics(sample)
+
+Return statistics about the sample (ie not the variables). Mostly useful for HMC
+diagnostics.
+"""
+function HMC_statistics(sample)
+    as = acceptance_rate.(sample)
+    HMCStatistics(length(sample),
+                  mean(as), quantile(as, ACCEPTANCE_QUANTILES),
+                  counter(termination.(sample)), counter(depth.(sample)))
+end
+
+function show(io::IO, stats::HMCStatistics)
+    @unpack N, a_mean, a_quantiles, termination_counts, depth_counts = stats
+    println(io, "Hamiltonian Monte Carlo sample of length $(N)")
+    print(io, "  acceptance rate mean: $(round(a_mean,2)), min/25%/median/75%/max:")
+    for aq in a_quantiles
+        print(io, " ", round(aq,2))
+    end
+    println(io)
+    function print_dict(dict)
+        for (key, value) in sort(collect(dict), by = first)
+            print(io, " $(key) => $(round(Int, 100*value/N))%")
+        end
+    end
+    print(io, "  termination:")
+    print_dict(termination_counts)
+    println(io)
+    print(io, "  depth:")
+    print_dict(depth_counts)
+    println(io)
 end
 
 end # module
