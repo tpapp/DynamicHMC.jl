@@ -53,12 +53,10 @@ end
     K = 4
     ℓ = MvNormal(zeros(K), fill(2.0, K))
     q = randn(K)
-    tunestate = tunestate_init(RNG, ℓ, q)
+    sampler = TunedNUTS_init(RNG, ℓ, q)
     tuner = TunerStepsize(100)
-    tunestate2 = tune(RNG, tunestate, tuner)
+    sampler2 = tune(RNG, sampler, tuner)
     tuner2 = TunerStepsizeCov(200, 10)
-    @test tunestate2.A.m == 100
-    tunestate3 = tune(RNG, tunestate, tuner2)
-    @test all(diag(tunestate3.H.κ.Minv) .≥ 2)
-    @test tunestate3.A.m == 200
+    sampler3 = tune(RNG, sampler, tuner2)
+    @test all(diag(sampler3.H.κ.Minv) .≥ 2)
 end

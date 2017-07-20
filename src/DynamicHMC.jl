@@ -36,10 +36,9 @@ export
     Hamiltonian,
     KineticEnergy, EuclideanKE, GaussianKE,
     PhasePoint, phasepoint,
-    find_reasonable_logϵ, adapt, DualAveragingParameters, DualAveragingAdaptation,
-    adapting_logϵ, FixedStepSize, fixed_logϵ,
+    find_reasonable_logϵ, adapt, DualAveragingParameters, DualAveragingAdaptation, adapting_ϵ,
     HMCTransition, HMC_transition, HMC_adapting_sample, HMC_sample, sample_matrix, sample_cov,
-    EBFMI, TuneState, TunerStepsize, TunerStepsizeCov, tunestate_init, tune,
+    EBFMI, TunedNUTS, TunerStepsize, TunerStepsizeCov, TunedNUTS_init, tune,
     TunerSequence, bracketed_doubling_tuner
 
 """
@@ -279,7 +278,7 @@ Parameters for the dual averaging algorithm of Gelman and Hoffman (2014,
 Algorithm 6).
 
 To get reasonable defaults, initialize with `DualAveragingParameters(logϵ₀)`.
-See [`adapting_logϵ`](@ref) for a joint constructor.
+See [`adapting_ϵ`](@ref) for a joint constructor.
 """
 struct DualAveragingParameters{T}
     μ::T
@@ -315,10 +314,19 @@ struct DualAveragingAdaptation{T <: AbstractFloat}
     logϵ̄::T
 end
 
+"""
+    getϵ(A, tuning = true)
+
+When `tuning`, return the stepsize `ϵ` for the next HMC step. Otherwise return
+the tuned `ϵ`.
+"""
+getϵ(A::DualAveragingAdaptation, tuning = true) = exp(tuning ? A.logϵ : A.logϵ̄)
+
 DualAveragingAdaptation(logϵ₀) =
     DualAveragingAdaptation(0, zero(logϵ₀), logϵ₀, zero(logϵ₀))
 
-function adapting_logϵ(logϵ; args...)
+function adapting_ϵ(ϵ; args...)
+    logϵ = log(ϵ)
     DualAveragingParameters(logϵ; args...), DualAveragingAdaptation(logϵ)
 end
 
@@ -338,16 +346,6 @@ function adapt(parameters::DualAveragingParameters, A::DualAveragingAdaptation, 
     logϵ̄ += m^(-κ)*(logϵ - logϵ̄)
     DualAveragingAdaptation(m, H̄, logϵ, logϵ̄)
 end
-
-struct FixedStepSize{T}
-    logϵ::T
-end
-
-adapt(::Any, A::FixedStepSize, a) = A
-
-fixed_logϵ(logϵ) = nothing, FixedStepSize(logϵ)
-
-fixed_logϵ(A::DualAveragingAdaptation) = fixed_logϵ(A.logϵ)
 
 ###############################################################################
 # random booleans
@@ -659,7 +657,7 @@ end
 function HMC_adapting_sample(rng, H, max_depth::Int, q::Tv, N::Int, DA_params, A) where Tv
     sample = Vector{HMCTransition{Tv, Float64}}(N)
     for i in 1:N
-        trans = HMC_transition(rng, H, q, exp(A.logϵ), max_depth)
+        trans = HMC_transition(rng, H, q, getϵ(A), max_depth)
         A = adapt(DA_params, A, trans.a)
         q = trans.q
         sample[i] .= trans
@@ -706,58 +704,45 @@ function EBFMI(sample)
     sum(abs2, diff(πs)) / var(πs)
 end
 
-"State information for the tuner."
-struct TuneState{TH, TP, TA, Tv}
+struct TunedNUTS{TH, Tv, Tf}
     "Hamiltonian"
     H::TH
     "position"
     q::Tv
-    "Dual averaging parameters."
-    DA_params::TP
-    "Dual averaging state."
-    A::TA
+    "stepsize"
+    ϵ::Tf
     "maximum depth of the tree"
     max_depth::Int
 end
 
-# FIXME one of these days this should not be necessary
-function TuneState(tunestate::TuneState;
-                   H = tunestate.H,
-                   q = tunestate.q,
-                   DA_params = tunestate.DA_params,
-                   A = tunestate.A,
-                   max_depth = tunestate.max_depth)
-    TuneState(H, q, DA_params, A, max_depth)
-end
-
-function HMC_adapting_sample(rng, tunestate::TuneState, N)
-    @unpack H, q, DA_params, A, max_depth = tunestate
-    HMC_adapting_sample(rng, H, max_depth, q, N, DA_params, A)
-end
-
-function HMC_sample(rng, tunestate::TuneState, N)
-    @unpack H, q, A, max_depth = tunestate
-    HMC_sample(rng, H, max_depth, exp(A.logϵ), q, N)
+function HMC_sample(rng, sampler::TunedNUTS, N)
+    @unpack H, q, ϵ, max_depth = sampler
+    HMC_sample(rng, H, max_depth, ϵ, q, N)
 end
 
 """
-    tunestate_init(rng, ℓ, q; Minv = I, logϵ)
+    TunedNUTS_init(rng, ℓ, q; Minv = I, logϵ)
 
-Given a density `ℓ` and a position `q`, return an initial tunestate using local
-information.
+Given a density `ℓ` and a position `q`, return an initial TunedNUTS sampler
+using local information.
 """
-function tunestate_init(rng, ℓ, q;
+function TunedNUTS_init(rng, ℓ, q;
                         Minv = Diagonal(ones(length(q))),
                         max_depth = 5,
-                        logϵ = nothing)
+                        ϵ = nothing)
     κ = GaussianKE(Minv)
     H = Hamiltonian(ℓ, κ)
     z = rand_phasepoint(rng, H, q)
-    if logϵ == nothing
-        logϵ = find_reasonable_logϵ(H, z)
+    if ϵ == nothing
+        ϵ = exp(find_reasonable_logϵ(H, z))
     end
-    DA_params, A = adapting_logϵ(logϵ)
-    TuneState(H, q, DA_params, A, max_depth)
+    TunedNUTS(H, q, ϵ, max_depth)
+end
+
+function HMC_sample_DA(rng, sampler::TunedNUTS, N)
+    @unpack H, q, ϵ, max_depth = sampler
+    DA_params, A = adapting_ϵ(ϵ)
+    HMC_adapting_sample(rng, H, max_depth, q, N, DA_params, A)
 end
 
 "Tune the integrator stepsize."
@@ -777,9 +762,10 @@ length(tuner::TunerStepsize) = tuner.N
 Given a `tunestate` and a `tuner`, return the updated tune state. Use `rng` as a
 random number generator.
 """
-function tune(rng, tunestate::TuneState, tuner::TunerStepsize)
-    sample, A = HMC_adapting_sample(rng, tunestate, tuner.N)
-    TuneState(tunestate; q = sample[end].q, A = A)
+function tune(rng, sampler::TunedNUTS, tuner::TunerStepsize)
+    @unpack H, max_depth = sampler
+    sample, A = HMC_sample_DA(rng, sampler, tuner.N)
+    TunedNUTS(H, sample[end].q, getϵ(A, false), max_depth)
 end
 
 """
@@ -802,26 +788,14 @@ end
 
 length(tuner::TunerStepsizeCov) = tuner.N
 
-function tune(rng, tunestate::TuneState, tuner::TunerStepsizeCov)
+function tune(rng, sampler::TunedNUTS, tuner::TunerStepsizeCov)
     @unpack shrink, N = tuner
-    @unpack H =tunestate
-    sample, A = HMC_adapting_sample(rng, tunestate, N)
+    @unpack H, max_depth = sampler
+    sample, A = HMC_sample_DA(rng, sampler, N)
     Σ = sample_cov(sample)
     Σ .+= (I-Σ) * shrink/N
     κ = GaussianKE(Σ)
-    TuneState(tunestate; H = Hamiltonian(H.ℓ, κ), q = sample[end].q, A = A)
-end
-
-"Stop tuning."
-struct StopTuning end
-
-show(io::IO, tuner::StopTuning) = println(io, "Stop tuning")
-
-length(tuner::StopTuning) = 0
-
-function tune(rng, tunestate::TuneState, tuner::StopTuning)
-    DA_params, A = fixed_logϵ(tunestate.A.logϵ)
-    TuneState(tunestate; DA_params = DA_params, A = A)
+    TunedNUTS(Hamiltonian(H.ℓ, κ), sample[end].q, getϵ(A), max_depth)
 end
 
 "Sequence of tuners, applied in the given order."
@@ -845,23 +819,21 @@ length(seq::TunerSequence) = sum(length, seq.tuners)
 
 FIXME
 """
-function bracketed_doubling_tuner(; init = 75, mid = 25, M = 5, term = 50, shrink = 10.0)
+function bracketed_doubling_tuner(; init = 75, mid = 25, M = 5, term = 50, shrink = 5.0)
     tunes = Any[TunerStepsize(init)]
     for _ in 1:M
         tunes = push!(tunes, TunerStepsizeCov(mid, shrink))
         mid *= 2
     end
     push!(tunes, TunerStepsize(term))
-    push!(tunes, StopTuning())
     TunerSequence(tunes)
 end
 
-function tune(rng, tunestate::TuneState, seq::TunerSequence)
+function tune(rng, sampler, seq::TunerSequence)
     for tuner in seq.tuners
-        println("tuning")
-        tunestate = tune(rng, tunestate, tuner)
+        sampler = tune(rng, sampler, tuner)
     end
-    tunestate
+    sampler
 end
 
 end # module
