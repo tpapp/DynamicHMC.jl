@@ -32,14 +32,18 @@ import StatsFuns: logsumexp
 ######################################################################
 
 export
-    logdensity, loggradient,
-    Hamiltonian,
-    KineticEnergy, EuclideanKE, GaussianKE,
+    # Hamiltonian
+    KineticEnergy, EuclideanKE, GaussianKE, logdensity, loggradient, Hamiltonian,
     PhasePoint, phasepoint,
+    # stepsize
     find_reasonable_logϵ, adapt, DualAveragingParameters, DualAveragingAdaptation, adapting_ϵ,
-    HMCTransition, HMC_transition, HMC_adapting_sample, HMC_sample, sample_matrix, sample_cov,
-    EBFMI, TunedNUTS, TunerStepsize, TunerStepsizeCov, TunedNUTS_init, tune,
-    TunerSequence, bracketed_doubling_tuner
+    # transition 
+    HMCTransition, position, logdensity, depth, termination, acceptance_rate, steps,
+    HMC_transition, HMC_adapting_sample, HMC_sample, sample_matrix,
+    # tuning and diagnostics
+    sample_cov, EBFMI, TunedNUTS, TunedNUTS_init, tune, TunerStepsize,
+    TunerStepsizeCov, TunerSequence, bracketed_doubling_tuner,
+    HMCStatistics, HMC_statistics
 
 """
 Kinetic energy specifications.
@@ -639,6 +643,24 @@ struct HMCTransition{Tv,Tf}
     steps::Int
 end
 
+"Position after transition."
+position(x::HMCTransition) = x.q
+
+"Log density (negative energy of the Hamiltonian) at the position."
+logdensity(x::HMCTransition) = x.π
+
+"Tree depth."
+depth(x::HMCTransition) = x.depth
+
+"Reason for termination, see [`Termination`](@ref)."
+termination(x::HMCTransition) = x.termination
+
+"Average acceptance rate over trajectory."
+acceptance_rate(x::HMCTransition) = x.a
+
+"Number of integrator steps."
+steps(x::HMCTransition) = x.steps
+
 """
     HMC_transition(rng, H, q, ϵ, max_depth; args...)
 
@@ -680,7 +702,7 @@ end
 
 Return the samples of the parameter vector as rows of a matrix.
 """
-sample_matrix(sample) = vcat(map(x->x.q', sample)...)
+sample_matrix(sample) = vcat(position.(sample)'...)
 
 ######################################################################
 # tuning and diagnostics
@@ -700,8 +722,7 @@ Energy Bayesian fraction of missing information. Useful for diagnosing poorly
 chosen kinetic energies.
 """
 function EBFMI(sample)
-    πs = [s.π for s in sample]
-    sum(abs2, diff(πs)) / var(πs)
+    sum(abs2, diff(logdensity.(sample))) / var(πs)
 end
 
 struct TunedNUTS{TH, Tv, Tf}
@@ -776,24 +797,25 @@ struct TunerStepsizeCov{Tf}
     "Number of samples."
     N::Int
     """
-    Shrinkage factor for normalizing variance. Effectively equivalent to a prior
-    from `shrink` pseudo-observations with unit values.
+    Regularization factor for normalizing variance. Effectively equivalent to a
+    prior from the same number of pseudo-observations with unit values.
     """
-    shrink::Tf
+    regularize::Tf
 end
 
 function show(io::IO, tuner::TunerStepsizeCov)
-    println(io, "Stepsize and covariance tuner, $(tuner.N) samples, regularization: $(tuner.shrink)")
+    @unpack N, regularize = tuner
+    println(io, "Stepsize and covariance tuner, $(N) samples, regularization $(regularize)")
 end
 
 length(tuner::TunerStepsizeCov) = tuner.N
 
 function tune(rng, sampler::TunedNUTS, tuner::TunerStepsizeCov)
-    @unpack shrink, N = tuner
+    @unpack regularize, N = tuner
     @unpack H, max_depth = sampler
     sample, A = HMC_sample_DA(rng, sampler, N)
     Σ = sample_cov(sample)
-    Σ .+= (I-Σ) * shrink/N
+    Σ .+= (I-Σ) * regularize/N
     κ = GaussianKE(Σ)
     TunedNUTS(Hamiltonian(H.ℓ, κ), sample[end].q, getϵ(A), max_depth)
 end
@@ -815,14 +837,23 @@ end
 length(seq::TunerSequence) = sum(length, seq.tuners)
 
 """
-    bracketed_doubling_warmup(; [init], [mid], [M], [term], [shrink])
+    bracketed_doubling_tuner(; [init], [mid], [M], [term], [regularize])
 
-FIXME
+A sequence of tuners:
+
+1. tuning stepsize with `init` steps
+
+2. tuning stepsize and covariance: first with `mid` steps, then repeat with
+   twice the steps `M` times
+
+3. tuning stepsize with `term` steps
+
+`regularize` is used for covariance regularization.
 """
-function bracketed_doubling_tuner(; init = 75, mid = 25, M = 5, term = 50, shrink = 5.0)
+function bracketed_doubling_tuner(; init = 75, mid = 25, M = 5, term = 50, regularize = 5.0)
     tunes = Any[TunerStepsize(init)]
     for _ in 1:M
-        tunes = push!(tunes, TunerStepsizeCov(mid, shrink))
+        tunes = push!(tunes, TunerStepsizeCov(mid, regularize))
         mid *= 2
     end
     push!(tunes, TunerStepsize(term))
