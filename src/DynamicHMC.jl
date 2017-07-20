@@ -283,14 +283,28 @@ See [`adapting_logϵ`](@ref) for a joint constructor.
 """
 struct DualAveragingParameters{T}
     μ::T
+    "target acceptance rate"
     δ::T
+    "regularization scale"
     γ::T
+    "relaxation exponent"
     κ::T
+    "offset"
     t₀::Int
+    function DualAveragingParameters{T}(μ, δ, γ, κ, t₀) where {T}
+        @argcheck 0 < δ < 1
+        @argcheck γ > 0
+        @argcheck 0.5 < κ ≤ 1
+        @argcheck t₀ ≥ 0
+        new(μ, δ, γ, κ, t₀)
+    end
 end
 
-DualAveragingParameters(logϵ₀; δ = 0.65, γ = 0.05, κ = 0.75, t₀ = 10) =
-    DualAveragingParameters(promote(log(10)+logϵ₀, δ, γ, κ)..., t₀)
+DualAveragingParameters(μ::T, δ::T, γ::T, κ::T, t₀::Int) where T =
+    DualAveragingParameters{T}(μ, δ, γ, κ, t₀)
+
+DualAveragingParameters(logϵ₀; δ = 0.8, γ = 0.05, κ = 0.75, t₀ = 10) =
+    DualAveragingParameters(promote(log(10) + logϵ₀, δ, γ, κ)..., t₀)
 
 "Current state of adaptation for `ϵ`. Use
 `DualAverageingAdaptation(logϵ₀)` to get an initial value."
