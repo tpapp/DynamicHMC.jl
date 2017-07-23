@@ -102,3 +102,30 @@ function find_stable_ϵ(H::Hamiltonian{Tℓ, Tκ}) where
     {Tℓ <: Distribution{Multivariate,Continuous}, Tκ}
     find_stable_ϵ(H.κ, cov(H.ℓ))
 end
+
+"Simple Hamiltonian Monte Carlo transition, for testing."
+function simple_HMC(rng, H, z::PhasePoint, ϵ, L)
+    π₀ = logdensity(H, z)
+    z′ = z
+    for _ in 1:L
+        z′ = leapfrog(H, z′, ϵ)
+    end
+    Δ = logdensity(H, z′) - π₀
+    accept = Δ > 0 || (rand(rng) < exp(Δ))
+    accept ? z′ : z
+end
+
+"""
+    sample_HMC(rng, H, q, N; ϵ = find_stable_ϵ(H), L = 10)
+
+Simple Hamiltonian Monte Carlo sample, for testing.
+"""
+function sample_HMC(rng, H, q, N; ϵ = find_stable_ϵ(H), L = 10)
+    qs = similar(q, N, length(q))
+    for i in 1:N
+        z = rand_phasepoint(RNG, H, q)
+        q = simple_HMC(RNG, H, z, ϵ, L).q
+        qs[i, :] = q
+    end
+    qs
+end
