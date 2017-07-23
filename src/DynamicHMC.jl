@@ -66,9 +66,9 @@ abstract type EuclideanKE <: KineticEnergy end
 """
 Gaussian kinetic energy.
 
-p | q ∼ Normal(0, M)     (importantly, independent of q)
+``p | q ∼ Normal(0, M)     (importantly, independent of q)``
 
-The inverse M⁻¹ is stored.
+The inverse covariance `M⁻¹` is stored.
 """
 struct GaussianKE{T <: AbstractMatrix, S <: AbstractMatrix} <: EuclideanKE
     "M⁻¹"
@@ -88,8 +88,7 @@ GaussianKE(Minv::AbstractMatrix) = GaussianKE(Minv, inv(chol(Minv)))
 """
     logdensity(κ, p, [q])
 
-Return the log density of kinetic energy `κ`, at momentum `p`. Some
-kinetic energies (eg Riemannian geometry) will need `q`, too.
+Return the log density of kinetic energy `κ`, at momentum `p`. Some kinetic energies (eg Riemannian geometry) will need `q`, too.
 """
 logdensity(κ::GaussianKE, p, q = nothing) = -dot(p, κ.Minv * p) / 2
 
@@ -102,8 +101,7 @@ rand(rng, κ::GaussianKE, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
 """
     Hamiltonian(ℓ, κ)
 
-Construct a Hamiltonian from the log density `ℓ`, and the kinetic energy
-specification `κ`.
+Construct a Hamiltonian from the log density `ℓ`, and the kinetic energy specification `κ`.
 """
 struct Hamiltonian{Tℓ, Tκ}
     "The (log) density we are sampling from."
@@ -115,8 +113,7 @@ end
 """
 A point in phase space, consists of a position and a momentum.
 
-Log densities and gradients may be saved for speed gains, so a
-`PhasePoint` should only be used with a specific Hamiltonian.
+Log densities and gradients may be saved for speed gains, so a `PhasePoint` should only be used with a specific Hamiltonian. Use the [`phasepoint`](@ref) constructor.
 """
 struct PhasePoint{Tv,Tf}
     "Position."
@@ -140,8 +137,7 @@ phasepoint(H, q, p, ∇ℓq = loggradient(H.ℓ, q), ℓq = logdensity(H.ℓ, q)
 """
     rand_phasepoint(rng, H, q)
 
-Extend a position `q` to a phasepoint with a random momentum according
-to the kinetic energy of `H`.
+Extend a position `q` to a phasepoint with a random momentum according to the kinetic energy of `H`.
 """
 rand_phasepoint(rng, H, q) = phasepoint(H, q, rand(rng, H.κ))
     
@@ -179,15 +175,11 @@ const MAXITER_BISECTION = 50
 """
     bracket_zero(f, x, Δ, C; maxiter)
 
-Find `x₁`, `x₂′` that bracket `f(x) = 0`. `f` should be monotone, use
-`Δ > 0` for increasing and `Δ < 0` decreasing `f`.
+Find `x₁`, `x₂′` that bracket `f(x) = 0`. `f` should be monotone, use `Δ > 0` for increasing and `Δ < 0` decreasing `f`.
 
-Return `x₁, x₂′, f(x₁), f(x₂′)`. `x₁` and `x₂′ are not necessarily
-ordered.
+Return `x₁, x₂′, f(x₁), f(x₂′)`. `x₁` and `x₂′ are not necessarily ordered.
 
-Algorithm: start at the given `x`, adjust by `Δ` — for increasing `f`,
-use `Δ > 0`. At each step, multiply `Δ` by `C`. Stop and throw an
-error after `maxiter` iterations.
+Algorithm: start at the given `x`, adjust by `Δ` — for increasing `f`, use `Δ > 0`. At each step, multiply `Δ` by `C`. Stop and throw an error after `maxiter` iterations.
 """
 function bracket_zero(f, x, Δ, C; maxiter = MAXITER_BRACKET)
     @argcheck C > 1
@@ -212,10 +204,9 @@ function bracket_zero(f, x, Δ, C; maxiter = MAXITER_BRACKET)
 end
 
 """
-    find_zero(f, a, b, tol; fa, fb, maxiter)
+    find_zero(f, a, b, tol; [fa], [fb], [maxiter])
 
-Use bisection to find ``x ∈ [a,b]`` such that `|f(x)| < tol`. When `f`
-is costly, specify `fa` and `fb`.
+Use bisection to find ``x ∈ [a,b]`` such that `|f(x)| < tol`. When `f` is costly, specify `fa` and `fb`.
 
 When does not converge within `maxiter` iterations, throw an error.
 """
@@ -238,6 +229,11 @@ function find_zero(f, a, b, tol; fa=f(a), fb=f(b), maxiter = MAXITER_BISECTION)
     error("Reached maximum number of iterations.")
 end
 
+"""
+    bracket_find_zero(f, x, Δ, C, tol; [maxiter_bracket], [maxiter_bisection])
+
+A combination of [`bracket_zero`](@ref) and [`bracket_find_zero`](@ref).
+"""
 function bracket_find_zero(f, x, Δ, C, tol;
                            maxiter_bracket = MAXITER_BRACKET,
                            maxiter_bisection = MAXITER_BISECTION)
@@ -256,14 +252,11 @@ and
 
 ``A(ϵ) = exp(logdensity(H, z′) - logdensity(H, z))``
 
-denote the ratio of densities between a point `z` and another point after one
-leapfrog step with stepsize `ϵ`.
+denote the ratio of densities between a point `z` and another point after one leapfrog step with stepsize `ϵ`.
 
-Returns an `ϵ` such that `|log(A(ϵ)) - log(a)| ≤ tol`. Uses iterative bracketing
-(with gently expanding steps) and rootfinding.
+Returns an `ϵ` such that `|log(A(ϵ)) - log(a)| ≤ tol`. Uses iterative bracketing (with gently expanding steps) and rootfinding.
 
-Starts at `ϵ₀`, uses `maxiter` iterations for the bracketing and the
-rootfinding, respectively.
+Starts at `ϵ₀`, uses `maxiter` iterations for the bracketing and the rootfinding, respectively.
 """
 function find_reasonable_logϵ(H, z; tol = 0.15, a = 0.75, ϵ₀ = 1.0,
                               maxiter_bracket = MAXITER_BRACKET,
@@ -279,11 +272,9 @@ function find_reasonable_logϵ(H, z; tol = 0.15, a = 0.75, ϵ₀ = 1.0,
 end
 
 """
-Parameters for the dual averaging algorithm of Gelman and Hoffman (2014,
-Algorithm 6).
+Parameters for the dual averaging algorithm of Gelman and Hoffman (2014, Algorithm 6).
 
-To get reasonable defaults, initialize with `DualAveragingParameters(logϵ₀)`.
-See [`adapting_ϵ`](@ref) for a joint constructor.
+To get reasonable defaults, initialize with `DualAveragingParameters(logϵ₀)`. See [`adapting_ϵ`](@ref) for a joint constructor.
 """
 struct DualAveragingParameters{T}
     μ::T
@@ -310,8 +301,7 @@ DualAveragingParameters(μ::T, δ::T, γ::T, κ::T, t₀::Int) where T =
 DualAveragingParameters(logϵ₀; δ = 0.8, γ = 0.05, κ = 0.75, t₀ = 10) =
     DualAveragingParameters(promote(log(10) + logϵ₀, δ, γ, κ)..., t₀)
 
-"Current state of adaptation for `ϵ`. Use
-`DualAverageingAdaptation(logϵ₀)` to get an initial value."
+"Current state of adaptation for `ϵ`. Use `DualAverageingAdaptation(logϵ₀)` to get an initial value. See [`adapting_ϵ`](@ref) for a joint constructor."
 struct DualAveragingAdaptation{T <: AbstractFloat}
     m::Int
     H̄::T
@@ -322,14 +312,18 @@ end
 """
     getϵ(A, tuning = true)
 
-When `tuning`, return the stepsize `ϵ` for the next HMC step. Otherwise return
-the tuned `ϵ`.
+When `tuning`, return the stepsize `ϵ` for the next HMC step. Otherwise return the tuned `ϵ`.
 """
 getϵ(A::DualAveragingAdaptation, tuning = true) = exp(tuning ? A.logϵ : A.logϵ̄)
 
 DualAveragingAdaptation(logϵ₀) =
     DualAveragingAdaptation(0, zero(logϵ₀), logϵ₀, zero(logϵ₀))
 
+"""
+    DA_params, A = adapting_ϵ(ϵ; args...)
+
+Constructor for both the adaptation parameters and the initial state.
+"""
 function adapting_ϵ(ϵ; args...)
     logϵ = log(ϵ)
     DualAveragingParameters(logϵ; args...), DualAveragingAdaptation(logϵ)
@@ -338,9 +332,7 @@ end
 """
     A′ = adapt(parameters, A, a)
 
-Update the adaptation `A` of log stepsize `logϵ` with acceptance rate
-`a`, using the dual averaging algorithm of Gelman and Hoffman (2014,
-Algorithm 6). Return the new adaptation.
+Update the adaptation `A` of log stepsize `logϵ` with acceptance rate `a`, using the dual averaging algorithm of Gelman and Hoffman (2014, Algorithm 6). Return the new adaptation.
 """
 function adapt(parameters::DualAveragingParameters, A::DualAveragingAdaptation, a)
     @argcheck 0 ≤ a ≤ 1
@@ -362,7 +354,7 @@ end
 
 Random boolean which is `true` with the given probability `prob`.
 
-This is the only entry point for random numbers in this library.
+All random numbers in this library are obtained from this function.
 """
 rand_bool{T <: AbstractFloat}(rng, prob::T) = rand(rng, T) ≤ prob
 
@@ -380,8 +372,7 @@ Traverse the tree of given `depth` adjacent to point `z` in `trajectory`.
 
 Return:
 
-- `ζ`: the proposal from the tree. Only valid when `!isdivergent(d) && !isturning(τ)`,
-  otherwise the value should not be used.
+- `ζ`: the proposal from the tree. Only valid when `!isdivergent(d) && !isturning(τ)`, otherwise the value should not be used.
 
 - `τ`: turn statistics. Only valid when `!isdivergent(d)`.
 
@@ -397,8 +388,7 @@ Return:
 
 - Testing for turning and divergence: `isturning(τ)`, `isdivergent(d)`
 
-- Combination of return values: `combine_proposals(ζ₁, ζ₂, bias)`,
-  `combine_turnstats(τ₁, τ₂)`, and `combine_divstats(d₁, d₂)`
+- Combination of return values: `combine_proposals(ζ₁, ζ₂, bias)`, `combine_turnstats(τ₁, τ₂)`, and `combine_divstats(d₁, d₂)`
 """
 function adjacent_tree(rng, trajectory, z, depth, fwd)
     if depth == 0
@@ -433,11 +423,9 @@ Return:
 
 - `termination`: reason for termination (see [`Termination`](@ref))
 
-- `depth`: the depth of the tree that as sampled from. Doubling steps that lead
-  to an invalid tree do not contribute to `depth`.
+- `depth`: the depth of the tree that as sampled from. Doubling steps that lead to an invalid tree do not contribute to `depth`.
 
-See [`adjacent_tree`](@ref) for the interface that needs to be supported by
-`trajectory`.
+See [`adjacent_tree`](@ref) for the interface that needs to be supported by `trajectory`.
 """
 function sample_trajectory(rng, trajectory, z, max_depth)
     ζ, τ, d = leaf(trajectory, z, true)
@@ -465,8 +453,7 @@ end
 ######################################################################
 
 """
-Proposal that is propagated through by sampling recursively when building the
-trees.
+Proposal that is propagated through by sampling recursively when building the trees.
 """
 struct Proposal{Tz,Tf}
     "Proposed point."
@@ -478,8 +465,7 @@ end
 """
     logprob, ω = combined_logprob_logweight(ω₁, ω₂, bias)
 
-Given (relative) log probabilities `ω₁` and `ω₂`, return the log probabiliy of drawing a
-sampel from the second (`logprob`) and the combined (relative) log probability (`ω`).
+Given (relative) log probabilities `ω₁` and `ω₂`, return the log probabiliy of drawing a sampel from the second (`logprob`) and the combined (relative) log probability (`ω`).
 
 When `bias`, biases towards the second argument, introducing anti-correlations.
 """
@@ -506,11 +492,15 @@ end
 # divergence statistics
 ######################################################################
 
+"""
+Divergence and acceptance statistics.
+
+Calculated over all visited phase points (not just the tree that is sampled from).
+"""
 struct DivergenceStatistic{Tf}
     "`true` iff the sampler was terminated because of divergence."
     divergent::Bool
-    "Sum of metropolis acceptances probabilities over the whole
-    trajectory (including invalid parts)."
+    "Sum of metropolis acceptances probabilities over the whole trajectory (including invalid parts)."
     ∑a::Tf
     "Total number of leapfrog steps."
     steps::Int
@@ -533,11 +523,21 @@ divergence_statistic(isdivergent, Δ) =
 
 isdivergent(x::DivergenceStatistic) = x.divergent
 
+"""
+    combine_divstats(x, y)
+
+Combine divergence statistics from `x` and `y`.
+"""
 function combine_divstats(x::DivergenceStatistic, y::DivergenceStatistic)
     DivergenceStatistic(x.divergent || y.divergent,
                         x.∑a + y.∑a, x.steps + y.steps)
 end
 
+"""
+    acceptance_rate(x)
+
+Return average Metropolis acceptance rate.
+"""
 acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
 
 
@@ -546,7 +546,7 @@ acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
 ######################################################################
 
 """
-Statistics for the identification of turning points. See Betancourt (2017).
+Statistics for the identification of turning points. See Betancourt (2017, appendix).
 """
 struct TurnStatistic{T}
     p♯₋::T
@@ -557,8 +557,7 @@ end
 """
     combine_turnstats(x, y)
 
-Combine turn statistics of two trajectories `x` and `y`, which are assume to be
-adjacent and in that order.
+Combine turn statistics of two trajectories `x` and `y`, which are assume to be adjacent and in that order.
 """
 combine_turnstats(x::TurnStatistic, y::TurnStatistic) =
     TurnStatistic(x.p♯₋, y.p♯₊, x.ρ + y.ρ)
@@ -566,11 +565,9 @@ combine_turnstats(x::TurnStatistic, y::TurnStatistic) =
 """
     isturning(τ)
 
-Test termination based on turn statistics. Uses the generalized NUTS criterion
-from Betancourt (2017).
+Test termination based on turn statistics. Uses the generalized NUTS criterion from Betancourt (2017).
 
-Note that this function should not be called with turn statistics returned by
-[`leaf`](@ref).
+Note that this function should not be called with turn statistics returned by [`leaf`](@ref), ie `depth > 0` is required.
 """
 function isturning(τ::TurnStatistic)
     @unpack p♯₋, p♯₊, ρ = τ
@@ -582,8 +579,7 @@ end
 ######################################################################
 
 """
-Representation of a trajectory, ie a Hamiltonian with a discrete integrator that
-also checks for divergence.
+Representation of a trajectory, ie a Hamiltonian with a discrete integrator that also checks for divergence.
 """
 struct Trajectory{TH,Tf}
     "Hamiltonian."
