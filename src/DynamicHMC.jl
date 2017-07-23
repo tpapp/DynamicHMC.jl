@@ -39,12 +39,12 @@ export
     # stepsize
     find_reasonable_logϵ, adapt, DualAveragingParameters, DualAveragingAdaptation, adapting_ϵ,
     # transition 
-    HMCTransition, position, logdensity, depth, termination, acceptance_rate, steps,
-    HMC_transition, HMC_adapting_sample, HMC_sample, sample_matrix,
+    HMCTransition, variable, logdensity, depth, termination, acceptance_rate, steps,
+    HMC_transition, HMC_adapting_sample, HMC_sample, variable_matrix,
     # tuning and diagnostics
     sample_cov, EBFMI, TunedNUTS, TunedNUTS_init, tune, TunerStepsize,
     TunerStepsizeCov, TunerSequence, bracketed_doubling_tuner,
-    HMCStatistics, HMC_statistics
+    HMCStatistics, HMC_statistics, NUTS_tune_and_sample
 
 """
 Kinetic energy specifications.
@@ -646,7 +646,7 @@ struct HMCTransition{Tv,Tf}
 end
 
 "Position after transition."
-position(x::HMCTransition) = x.q
+variable(x::HMCTransition) = x.q
 
 "Log density (negative energy of the Hamiltonian) at the position."
 logdensity(x::HMCTransition) = x.π
@@ -700,11 +700,11 @@ function HMC_sample(rng, H, max_depth::Int, ϵ, q::Tv, N::Int) where Tv
 end
 
 """
-    sample_matrix(posterior)
+    variable_matrix(posterior)
 
 Return the samples of the parameter vector as rows of a matrix.
 """
-sample_matrix(sample) = vcat(position.(sample)'...)
+variable_matrix(sample) = vcat(variable.(sample)'...)
 
 ######################################################################
 # tuning and diagnostics
@@ -715,7 +715,7 @@ sample_matrix(sample) = vcat(position.(sample)'...)
 
 Covariance matrix of the sample.
 """
-sample_cov(sample) = cov(sample_matrix(sample), 1)
+sample_cov(sample) = cov(variable_matrix(sample), 1)
 
 """
     EBFMI(sample)
@@ -749,10 +749,12 @@ end
 Given a density `ℓ` and a position `q`, return an initial TunedNUTS sampler
 using local information.
 """
-function TunedNUTS_init(rng, ℓ, q;
-                        Minv = Diagonal(ones(length(q))),
+function TunedNUTS_init(rng, ℓ;
+                        q = randn(rng, length(ℓ)),
+                        Minv = Diagonal(ones(length(ℓ))),
                         max_depth = 5,
-                        ϵ = nothing)
+                        ϵ = nothing,
+                        _...)
     κ = GaussianKE(Minv)
     H = Hamiltonian(ℓ, κ)
     z = rand_phasepoint(rng, H, q)
@@ -852,7 +854,8 @@ A sequence of tuners:
 
 `regularize` is used for covariance regularization.
 """
-function bracketed_doubling_tuner(; init = 75, mid = 25, M = 5, term = 50, regularize = 5.0)
+function bracketed_doubling_tuner(; init = 75, mid = 25, M = 5, term = 50,
+                                  regularize = 5.0, _...)
     tunes = Any[TunerStepsize(init)]
     for _ in 1:M
         tunes = push!(tunes, TunerStepsizeCov(mid, regularize))
@@ -870,6 +873,25 @@ function tune(rng, sampler, seq::TunerSequence)
 end
 
 const ACCEPTANCE_QUANTILES = linspace(0,1,5)
+
+"""
+    sample, tuned_sampler = NUTS_tune_and_sample(rng, ℓ, N; args...)
+
+Given a random number generator `rng` and a log density function `ℓ`, tune the NUTS sampler and then generate `N` samples.
+
+`args` are passed on to [`TunerNUTS_init`](@ref) and [`bracketed_doubling_tuner`](@ref).
+
+`ℓ` should support the following methods:
+
+`logdensity(ℓ, x)`, `loggradient(ℓ, x)`, `length(ℓ)`.
+
+Most users would use this function, unless they are doing something that requires manual tuning.
+"""
+function NUTS_tune_and_sample(rng, ℓ, N; args...)
+    init_sampler = TunedNUTS_init(rng, ℓ; args...)
+    tuned_sampler = tune(rng, init_sampler, bracketed_doubling_tuner(; args...))
+    HMC_sample(rng, tuned_sampler, N), tuned_sampler
+end
 
 struct HMCStatistics{T <: Real,
                      DT <: Associative{Termination,Int},
