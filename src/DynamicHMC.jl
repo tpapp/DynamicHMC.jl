@@ -44,7 +44,7 @@ export
     # tuning and diagnostics
     sample_cov, EBFMI, TunedNUTS, TunedNUTS_init, tune, TunerStepsize,
     TunerStepsizeCov, TunerSequence, bracketed_doubling_tuner,
-    HMCStatistics, HMC_statistics, NUTS_tune_and_sample
+    HMCStatistics, HMC_statistics, NUTS_sample, NUTS_tune, NUTS_tune_and_sample
 
 """
 Kinetic energy specifications.
@@ -738,7 +738,7 @@ struct TunedNUTS{TH, Tv, Tf}
     max_depth::Int
 end
 
-function HMC_sample(rng, sampler::TunedNUTS, N)
+function NUTS_sample(rng, sampler::TunedNUTS, N)
     @unpack H, q, ϵ, max_depth = sampler
     HMC_sample(rng, H, max_depth, ϵ, q, N)
 end
@@ -875,9 +875,19 @@ end
 const ACCEPTANCE_QUANTILES = linspace(0,1,5)
 
 """
+    NUTS_tune(rng, ℓ, N; args...)
+
+Given a random number generator `rng` and a log density function `ℓ`, tune the NUTS sampler
+"""
+function NUTS_tune(rng, ℓ, N; args...)
+    init_sampler = TunedNUTS_init(rng, ℓ; args...)
+    tune(rng, init_sampler, bracketed_doubling_tuner(; args...))
+end
+
+"""
     sample, tuned_sampler = NUTS_tune_and_sample(rng, ℓ, N; args...)
 
-Given a random number generator `rng` and a log density function `ℓ`, tune the NUTS sampler and then generate `N` samples.
+ and then generate `N` samples.
 
 `args` are passed on to [`TunerNUTS_init`](@ref) and [`bracketed_doubling_tuner`](@ref).
 
@@ -888,9 +898,8 @@ Given a random number generator `rng` and a log density function `ℓ`, tune the
 Most users would use this function, unless they are doing something that requires manual tuning.
 """
 function NUTS_tune_and_sample(rng, ℓ, N; args...)
-    init_sampler = TunedNUTS_init(rng, ℓ; args...)
-    tuned_sampler = tune(rng, init_sampler, bracketed_doubling_tuner(; args...))
-    HMC_sample(rng, tuned_sampler, N), tuned_sampler
+    tuned_sampler = NUTS_tune(rng, ℓ, N; args...)
+    NUTS_sample(rng, tuned_sampler, N), tuned_sampler
 end
 
 struct HMCStatistics{T <: Real,
