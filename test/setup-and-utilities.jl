@@ -16,6 +16,7 @@ using Base.Test
 using ArgCheck
 using Distributions
 import ForwardDiff: gradient
+using MCMCDiagnostics
 using Parameters
 using StatsBase
 
