@@ -794,15 +794,13 @@ function tune(rng, sampler::TunedNUTS, tuner::TunerStepsize)
 end
 
 """
-Tune the integrator stepsize and covariance. Covariance tuning is from scratch
-(no prior information is used), regularized towards the identity matrix.
+Tune the integrator stepsize and covariance. Covariance tuning is from scratch (no prior information is used), regularized towards the identity matrix.
 """
 struct TunerStepsizeCov{Tf}
     "Number of samples."
     N::Int
     """
-    Regularization factor for normalizing variance. Effectively equivalent to a
-    prior from the same number of pseudo-observations with unit values.
+    Regularization factor for normalizing variance. An estimated covariance matrix `Σ` is rescaled by `regularize/sample size`` towards `σ²I`, where `σ²` is the median of the diagonal.
     """
     regularize::Tf
 end
@@ -819,7 +817,7 @@ function tune(rng, sampler::TunedNUTS, tuner::TunerStepsizeCov)
     @unpack H, max_depth = sampler
     sample, A = HMC_sample_DA(rng, sampler, N)
     Σ = sample_cov(sample)
-    Σ .+= (I-Σ) * regularize/N
+    Σ .+= (UniformScaling(median(diag(Σ)))-Σ) * regularize/N
     κ = GaussianKE(Σ)
     TunedNUTS(Hamiltonian(H.ℓ, κ), sample[end].q, getϵ(A), max_depth)
 end
