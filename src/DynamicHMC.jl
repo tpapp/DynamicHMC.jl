@@ -39,12 +39,12 @@ export
     # stepsize
     find_reasonable_logϵ, adapt, DualAveragingParameters, DualAveragingAdaptation, adapting_ϵ,
     # transition 
-    HMCTransition, variable, logdensity, depth, termination, acceptance_rate, steps,
-    HMC_transition, HMC_adapting_sample, HMC_sample, variable_matrix,
+    NUTSTransition, variable, logdensity, depth, termination, acceptance_rate, steps,
+    NUTS_transition, NUTS, mcmc, mcmc_adapting_ϵ, variable_matrix,
     # tuning and diagnostics
-    sample_cov, EBFMI, TunedNUTS, TunedNUTS_init, tune, TunerStepsize,
+    sample_cov, EBFMI, NUTS_init, tune, TunerStepsize,
     TunerStepsizeCov, TunerSequence, bracketed_doubling_tuner,
-    HMCStatistics, HMC_statistics, NUTS_sample, NUTS_tune, NUTS_tune_and_sample
+    NUTSStatistics, NUTS_statistics, NUTS_tune, NUTS_tune_and_mcmc
 
 """
 Kinetic energy specifications.
@@ -595,20 +595,21 @@ end
 """
     Trajectory(H, π₀, ϵ; min_Δ = -1000.0)
 
-Convenience constructor for trajectory. Uses the leapfrog integrator.
+Convenience constructor for trajectory.
 """
 Trajectory(H, π₀, ϵ; min_Δ = -1000.0) = Trajectory(H, π₀, ϵ, min_Δ)
 
 """
     ζ, τ, d = leaf(trajectory, z, isinitial)
 
-Construct a proposal, turn statistic, and divergence statistic for a single point `z` in
-`trajectory`. When `isinitial`, `z` is the initial point in the trajectory.
+Construct a proposal, turn statistic, and divergence statistic for a single point `z` in `trajectory`. When `isinitial`, `z` is the initial point in the trajectory.
 
 Return
 
 - `ζ`: the proposal, which should only be used when `!isdivergent(d)`
+
 - `τ`: the turn statistic, which should only be used when `!isdivergent(d)`
+
 - `d`: divergence statistic
 """
 function leaf(trajectory::Trajectory, z, isinitial)
@@ -621,13 +622,19 @@ function leaf(trajectory::Trajectory, z, isinitial)
     ζ, τ, d
 end
 
+"""
+    move(trajectory, z, fwd)
+
+Return next phase point adjacent to `z` along `trajectory` in the direction specified by `fwd`.
+"""
 function move(trajectory::Trajectory, z, fwd)
     @unpack H, ϵ = trajectory
     leapfrog(H, z, fwd ? ϵ : -ϵ)
 end
 
-struct HMCTransition{Tv,Tf}
-    "New phasepoint."
+"Single transition by the No-U-turn sampler. Contains new position and diagnostic information."
+struct NUTSTransition{Tv,Tf}
+    "New position."
     q::Tv
     "Log density."
     π::Tf
@@ -642,53 +649,57 @@ struct HMCTransition{Tv,Tf}
 end
 
 "Position after transition."
-variable(x::HMCTransition) = x.q
+variable(x::NUTSTransition) = x.q
 
 "Log density (negative energy of the Hamiltonian) at the position."
-logdensity(x::HMCTransition) = x.π
+logdensity(x::NUTSTransition) = x.π
 
 "Tree depth."
-depth(x::HMCTransition) = x.depth
+depth(x::NUTSTransition) = x.depth
 
 "Reason for termination, see [`Termination`](@ref)."
-termination(x::HMCTransition) = x.termination
+termination(x::NUTSTransition) = x.termination
 
 "Average acceptance rate over trajectory."
-acceptance_rate(x::HMCTransition) = x.a
+acceptance_rate(x::NUTSTransition) = x.a
 
 "Number of integrator steps."
-steps(x::HMCTransition) = x.steps
+steps(x::NUTSTransition) = x.steps
 
 """
-    HMC_transition(rng, H, q, ϵ, max_depth; args...)
+    NUTS_transition(rng, H, q, ϵ, max_depth; args...)
 
-Hamiltonian Monte Carlo transition, using Hamiltonian `H`, starting at position
-`q`, using stepsize `ϵ`. Builds a doubling dynamic tree of maximum depth
-`max_depth`. `args` are passed to the `Trajectory` constructor. `rng` is the
-random number generator used.
+No-U-turn Hamiltonian Monte Carlo transition, using Hamiltonian `H`, starting at position `q`, using stepsize `ϵ`. Builds a doubling dynamic tree of maximum depth `max_depth`. `args` are passed to the `Trajectory` constructor. `rng` is the random number generator used.
 """
-function HMC_transition(rng, H, q, ϵ, max_depth; args...)
+function NUTS_transition(rng, H, q, ϵ, max_depth; args...)
     z = rand_phasepoint(rng, H, q)
     trajectory = Trajectory(H, logdensity(H, z), ϵ; args...)
     ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth)
-    HMCTransition(ζ.z.q, logdensity(H, ζ.z), depth, termination, acceptance_rate(d), d.steps)
+    NUTSTransition(ζ.z.q, logdensity(H, ζ.z), depth, termination, acceptance_rate(d), d.steps)
 end
 
-function HMC_adapting_sample(rng, H, max_depth::Int, q::Tv, N::Int, DA_params, A) where Tv
-    sample = Vector{HMCTransition{Tv, Float64}}(N)
-    for i in 1:N
-        trans = HMC_transition(rng, H, q, getϵ(A), max_depth)
-        A = adapt(DA_params, A, trans.a)
-        q = trans.q
-        sample[i] .= trans
-    end
-    sample, A
+"Specification for the No-U-turn algorithm, including the Hamiltonian, the initial position, and the parameters."
+struct NUTS{TH, Tv, Tf}
+    "Hamiltonian"
+    H::TH
+    "position"
+    q::Tv
+    "stepsize"
+    ϵ::Tf
+    "maximum depth of the tree"
+    max_depth::Int
 end
 
-function HMC_sample(rng, H, max_depth::Int, ϵ, q::Tv, N::Int) where Tv
-    sample = Vector{HMCTransition{Tv, Float64}}(N)
+"""
+    mcmc(rng, sampler, N)
+
+Run the MCMC `sampler` for `N` iterations, returning the results as a vector, which has elements that conform to the sampler.
+"""
+function mcmc(rng, sampler::NUTS{TH,Tv,Tf}, N::Int) where {TH,Tv,Tf}
+    @unpack H, q, ϵ, max_depth = sampler
+    sample = Vector{NUTSTransition{Tv,Tf}}(N)
     for i in 1:N
-        trans = HMC_transition(rng, H, q, ϵ, max_depth)
+        trans = NUTS_transition(rng, H, q, ϵ, max_depth)
         q = trans.q
         sample[i] .= trans
     end
@@ -696,11 +707,34 @@ function HMC_sample(rng, H, max_depth::Int, ϵ, q::Tv, N::Int) where Tv
 end
 
 """
+    sample, A = mcmc_adapting_ϵ(rng, sampler, N, [A_params, A])
+
+Same as [`mcmc`](@ref), but [`adapt`](@ref) stepsize ϵ according to the parameters `A_params` and initial state `A`. Return the updated `A` as the second value.
+
+When the last two parameters are not specified, initialize using `adapting_ϵ`.
+"""
+function mcmc_adapting_ϵ(rng, sampler::NUTS{TH,Tv,Tf}, N::Int, A_params, A) where {TH,Tv,Tf}
+    @unpack H, q, max_depth = sampler
+    sample = Vector{NUTSTransition{Tv,Tf}}(N)
+    for i in 1:N
+        trans = NUTS_transition(rng, H, q, getϵ(A), max_depth)
+        A = adapt(A_params, A, trans.a)
+        q = trans.q
+        sample[i] .= trans
+    end
+    sample, A
+end
+
+mcmc_adapting_ϵ(rng, sampler::NUTS, N) =
+    mcmc_adapting_ϵ(rng, sampler, N, adapting_ϵ(sampler.ϵ)...)
+
+"""
     variable_matrix(posterior)
 
 Return the samples of the parameter vector as rows of a matrix.
 """
 variable_matrix(sample) = vcat(variable.(sample)'...)
+
 
 ######################################################################
 # tuning and diagnostics
@@ -719,51 +753,26 @@ sample_cov(sample) = cov(variable_matrix(sample), 1)
 Energy Bayesian fraction of missing information. Useful for diagnosing poorly
 chosen kinetic energies.
 """
-function EBFMI(sample)
-    sum(abs2, diff(logdensity.(sample))) / var(πs)
-end
-
-struct TunedNUTS{TH, Tv, Tf}
-    "Hamiltonian"
-    H::TH
-    "position"
-    q::Tv
-    "stepsize"
-    ϵ::Tf
-    "maximum depth of the tree"
-    max_depth::Int
-end
-
-function NUTS_sample(rng, sampler::TunedNUTS, N)
-    @unpack H, q, ϵ, max_depth = sampler
-    HMC_sample(rng, H, max_depth, ϵ, q, N)
-end
+EBFMI(sample) = sum(abs2, diff(logdensity.(sample))) / var(πs)
 
 """
-    TunedNUTS_init(rng, ℓ, q; Minv = I, logϵ)
+    NUTS_init(rng, ℓ, q; Minv = I, logϵ)
 
-Given a density `ℓ` and a position `q`, return an initial TunedNUTS sampler
-using local information.
+Given a density `ℓ` and a position `q`, return an initial NUTS sampler using local information.
 """
-function TunedNUTS_init(rng, ℓ;
-                        q = randn(rng, length(ℓ)),
-                        Minv = Diagonal(ones(length(ℓ))),
-                        max_depth = 5,
-                        ϵ = nothing,
-                        _...)
+function NUTS_init(rng, ℓ;
+                   q = randn(rng, length(ℓ)),
+                   Minv = Diagonal(ones(length(ℓ))),
+                   max_depth = 5,
+                   ϵ = nothing,
+                   _...)
     κ = GaussianKE(Minv)
     H = Hamiltonian(ℓ, κ)
     z = rand_phasepoint(rng, H, q)
     if ϵ == nothing
         ϵ = exp(find_reasonable_logϵ(H, z))
     end
-    TunedNUTS(H, q, ϵ, max_depth)
-end
-
-function HMC_sample_DA(rng, sampler::TunedNUTS, N)
-    @unpack H, q, ϵ, max_depth = sampler
-    DA_params, A = adapting_ϵ(ϵ)
-    HMC_adapting_sample(rng, H, max_depth, q, N, DA_params, A)
+    NUTS(H, q, ϵ, max_depth)
 end
 
 "Tune the integrator stepsize."
@@ -780,24 +789,19 @@ length(tuner::TunerStepsize) = tuner.N
 """
     tune(rng, tunestate, tune)
 
-Given a `tunestate` and a `tuner`, return the updated tune state. Use `rng` as a
-random number generator.
+Given a `tunestate` and a `tuner`, return the updated tune state. Use `rng` as a random number generator.
 """
-function tune(rng, sampler::TunedNUTS, tuner::TunerStepsize)
+function tune(rng, sampler::NUTS, tuner::TunerStepsize)
     @unpack H, max_depth = sampler
-    sample, A = HMC_sample_DA(rng, sampler, tuner.N)
-    TunedNUTS(H, sample[end].q, getϵ(A, false), max_depth)
+    sample, A = mcmc_adapting_ϵ(rng, sampler, tuner.N)
+    NUTS(H, sample[end].q, getϵ(A, false), max_depth)
 end
 
-"""
-Tune the integrator stepsize and covariance. Covariance tuning is from scratch (no prior information is used), regularized towards the identity matrix.
-"""
+"Tune the integrator stepsize and covariance. Covariance tuning is from scratch (no prior information is used), regularized towards the identity matrix."
 struct TunerStepsizeCov{Tf}
     "Number of samples."
     N::Int
-    """
-    Regularization factor for normalizing variance. An estimated covariance matrix `Σ` is rescaled by `regularize/sample size`` towards `σ²I`, where `σ²` is the median of the diagonal.
-    """
+    "Regularization factor for normalizing variance. An estimated covariance matrix `Σ` is rescaled by `regularize/sample size`` towards `σ²I`, where `σ²` is the median of the diagonal."
     regularize::Tf
 end
 
@@ -808,14 +812,14 @@ end
 
 length(tuner::TunerStepsizeCov) = tuner.N
 
-function tune(rng, sampler::TunedNUTS, tuner::TunerStepsizeCov)
+function tune(rng, sampler::NUTS, tuner::TunerStepsizeCov)
     @unpack regularize, N = tuner
     @unpack H, max_depth = sampler
-    sample, A = HMC_sample_DA(rng, sampler, N)
+    sample, A = mcmc_adapting_ϵ(rng, sampler, N)
     Σ = sample_cov(sample)
     Σ .+= (UniformScaling(median(diag(Σ)))-Σ) * regularize/N
     κ = GaussianKE(Σ)
-    TunedNUTS(Hamiltonian(H.ℓ, κ), sample[end].q, getϵ(A), max_depth)
+    NUTS(Hamiltonian(H.ℓ, κ), sample[end].q, getϵ(A), max_depth)
 end
 
 "Sequence of tuners, applied in the given order."
@@ -872,12 +876,12 @@ end
 Given a random number generator `rng` and a log density function `ℓ`, tune the NUTS sampler
 """
 function NUTS_tune(rng, ℓ, N; args...)
-    init_sampler = TunedNUTS_init(rng, ℓ; args...)
+    init_sampler = NUTS_init(rng, ℓ; args...)
     tune(rng, init_sampler, bracketed_doubling_tuner(; args...))
 end
 
 """
-    sample, tuned_sampler = NUTS_tune_and_sample(rng, ℓ, N; args...)
+    sample, tuned_sampler = NUTS_tune_and_mcmc(rng, ℓ, N; args...)
 
  and then generate `N` samples.
 
@@ -889,9 +893,9 @@ end
 
 Most users would use this function, unless they are doing something that requires manual tuning.
 """
-function NUTS_tune_and_sample(rng, ℓ, N; args...)
+function NUTS_tune_and_mcmc(rng, ℓ, N; args...)
     tuned_sampler = NUTS_tune(rng, ℓ, N; args...)
-    NUTS_sample(rng, tuned_sampler, N), tuned_sampler
+    mcmc(rng, tuned_sampler, N), tuned_sampler
 end
 
 "Acceptance quantiles for NUTSStatistics."
@@ -919,9 +923,9 @@ Return statistics about the sample (ie not the variables). Mostly useful for NUT
 """
 function NUTS_statistics(sample)
     as = acceptance_rate.(sample)
-    HMCStatistics(length(sample),
-                  mean(as), quantile(as, ACCEPTANCE_QUANTILES),
-                  counter(termination.(sample)), counter(depth.(sample)))
+    NUTSStatistics(length(sample),
+                   mean(as), quantile(as, ACCEPTANCE_QUANTILES),
+                   counter(termination.(sample)), counter(depth.(sample)))
 end
 
 function show(io::IO, stats::NUTSStatistics)

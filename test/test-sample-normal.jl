@@ -22,7 +22,7 @@ end
         qs = Array{Float64}(N, K)
         ϵ = 0.5
         for i in 1:N
-            trans = HMC_transition(RNG, H, q, ϵ, 5)
+            trans = NUTS_transition(RNG, H, q, ϵ, 5)
             q = trans.q
             qs[i, :] = q
         end
@@ -36,7 +36,7 @@ end
     K = 4
     ℓ = MvNormal(zeros(K), fill(2.0, K))
     q = randn(K)
-    sampler = TunedNUTS_init(RNG, ℓ)
+    sampler = NUTS_init(RNG, ℓ)
     tuner = TunerStepsize(100)
     sampler2 = tune(RNG, sampler, tuner)
     tuner2 = TunerStepsizeCov(200, 10)
