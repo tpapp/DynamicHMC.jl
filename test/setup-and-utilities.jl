@@ -23,6 +23,9 @@ using StatsBase
 "RNG for consistent test environment"
 const RNG = srand(UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
 
+"Be more tolerant when testing."
+const RELAX = (k = "CONTINUOUS_INTEGRATION"; haskey(ENV, k) && ENV[k] == "true")
+
 "Random positive definite matrix of size `n` x `n` (for testing)."
 function rand_Σ(::Type{Symmetric}, n)
     A = randn(RNG, n,n)
