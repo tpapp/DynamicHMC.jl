@@ -148,11 +148,6 @@ logdensity(H::Hamiltonian, z::PhasePoint) = z.ℓq + logdensity(H.κ, z.p, z.q)
 
 getp♯(H::Hamiltonian, z::PhasePoint) = getp♯(H.κ, z.p, z.q)
 
-"Leapfrog step with given stepsize."
-struct Leapfrog{Tf}
-    ϵ::Tf
-end
-
 "Take a leapfrog step in phase space."
 function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ)
     @unpack ℓ, κ = H
