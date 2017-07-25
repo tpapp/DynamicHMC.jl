@@ -327,7 +327,7 @@ end
 """
     A′ = adapt(parameters, A, a)
 
-Update the adaptation `A` of log stepsize `logϵ` with acceptance rate `a`, using the dual averaging algorithm of Gelman and Hoffman (2014, Algorithm 6). Return the new adaptation.
+Update the adaptation `A` of log stepsize `logϵ` with average Metropolis acceptance rate `a` over the whole visited trajectory, using the dual averaging algorithm of Gelman and Hoffman (2014, Algorithm 6). Return the new adaptation.
 """
 function adapt(parameters::DualAveragingParameters, A::DualAveragingAdaptation, a)
     @argcheck 0 ≤ a ≤ 1
