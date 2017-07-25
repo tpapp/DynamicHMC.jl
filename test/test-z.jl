@@ -86,6 +86,7 @@ end
                    7.28634 1.79718 -0.0821483 2.55874 -1.95031 5.22626 9.60671 11.5554])
     for ℓ in [ℓ0, ℓ1, ℓ2, ℓ3]
         sample, _ = NUTS_tune_and_mcmc(RNG, ℓ, 1000)
+        @test EBFMI(sample) ≥ 0.3
         zs = zvalue.([sample], mean_cov_ztests(ℓ))
         zvalue_warn.(zs, 4)
         @test maximum(abs ∘ last, zs) ≤ zthreshold(length(zs), 0.001)
@@ -97,6 +98,7 @@ end
         K = rand(2:10)
         ℓ = MvNormal(randn(K), full(rand_Σ(K)))
         sample, _ = NUTS_tune_and_mcmc(RNG, ℓ, 1000)
+        @test EBFMI(sample) ≥ 0.3
         zs = zvalue.([sample], mean_cov_ztests(ℓ))
         zvalue_warn.(zs, 4)
         @test maximum(abs ∘ last, zs) ≤ zthreshold(length(zs), 0.001) + 1.0*RELAX
