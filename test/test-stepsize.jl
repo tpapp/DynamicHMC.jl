@@ -12,6 +12,9 @@ end
     δ = 0.65
     params = DualAveragingParameters(logϵ₀; δ = δ)
     A = DualAveragingAdaptation(logϵ₀)
+    @test A.logϵ̄ == 0           # ϵ₀ = 0 in Gelman and Hoffman (2014)
+    @test A.m == 0
+    @test A.H̄ == 0
     for _ in 1:5000
         A = adapt(params, A, min(dummy_acceptance_rate(A.logϵ), 1))
     end
