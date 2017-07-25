@@ -113,7 +113,9 @@ end
 """
 A point in phase space, consists of a position and a momentum.
 
-Log densities and gradients may be saved for speed gains, so a `PhasePoint` should only be used with a specific Hamiltonian. Use the [`phasepoint`](@ref) constructor.
+Log densities and gradients are saved for speed gains, so that the gradient of ℓ at q is not calculated twice for every leapfrog step (both as start- and endpoints).
+
+Because of caching, a `PhasePoint` should only be used with a specific Hamiltonian. Use the [`phasepoint`](@ref) constructor.
 """
 struct PhasePoint{Tv,Tf}
     "Position."
