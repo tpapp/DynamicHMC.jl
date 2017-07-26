@@ -66,6 +66,19 @@ function mean_cov_ztests(dist::Distribution{Multivariate,Continuous})
     tests
 end
 
+"""
+    R̂(sampler, N, M)
+
+Run `M` chains of length `N` using `sampler`, then calculate the columnwise R̂ (potential scale reduction factor).
+
+`sampler` is assumed to be adapted, no adaptation is performed.
+"""
+function R̂(sampler, N, M)
+    variables = [variable_matrix(mcmc(RNG, sampler, N)) for _ in 1:M]
+    K = size(variables[1], 2)
+    [potential_scale_reduction(collect(v[:, j] for v in variables)...) for j in 1:K]
+end
+
 @testset "normal z tests fixed" begin
     ℓ0 = MvNormal([1.0, 2.0, 3.0], [1.0, 2.0, 3.0])
     ℓ1 = MvNormal([-0.37833073009094703, -0.3973395239297558],
@@ -85,8 +98,9 @@ end
                    5.57947 -0.0540131 1.78163 1.73862 -2.99741 3.6118 10.215 9.60671;
                    7.28634 1.79718 -0.0821483 2.55874 -1.95031 5.22626 9.60671 11.5554])
     for ℓ in [ℓ0, ℓ1, ℓ2, ℓ3]
-        sample, _ = NUTS_tune_and_mcmc(RNG, ℓ, 1000)
+        sample, NUTS = NUTS_tune_and_mcmc(RNG, ℓ, 1000)
         @test EBFMI(sample) ≥ 0.3
+        @test maximum(R̂(NUTS, 1000, 3)) ≤ 1.05
         zs = zvalue.([sample], mean_cov_ztests(ℓ))
         zvalue_warn.(zs, 4)
         @test maximum(abs ∘ last, zs) ≤ zthreshold(length(zs), 0.001)
@@ -99,6 +113,7 @@ end
         ℓ = MvNormal(randn(K), full(rand_Σ(K)))
         sample, _ = NUTS_tune_and_mcmc(RNG, ℓ, 1000)
         @test EBFMI(sample) ≥ 0.3
+        @test maximum(R̂(NUTS, 1000, 3)) ≤ 1.05
         zs = zvalue.([sample], mean_cov_ztests(ℓ))
         zvalue_warn.(zs, 4)
         @test maximum(abs ∘ last, zs) ≤ zthreshold(length(zs), 0.001) + 1.0*RELAX
