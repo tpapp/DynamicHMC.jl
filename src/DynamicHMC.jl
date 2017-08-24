@@ -22,6 +22,7 @@ module DynamicHMC
 
 using ArgCheck
 using DataStructures
+using DiffBase
 using Parameters
 
 import Base: rand, length, show
@@ -35,7 +36,7 @@ import StatsFuns: logsumexp
 export
     # Hamiltonian
     KineticEnergy, EuclideanKE, GaussianKE, logdensity, loggradient, Hamiltonian,
-    PhasePoint, phasepoint,
+    PhasePoint,
     # stepsize
     find_reasonable_logϵ, adapt, DualAveragingParameters, DualAveragingAdaptation, adapting_ϵ,
     # transition 
@@ -104,7 +105,7 @@ rand(rng, κ::GaussianKE, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
 Construct a Hamiltonian from the log density `ℓ`, and the kinetic energy specification `κ`.
 """
 struct Hamiltonian{Tℓ, Tκ}
-    "The (log) density we are sampling from."
+    "The (log) density we are sampling from. Calls of `ℓ` with a vector are expected to return a value that supports `DiffBase.value` and `DiffBase.gradient`. Returned values may share structure as they are always copied."
     ℓ::Tℓ
     "The kinetic energy."
     κ::Tκ
@@ -115,50 +116,40 @@ A point in phase space, consists of a position and a momentum.
 
 Log densities and gradients are saved for speed gains, so that the gradient of ℓ at q is not calculated twice for every leapfrog step (both as start- and endpoints).
 
-Because of caching, a `PhasePoint` should only be used with a specific Hamiltonian. Use the [`phasepoint`](@ref) constructor.
+Because of caching, a `PhasePoint` should only be used with a specific Hamiltonian.
 """
-struct PhasePoint{Tv,Tf}
+struct PhasePoint{T,S}
     "Position."
-    q::Tv
+    q::T
     "Momentum."
-    p::Tv
-    "Gradient of ℓ at q. Cached for reuse in leapfrog."
-    ∇ℓq::Tv
+    p::T
     "ℓ at q. Cached for reuse in sampling."
-    ℓq::Tf
+    ℓq::S
 end
-
-"""
-    phasepoint(H, q, p)
-
-Preferred constructor for phasepoints, computes cached information.
-"""
-phasepoint(H, q, p, ∇ℓq = loggradient(H.ℓ, q), ℓq = logdensity(H.ℓ, q)) =
-    PhasePoint(q, p, ∇ℓq, ℓq)
 
 """
     rand_phasepoint(rng, H, q)
 
 Extend a position `q` to a phasepoint with a random momentum according to the kinetic energy of `H`.
 """
-rand_phasepoint(rng, H, q) = phasepoint(H, q, rand(rng, H.κ))
+rand_phasepoint(rng, H, q) = PhasePoint(q, rand(rng, H.κ), H.ℓ(q))
     
 """
 Log density for Hamiltonian `H` at point `z`.
 """
-logdensity(H::Hamiltonian, z::PhasePoint) = z.ℓq + logdensity(H.κ, z.p, z.q)
+logdensity(H::Hamiltonian, z::PhasePoint) = DiffBase.value(z.ℓq) + logdensity(H.κ, z.p, z.q)
 
 getp♯(H::Hamiltonian, z::PhasePoint) = getp♯(H.κ, z.p, z.q)
 
 "Take a leapfrog step in phase space."
 function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ)
     @unpack ℓ, κ = H
-    @unpack p, q, ∇ℓq = z
-    pₘ = p + ϵ/2 * ∇ℓq
+    @unpack p, q, ℓq = z
+    pₘ = p + ϵ/2 * DiffBase.gradient(ℓq)
     q′ = q - ϵ * loggradient(κ, pₘ)
-    ∇ℓq′ = loggradient(ℓ, q′)
-    p′ = pₘ + ϵ/2 * ∇ℓq′
-    phasepoint(H, q′, p′, ∇ℓq′)
+    ℓq′ = copy(ℓ(q′))
+    p′ = pₘ + ϵ/2 * DiffBase.gradient(ℓq′)
+    PhasePoint(q′, p′, ℓq′)
 end
 
 

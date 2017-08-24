@@ -6,7 +6,7 @@ import DynamicHMC:
     Hamiltonian,
     loggradient,
     logdensity,
-    phasepoint,
+    PhasePoint,
     rand_phasepoint,
     leapfrog,
     move
@@ -14,6 +14,7 @@ import DynamicHMC:
 using Base.Test
 
 using ArgCheck
+using DiffBase
 using Distributions
 import ForwardDiff: gradient
 using MCMCDiagnostics
@@ -44,8 +45,7 @@ function test_loggradient(ℓ, x)
 end
 
 ## use MvNormal as a test distribution
-logdensity(ℓ::MvNormal, p) = logpdf(ℓ, p)
-loggradient(ℓ::MvNormal, p) = -(ℓ.Σ \ (p - ℓ.μ))
+(ℓ::MvNormal)(p) = DiffBase.DiffResult(logpdf(ℓ, p), (gradlogpdf(ℓ, p), ))
 
 "Lenient comparison operator for `struct`, both mutable and immutable."
 @generated function ≂(x, y)

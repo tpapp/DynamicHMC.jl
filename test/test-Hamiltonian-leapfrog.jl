@@ -1,5 +1,6 @@
-import DynamicHMC: GaussianKE, Hamiltonian, PhasePoint, loggradient, logdensity,
-    phasepoint, rand_phasepoint, leapfrog, move
+import DynamicHMC:
+    GaussianKE, Hamiltonian, PhasePoint, loggradient, logdensity, rand_phasepoint,
+    leapfrog, move
 
 ######################################################################
 # Hamiltonian and leapfrog
@@ -31,13 +32,12 @@ end
 
 @testset "phasepoint internal consistency" begin
     # when this breaks, interface was modified, rewrite tests
-    @test fieldnames(PhasePoint) == [:q, :p, :∇ℓq, :ℓq]
+    @test fieldnames(PhasePoint) == [:q, :p, :ℓq]
     "Test the consistency of cached values."
     function test_consistency(H, z)
-        @unpack q, ℓq, ∇ℓq = z
+        @unpack q, ℓq = z
         @unpack ℓ = H
-        @test logdensity(ℓ, q) == ℓq
-        @test loggradient(ℓ, q) == ∇ℓq
+        @test ℓ(q) == ℓq
     end
     H, z = rand_Hz(rand(3:10))
     test_consistency(H, z)
@@ -50,15 +50,13 @@ end
 
 @testset "leapfrog" begin
     """
-    Simple leapfrog implementation. `q`: position, `p`: momentum,
-    `∇ℓ`: gradient of logdensity, `ϵ`: stepsize. `m` is the diagonal
-    of the kinetic energy ``K(p)=p'M⁻¹p``, defaults to `1`.
+    Simple leapfrog implementation. `q`: position, `p`: momentum, `ℓ`: logdensity, `ϵ`: stepsize. `m` is the diagonal of the kinetic energy ``K(p)=p'M⁻¹p``, defaults to `1`.
     """
-    function leapfrog_Gaussian(q, p, ∇ℓ, ϵ, m = ones(length(p)))
+    function leapfrog_Gaussian(q, p, ℓ, ϵ, m = ones(length(p)))
         u = .√(1./m)
-        pₕ = p + ϵ/2*∇ℓ(q)
+        pₕ = p + ϵ/2*DiffBase.gradient(ℓ(q))
         q′ = q + ϵ * u .* (u .* pₕ) # mimic numerical calculation leapfrog performs
-        p′ = pₕ + ϵ/2*∇ℓ(q′)
+        p′ = pₕ + ϵ/2*DiffBase.gradient(ℓ(q′))
         q′, p′ 
     end
 
@@ -72,10 +70,10 @@ end
     ℓ = MvNormal(randn(n), full(Σ))
     H = Hamiltonian(ℓ, κ)
     ϵ = find_stable_ϵ(H)
-    ∇ℓ(q) = loggradient(ℓ, q)
+    ℓq = ℓ(q)
     q₂, p₂ = copy(q), copy(p)
-    q′, p′ = leapfrog_Gaussian(q, p, ∇ℓ, ϵ, m)
-    z = phasepoint(H, q, p)
+    q′, p′ = leapfrog_Gaussian(q, p, ℓ, ϵ, m)
+    z = PhasePoint(q, p, ℓq)
     z′ = leapfrog(H, z, ϵ)
 
     ⩳(x, y) = isapprox(x, y, rtol = √eps(), atol = √eps())
@@ -86,7 +84,7 @@ end
     @test z′.p ⩳ p′
 
     for i in 1:100
-        q, p = leapfrog_Gaussian(q, p, ∇ℓ, ϵ, m)
+        q, p = leapfrog_Gaussian(q, p, ℓ, ϵ, m)
         z = leapfrog(H, z, ϵ)
         @test z.q ⩳ q
         @test z.p ⩳ p
