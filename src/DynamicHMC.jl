@@ -29,16 +29,13 @@ import Base: rand, length, show
 import Base.LinAlg.checksquare
 import StatsFuns: logsumexp
 
-######################################################################
-# Hamiltonian and leapfrog
-######################################################################
-
 export
     # Hamiltonian
     KineticEnergy, EuclideanKE, GaussianKE, logdensity, loggradient, Hamiltonian,
     PhasePoint,
     # stepsize
-    find_reasonable_logϵ, adapt, DualAveragingParameters, DualAveragingAdaptation, adapting_ϵ,
+    logϵ_residual, find_reasonable_logϵ, adapt, DualAveragingParameters,
+    DualAveragingAdaptation, adapting_ϵ,
     # transition 
     NUTSTransition, variable, logdensity, depth, termination, acceptance_rate, steps,
     NUTS_transition, NUTS, mcmc, mcmc_adapting_ϵ, variable_matrix,
@@ -46,6 +43,29 @@ export
     sample_cov, EBFMI, NUTS_init, tune, TunerStepsize,
     TunerStepsizeCov, TunerSequence, bracketed_doubling_tuner,
     NUTSStatistics, NUTS_statistics, NUTS_tune, NUTS_tune_and_mcmc
+
+######################################################################
+# ensuring unshared structure
+######################################################################
+
+"""
+    Unshared(x)
+
+Wrap `x`, with the intention of indicating that it does not share structure. Use this constructor **only** when you are sure of this and want to avoid unnecessary copying. Otherwise use `ensure_unshared`.
+"""
+struct Unshared{T}
+    value::T
+end
+
+ensure_unshared(x::Unshared) = x
+
+@generated function ensure_unshared(x)
+    :(Unshared($(isbits(x) ? :x : :(deepcopy(x)))))
+end
+
+######################################################################
+# Hamiltonian and leapfrog
+######################################################################
 
 """
 Kinetic energy specifications.
@@ -125,7 +145,10 @@ struct PhasePoint{T,S}
     p::T
     "ℓ at q. Cached for reuse in sampling."
     ℓq::S
+    PhasePoint{T,S}(q::T, p::T, ℓq::Unshared{S}) where {T,S} = new(q, p, ℓq.value)
 end
+
+PhasePoint(q::T, p::T, ℓq::S) where {T,S} = PhasePoint{T,S}(q, p, ensure_unshared(ℓq))
 
 """
     rand_phasepoint(rng, H, q)
@@ -147,11 +170,10 @@ function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePo
     @unpack p, q, ℓq = z
     pₘ = p + ϵ/2 * DiffBase.gradient(ℓq)
     q′ = q - ϵ * loggradient(κ, pₘ)
-    ℓq′ = copy(ℓ(q′))
+    ℓq′ = ℓ(q′)
     p′ = pₘ + ϵ/2 * DiffBase.gradient(ℓq′)
     PhasePoint(q′, p′, ℓq′)
 end
-
 
 ######################################################################
 # stepsize heuristics and adaptation
@@ -230,6 +252,19 @@ function bracket_find_zero(f, x, Δ, C, tol;
 end
 
 """
+    logϵ_residual(H, z, a)
+
+Return a function that calculates `A(logϵ)-a`, where `logϵ` is the log of the stepsize, `A` is the acceptance rate for a single leapfrog step, and `a` is the target.
+"""
+function logϵ_residual(H, z, a)
+    target = logdensity(H, z) + log(a)
+    function(logϵ)
+        z′ = leapfrog(H, z, exp(logϵ))
+        logdensity(H, z′) - target
+    end
+end
+
+"""
     find_reasonable_logϵ(H, z; tol, a, ϵ₀, maxiter_bracket, maxiter_bisection)
 
 Let
@@ -249,11 +284,7 @@ Starts at `ϵ₀`, uses `maxiter` iterations for the bracketing and the rootfind
 function find_reasonable_logϵ(H, z; tol = 0.15, a = 0.75, ϵ₀ = 1.0,
                               maxiter_bracket = MAXITER_BRACKET,
                               maxiter_bisection = MAXITER_BISECTION)
-    target = logdensity(H, z) + log(a)
-    function residual(logϵ)
-        z′ = leapfrog(H, z, exp(logϵ))
-        logdensity(H, z′) - target
-    end
+    residual = logϵ_residual(H, z, a)
     bracket_find_zero(residual, log(ϵ₀), log(0.5), 1.1, tol;
                       maxiter_bracket = MAXITER_BRACKET,
                       maxiter_bisection = MAXITER_BISECTION)
