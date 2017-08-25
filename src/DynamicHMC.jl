@@ -753,12 +753,12 @@ function NUTS_init(rng, ℓ;
                    Minv = Diagonal(ones(length(ℓ))),
                    max_depth = 5,
                    ϵ = nothing,
-                   _...)
+                   args...)
     κ = GaussianKE(Minv)
     H = Hamiltonian(ℓ, κ)
     z = rand_phasepoint(rng, H, q)
     if ϵ == nothing
-        ϵ = exp(find_reasonable_logϵ(H, z))
+        ϵ = exp(find_reasonable_logϵ(H, z; args...))
     end
     NUTS(H, q, ϵ, max_depth)
 end
