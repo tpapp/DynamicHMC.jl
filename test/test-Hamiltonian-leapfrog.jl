@@ -54,9 +54,9 @@ end
     """
     function leapfrog_Gaussian(q, p, ℓ, ϵ, m = ones(length(p)))
         u = .√(1./m)
-        pₕ = p + ϵ/2*DiffBase.gradient(ℓ(q))
+        pₕ = p + ϵ/2*DiffResults.gradient(ℓ(q))
         q′ = q + ϵ * u .* (u .* pₕ) # mimic numerical calculation leapfrog performs
-        p′ = pₕ + ϵ/2*DiffBase.gradient(ℓ(q′))
+        p′ = pₕ + ϵ/2*DiffResults.gradient(ℓ(q′))
         q′, p′ 
     end
 

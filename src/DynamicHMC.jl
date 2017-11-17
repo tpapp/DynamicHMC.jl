@@ -22,7 +22,7 @@ module DynamicHMC
 
 using ArgCheck
 using DataStructures
-using DiffBase
+using DiffResults
 using Parameters
 
 import Base: rand, length, show
@@ -125,7 +125,7 @@ rand(rng, κ::GaussianKE, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
 Construct a Hamiltonian from the log density `ℓ`, and the kinetic energy specification `κ`.
 """
 struct Hamiltonian{Tℓ, Tκ}
-    "The (log) density we are sampling from. Calls of `ℓ` with a vector are expected to return a value that supports `DiffBase.value` and `DiffBase.gradient`. Returned values may share structure as they are always copied."
+    "The (log) density we are sampling from. Calls of `ℓ` with a vector are expected to return a value that supports `DiffResults.value` and `DiffResults.gradient`. Returned values may share structure as they are always copied."
     ℓ::Tℓ
     "The kinetic energy."
     κ::Tκ
@@ -160,7 +160,7 @@ rand_phasepoint(rng, H, q) = PhasePoint(q, rand(rng, H.κ), H.ℓ(q))
 """
 Log density for Hamiltonian `H` at point `z`.
 """
-logdensity(H::Hamiltonian, z::PhasePoint) = DiffBase.value(z.ℓq) + logdensity(H.κ, z.p, z.q)
+logdensity(H::Hamiltonian, z::PhasePoint) = DiffResults.value(z.ℓq) + logdensity(H.κ, z.p, z.q)
 
 getp♯(H::Hamiltonian, z::PhasePoint) = getp♯(H.κ, z.p, z.q)
 
@@ -168,10 +168,10 @@ getp♯(H::Hamiltonian, z::PhasePoint) = getp♯(H.κ, z.p, z.q)
 function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ)
     @unpack ℓ, κ = H
     @unpack p, q, ℓq = z
-    pₘ = p + ϵ/2 * DiffBase.gradient(ℓq)
+    pₘ = p + ϵ/2 * DiffResults.gradient(ℓq)
     q′ = q - ϵ * loggradient(κ, pₘ)
     ℓq′ = ℓ(q′)
-    p′ = pₘ + ϵ/2 * DiffBase.gradient(ℓq′)
+    p′ = pₘ + ϵ/2 * DiffResults.gradient(ℓq′)
     PhasePoint(q′, p′, ℓq′)
 end
 

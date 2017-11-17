@@ -14,7 +14,7 @@ import DynamicHMC:
 using Base.Test
 
 using ArgCheck
-using DiffBase
+using DiffResults
 using Distributions
 import ForwardDiff: gradient
 using MCMCDiagnostics
@@ -45,7 +45,7 @@ function test_loggradient(ℓ, x)
 end
 
 ## use MvNormal as a test distribution
-(ℓ::MvNormal)(p) = DiffBase.DiffResult(logpdf(ℓ, p), (gradlogpdf(ℓ, p), ))
+(ℓ::MvNormal)(p) = DiffResults.DiffResult(logpdf(ℓ, p), (gradlogpdf(ℓ, p), ))
 
 "Lenient comparison operator for `struct`, both mutable and immutable."
 @generated function ≂(x, y)
