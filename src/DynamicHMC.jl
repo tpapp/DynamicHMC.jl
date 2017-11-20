@@ -709,6 +709,13 @@ struct NUTS{TH, Tv, Tf}
     max_depth::Int
 end
 
+function show(io::IO, nuts::NUTS)
+    @unpack q, ϵ, max_depth = nuts
+    println(io, "NUTS sampler in $(length(q)) dimensions")
+    println(io, "  stepsize (ϵ) ≈ $(signif(ϵ, 3))")
+    println(io, "  maximum depth = $(max_depth)")
+end
+
 """
     mcmc(rng, sampler, N)
 
