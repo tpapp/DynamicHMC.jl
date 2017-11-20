@@ -106,6 +106,9 @@ GaussianKE(M::T, W::S) where {T,S} = GaussianKE{T,S}(M, W)
 
 GaussianKE(Minv::AbstractMatrix) = GaussianKE(Minv, inv(chol(Minv)))
 
+show(io::IO, κ::GaussianKE) =
+    println(io::IO, "Gaussian kinetic energy, √diag(M⁻¹): $(.√(diag(κ.Minv)))")
+
 """
     logdensity(κ, p, [q])
 
@@ -714,6 +717,7 @@ function show(io::IO, nuts::NUTS)
     println(io, "NUTS sampler in $(length(q)) dimensions")
     println(io, "  stepsize (ϵ) ≈ $(signif(ϵ, 3))")
     println(io, "  maximum depth = $(max_depth)")
+    println(io, "  $(nuts.H.κ)")
 end
 
 """
