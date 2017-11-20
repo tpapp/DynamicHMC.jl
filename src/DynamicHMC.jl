@@ -771,6 +771,8 @@ sample_cov(sample) = cov(variable_matrix(sample), 1)
 
 Energy Bayesian fraction of missing information. Useful for diagnosing poorly
 chosen kinetic energies.
+
+Low values (`≤ 0.3`) are considered problematic. See Betancourt (2016).
 """
 EBFMI(sample) = (πs = logdensity.(sample); mean(abs2, diff(πs)) / var(πs))
 
