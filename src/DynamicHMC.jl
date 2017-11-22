@@ -156,12 +156,20 @@ end
 PhasePoint(q::T, p::T, ℓq::S) where {T,S} = PhasePoint{T,S}(q, p, ensure_unshared(ℓq))
 
 """
+    phasepoint_in(H::Hamiltonian, q, p)
+
+The recommended interface for creating a phase point in a Hamiltonian. Computes
+cached values.
+"""
+phasepoint_in(H::Hamiltonian, q, p) = PhasePoint(q, p, H.ℓ(q))
+
+"""
     rand_phasepoint(rng, H, q)
 
 Extend a position `q` to a phasepoint with a random momentum according to the kinetic energy of `H`.
 """
-rand_phasepoint(rng, H, q) = PhasePoint(q, rand(rng, H.κ), H.ℓ(q))
-    
+rand_phasepoint(rng, H, q) = phasepoint_in(H, q, rand(rng, H.κ))
+
 """
 Log density for Hamiltonian `H` at point `z`.
 """
