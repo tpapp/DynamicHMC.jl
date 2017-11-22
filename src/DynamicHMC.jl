@@ -107,7 +107,7 @@ GaussianKE(M::T, W::S) where {T,S} = GaussianKE{T,S}(M, W)
 GaussianKE(Minv::AbstractMatrix) = GaussianKE(Minv, inv(chol(Minv)))
 
 show(io::IO, κ::GaussianKE) =
-    println(io::IO, "Gaussian kinetic energy, √diag(M⁻¹): $(.√(diag(κ.Minv)))")
+    print(io::IO, "Gaussian kinetic energy, √diag(M⁻¹): $(.√(diag(κ.Minv)))")
 
 """
     logdensity(κ, p, [q])
@@ -133,6 +133,8 @@ struct Hamiltonian{Tℓ, Tκ}
     "The kinetic energy."
     κ::Tκ
 end
+
+show(io::IO, H::Hamiltonian) = print(io, "Hamiltonian with $(H.κ)")
 
 """
 A point in phase space, consists of a position and a momentum.
