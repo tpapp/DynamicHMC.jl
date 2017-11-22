@@ -188,6 +188,34 @@ function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePo
     PhasePoint(q′, p′, ℓq′)
 end
 
+"""
+    isrejected(z)
+
+Test if the phasepoint `z` should be rejected. This happens when the log
+density, its gradient, the position (`q`) or the momentum (`p`) would be
+non-finite.
+
+## Discussion
+
+This is a strict rejection criterion, since it also examines the derivatives and
+the momentum. The latter can only be non-finite if this creeps in via a
+non-finite derivatives, which should be caught earlier.
+
+Rejected phase points should be considered divergent.
+
+It may be controversial to reject positive `Inf`, as this is most likely a
+coding error, but this is not checked for separately.
+
+In practice, either `NaN` or `-Inf` returned from `ℓ(q)` should be used to
+indicate a rejected sample point. All the alternatives are considered coding
+errors, and relying them is bad practice.
+"""
+function isrejected(z::PhasePoint)
+    !isfinite(DiffResults.value(z.ℓq)) ||
+        !all(isfinite, DiffResults.gradient(z.ℓq)) ||
+        !all(isfinite, z.q) || !all(isfinite, z.p)
+end
+
 ######################################################################
 # stepsize heuristics and adaptation
 ######################################################################
@@ -647,7 +675,7 @@ Return
 function leaf(trajectory::Trajectory, z, isinitial)
     @unpack H, π₀, min_Δ = trajectory
     Δ = isinitial ? zero(π₀) : logdensity(H, z) - π₀
-    isdiv = min_Δ > Δ
+    isdiv = isrejected(z) || (min_Δ > Δ)
     d = isinitial ? divergence_statistic() : divergence_statistic(isdiv, Δ)
     ζ = isdiv ? nothing : Proposal(z, Δ)
     τ = isdiv ? nothing : (p♯ = getp♯(trajectory.H, z); TurnStatistic(p♯, p♯, z.p))

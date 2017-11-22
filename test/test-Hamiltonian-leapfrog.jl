@@ -1,6 +1,8 @@
 import DynamicHMC:
-    GaussianKE, Hamiltonian, PhasePoint, loggradient, logdensity, rand_phasepoint,
-    leapfrog, move
+    GaussianKE, Hamiltonian, PhasePoint, loggradient, logdensity,
+    phasepoint_in, rand_phasepoint, leapfrog, move, isrejected
+
+import DiffResults: MutableDiffResult
 
 ######################################################################
 # Hamiltonian and leapfrog
@@ -126,4 +128,15 @@ end
         ϵ = exp(find_reasonable_logϵ(H, z))
         test_hamiltonian_invariance(H, z, 100, ϵ/20; atol = 2.0)
     end
+end
+
+@testset "leapfrog and rejection" begin
+    ℓ(q) = ifelse(0 ≤ q[1] ≤ 1,
+                  MutableDiffResult(1.0, (1.0,)),
+                  MutableDiffResult(-Inf, (NaN,)))
+    H = Hamiltonian(ℓ, GaussianKE(Diagonal([1.0])))
+    z₀ = phasepoint_in(H, [0.5], [0.5])
+    @test !isrejected(z₀)
+    z₁ = leapfrog(H, z₀, 1.0)
+    @test isrejected(z₁)
 end
