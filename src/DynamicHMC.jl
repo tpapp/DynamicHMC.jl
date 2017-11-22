@@ -4,7 +4,7 @@ Notation follows Betancourt (2017), with some differences.
 Instead of energies, densities (= - energy) are used in the code.
 
 ℓ: log density (we sample from)
-κ: distribution/density that corresponds to kinetic energy 
+κ: distribution/density that corresponds to kinetic energy
 H: Hamiltonian
 q: position
 p: momentum
@@ -36,7 +36,7 @@ export
     # stepsize
     logϵ_residual, find_reasonable_logϵ, adapt, DualAveragingParameters,
     DualAveragingAdaptation, adapting_ϵ,
-    # transition 
+    # transition
     NUTSTransition, variable, logdensity, depth, termination, acceptance_rate, steps,
     NUTS_transition, NUTS, mcmc, mcmc_adapting_ϵ, variable_matrix,
     # tuning and diagnostics
@@ -788,7 +788,7 @@ Low values (`≤ 0.3`) are considered problematic. See Betancourt (2016).
 EBFMI(sample) = (πs = logdensity.(sample); mean(abs2, diff(πs)) / var(πs))
 
 """
-    NUTS_init(rng, ℓ, q; Minv = I, logϵ)
+    NUTS_init(rng, ℓ; q = random, Minv = I, logϵ)
 
 Given a density `ℓ` and a position `q`, return an initial NUTS sampler using local information.
 """
