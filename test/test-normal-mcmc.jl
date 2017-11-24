@@ -1,9 +1,11 @@
 """
     zvalue(xs, x̄)
 
-Return the normalized value (x̂-x̄)/MCMCSE(x). If the sampler is correct, follows a Normal(0,1) distribution.
+Return the normalized value (x̂-x̄)/MCMCSE(x). If the sampler is correct, follows
+a Normal(0,1) distribution.
 
-MCMCSE(x) is the MCMC standard error, corrected by the effective sample size instead of the sample size.
+MCMCSE(x) is the MCMC standard error, corrected by the effective sample size
+instead of the sample size.
 """
 function zvalue(xs, x̄)
     ess = effective_sample_size(xs)
@@ -41,7 +43,8 @@ end
 """
     zthreshold(M, p)
 
-z threshold at which the maximum `|z|` out of `M` variables has cdf `1-p`, assuming normality.
+z threshold at which the maximum `|z|` out of `M` variables has cdf `1-p`,
+assuming normality.
 """
 zthreshold(M, p) = √quantile(Chisq(1), (1-p)^(1/M))
 
