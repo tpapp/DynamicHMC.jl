@@ -146,6 +146,8 @@ struct PhasePoint{T,S}
     ℓq::S
 end
 
+get_ℓq(z::PhasePoint) = z.ℓq
+
 """
     phasepoint_in(H::Hamiltonian, q, p)
 
@@ -166,7 +168,7 @@ rand_phasepoint(rng, H, q) = phasepoint_in(H, q, rand(rng, H.κ))
 Log density for Hamiltonian `H` at point `z`.
 """
 neg_energy(H::Hamiltonian, z::PhasePoint) =
-    DiffResults.value(z.ℓq) + neg_energy(H.κ, z.p, z.q)
+    DiffResults.value(get_ℓq(z)) + neg_energy(H.κ, z.p, z.q)
 
 get_p♯(H::Hamiltonian, z::PhasePoint) = get_p♯(H.κ, z.p, z.q)
 
@@ -204,8 +206,9 @@ indicate a rejected sample point. All the alternatives are considered coding
 errors, and relying them is bad practice.
 """
 function isrejected(z::PhasePoint)
-    !isfinite(DiffResults.value(z.ℓq)) ||
-        !all(isfinite, DiffResults.gradient(z.ℓq)) ||
+    ℓq = get_ℓq(z)
+    !isfinite(DiffResults.value(ℓq)) ||
+        !all(isfinite, DiffResults.gradient(ℓq)) ||
         !all(isfinite, z.q) || !all(isfinite, z.p)
 end
 
