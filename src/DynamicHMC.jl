@@ -45,25 +45,6 @@ export
     NUTSStatistics, NUTS_statistics, NUTS_tune, NUTS_tune_and_mcmc
 
 ######################################################################
-# ensuring unshared structure
-######################################################################
-
-"""
-    Unshared(x)
-
-Wrap `x`, with the intention of indicating that it does not share structure. Use this constructor **only** when you are sure of this and want to avoid unnecessary copying. Otherwise use `ensure_unshared`.
-"""
-struct Unshared{T}
-    value::T
-end
-
-ensure_unshared(x::Unshared) = x
-
-@generated function ensure_unshared(x)
-    :(Unshared($(isbits(x) ? :x : :(deepcopy(x)))))
-end
-
-######################################################################
 # Hamiltonian and leapfrog
 ######################################################################
 
@@ -148,12 +129,9 @@ struct PhasePoint{T,S}
     q::T
     "Momentum."
     p::T
-    "ℓ at q. Cached for reuse in sampling."
+    "ℓ(q). Cached for reuse in sampling."
     ℓq::S
-    PhasePoint{T,S}(q::T, p::T, ℓq::Unshared{S}) where {T,S} = new(q, p, ℓq.value)
 end
-
-PhasePoint(q::T, p::T, ℓq::S) where {T,S} = PhasePoint{T,S}(q, p, ensure_unshared(ℓq))
 
 """
     phasepoint_in(H::Hamiltonian, q, p)
