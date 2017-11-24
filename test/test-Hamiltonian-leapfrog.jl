@@ -1,6 +1,6 @@
 import DynamicHMC:
-    GaussianKE, Hamiltonian, PhasePoint, loggradient, logdensity,
-    phasepoint_in, rand_phasepoint, leapfrog, move, isrejected
+    logdensity, phasepoint_in, rand_phasepoint, leapfrog, move, isrejected,
+    find_reasonable_logϵ
 
 import DiffResults: MutableDiffResult
 

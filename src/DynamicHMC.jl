@@ -31,18 +31,14 @@ import StatsFuns: logsumexp
 
 export
     # Hamiltonian
-    KineticEnergy, EuclideanKE, GaussianKE, logdensity, loggradient,
-    Hamiltonian, PhasePoint,
-    # stepsize
-    logϵ_residual, find_reasonable_logϵ, adapt, DualAveragingParameters,
-    DualAveragingAdaptation, adapting_ϵ,
+    KineticEnergy, EuclideanKE, GaussianKE,
     # transition
     NUTS_Transition, variable, logdensity, depth, termination, acceptance_rate,
-    steps, NUTS_transition, NUTS, mcmc, mcmc_adapting_ϵ, variable_matrix,
+    steps, NUTS_transition, NUTS_Sampler, mcmc, mcmc_adapting_ϵ, variable_matrix,
     # tuning and diagnostics
-    sample_cov, EBFMI, NUTS_init, tune, TunerStepsize,
-    TunerStepsizeCov, TunerSequence, bracketed_doubling_tuner,
-    NUTSStatistics, NUTS_statistics, NUTS_tune, NUTS_tune_and_mcmc
+    sample_cov, EBFMI, NUTS_init, tune,
+    StepsizeTuner, StepsizeCovTuner, TunerSequence, bracketed_doubling_tuner,
+    NUTS_Statistics, NUTS_statistics, NUTS_init_tune_mcmc
 
 ######################################################################
 # Hamiltonian and leapfrog
@@ -402,13 +398,14 @@ function adapting_ϵ(ϵ; args...)
 end
 
 """
-    A′ = adapt(parameters, A, a)
+    A′ = adapt_stepsize(parameters, A, a)
 
 Update the adaptation `A` of log stepsize `logϵ` with average Metropolis
 acceptance rate `a` over the whole visited trajectory, using the dual averaging
 algorithm of Gelman and Hoffman (2014, Algorithm 6). Return the new adaptation.
 """
-function adapt(parameters::DualAveragingParameters, A::DualAveragingAdaptation, a)
+function adapt_stepsize(parameters::DualAveragingParameters,
+                        A::DualAveragingAdaptation, a)
     @argcheck 0 ≤ a ≤ 1
     @unpack μ, δ, γ, κ, t₀ = parameters
     @unpack m, H̄, logϵ, logϵ̄ = A
@@ -776,11 +773,17 @@ function NUTS_transition(rng, H, q, ϵ, max_depth; args...)
     NUTS_Transition(ζ.z.q, logdensity(H, ζ.z), depth, termination, acceptance_rate(d), d.steps)
 end
 
+######################################################################
+# high-level interface: sampler
+######################################################################
+
 """
-Specification for the No-U-turn algorithm, including the Hamiltonian, the
-initial position, and the parameters.
+Specification for the No-U-turn algorithm, including the random number
+generator, Hamiltonian, the initial position, and various parameters.
 """
-struct NUTS{TH, Tv, Tf}
+struct NUTS{Tv, Tf, TR, TH}
+    "Random number generator."
+    rng::TR
     "Hamiltonian"
     H::TH
     "position"
@@ -800,13 +803,13 @@ function show(io::IO, nuts::NUTS)
 end
 
 """
-    mcmc(rng, sampler, N)
+    mcmc(sampler, N)
 
 Run the MCMC `sampler` for `N` iterations, returning the results as a vector,
 which has elements that conform to the sampler.
 """
-function mcmc(rng, sampler::NUTS{TH,Tv,Tf}, N::Int) where {TH,Tv,Tf}
-    @unpack H, q, ϵ, max_depth = sampler
+function mcmc(sampler::NUTS{Tv,Tf}, N::Int) where {Tv,Tf}
+    @unpack rng, H, q, ϵ, max_depth = sampler
     sample = Vector{NUTS_Transition{Tv,Tf}}(N)
     for i in 1:N
         trans = NUTS_transition(rng, H, q, ϵ, max_depth)
@@ -825,20 +828,20 @@ second value.
 
 When the last two parameters are not specified, initialize using `adapting_ϵ`.
 """
-function mcmc_adapting_ϵ(rng, sampler::NUTS{TH,Tv,Tf}, N::Int, A_params, A) where {TH,Tv,Tf}
-    @unpack H, q, max_depth = sampler
+function mcmc_adapting_ϵ(sampler::NUTS{Tv,Tf}, N::Int, A_params, A) where {Tv,Tf}
+    @unpack rng, H, q, max_depth = sampler
     sample = Vector{NUTS_Transition{Tv,Tf}}(N)
     for i in 1:N
         trans = NUTS_transition(rng, H, q, getϵ(A), max_depth)
-        A = adapt(A_params, A, trans.a)
+        A = adapt_stepsize(A_params, A, trans.a)
         q = trans.q
         sample[i] .= trans
     end
     sample, A
 end
 
-mcmc_adapting_ϵ(rng, sampler::NUTS, N) =
-    mcmc_adapting_ϵ(rng, sampler, N, adapting_ϵ(sampler.ϵ)...)
+mcmc_adapting_ϵ(sampler::NUTS, N) =
+    mcmc_adapting_ϵ(sampler, N, adapting_ϵ(sampler.ϵ)...)
 
 """
     variable_matrix(posterior)
@@ -876,7 +879,20 @@ Initialize a NUTS sampler for log density `ℓ` using local information.
 
 # Arguments
 
-- 
+- `rng`: the random number generator
+
+- `ℓ`: the likelihood function, should return a type that supports
+  `DiffResults.value` and `DiffResults.gradient`
+
+- `κ`: kinetic energy specification. *Default*: Gaussian with identity matrix.
+
+- `q`: initial position. *Default*: random from standard multivariate normal.
+
+- `p`: initial momentum. *Default*: random from standard multivariate normal.
+
+- `max_depth`: maximum tree depth. *Default*: `5`.
+
+- `ϵ`: initial stepsize. Default: found using a bracketing algorithm.
 """
 function NUTS_init(rng, ℓ;
                    κ = GaussianKE(length(ℓ)),
@@ -890,37 +906,55 @@ function NUTS_init(rng, ℓ;
     if ϵ == nothing
         ϵ = exp(find_reasonable_logϵ(H, z; args...))
     end
-    NUTS(H, q, ϵ, max_depth)
+    NUTS(rng, H, q, ϵ, max_depth)
 end
 
-"Tune the integrator stepsize."
-struct TunerStepsize
+######################################################################
+# tuning: abstract interface
+######################################################################
+
+"""
+A tuner that adapts the sampler.
+
+All subtypes support `length` which returns the number of steps (*note*: if not
+in field `N`, define `length` accordingly), other parameters vary.
+"""
+abstract type AbstractTuner end
+
+length(tuner::AbstractTuner) = tuner.N
+
+"""
+    sampler′ = tune(sampler, tune)
+
+Given a `sampler` (or similar a parametrization) and a `tuner`, return the
+updated sampler state after tuning.
+"""
+function tune end
+
+######################################################################
+# tuning: tuner building blocks
+######################################################################
+
+"Adapt the integrator stepsize for `N` samples."
+struct StepsizeTuner <: AbstractTuner
     N::Int
 end
 
-function show(io::IO, tuner::TunerStepsize)
+show(io::IO, tuner::StepsizeTuner) =
     println(io, "Stepsize tuner, $(tuner.N) samples")
-end
 
-length(tuner::TunerStepsize) = tuner.N
 
-"""
-    tune(rng, tunestate, tune)
-
-Given a `tunestate` and a `tuner`, return the updated tune state. Use `rng` as a
-random number generator.
-"""
-function tune(rng, sampler::NUTS, tuner::TunerStepsize)
-    @unpack H, max_depth = sampler
-    sample, A = mcmc_adapting_ϵ(rng, sampler, tuner.N)
-    NUTS(H, sample[end].q, getϵ(A, false), max_depth)
+function tune(sampler::NUTS, tuner::StepsizeTuner)
+    @unpack rng, H, max_depth = sampler
+    sample, A = mcmc_adapting_ϵ(sampler, tuner.N)
+    NUTS(rng, H, sample[end].q, getϵ(A, false), max_depth)
 end
 
 """
 Tune the integrator stepsize and covariance. Covariance tuning is from scratch
 (no prior information is used), regularized towards the identity matrix.
 """
-struct TunerStepsizeCov{Tf}
+struct StepsizeCovTuner{Tf} <: AbstractTuner
     "Number of samples."
     N::Int
     """
@@ -931,25 +965,23 @@ struct TunerStepsizeCov{Tf}
     regularize::Tf
 end
 
-function show(io::IO, tuner::TunerStepsizeCov)
+function show(io::IO, tuner::StepsizeCovTuner)
     @unpack N, regularize = tuner
     println(io, "Stepsize and covariance tuner, $(N) samples, regularization $(regularize)")
 end
 
-length(tuner::TunerStepsizeCov) = tuner.N
-
-function tune(rng, sampler::NUTS, tuner::TunerStepsizeCov)
+function tune(sampler::NUTS, tuner::StepsizeCovTuner)
     @unpack regularize, N = tuner
-    @unpack H, max_depth = sampler
-    sample, A = mcmc_adapting_ϵ(rng, sampler, N)
+    @unpack rng, H, max_depth = sampler
+    sample, A = mcmc_adapting_ϵ(sampler, N)
     Σ = sample_cov(sample)
     Σ .+= (UniformScaling(median(diag(Σ)))-Σ) * regularize/N
     κ = GaussianKE(Σ)
-    NUTS(Hamiltonian(H.ℓ, κ), sample[end].q, getϵ(A), max_depth)
+    NUTS(rng, Hamiltonian(H.ℓ, κ), sample[end].q, getϵ(A), max_depth)
 end
 
 "Sequence of tuners, applied in the given order."
-struct TunerSequence{T}
+struct TunerSequence{T} <: AbstractTuner
     tuners::T
 end
 
@@ -980,59 +1012,54 @@ A sequence of tuners:
 """
 function bracketed_doubling_tuner(; init = 75, mid = 25, M = 5, term = 50,
                                   regularize = 5.0, _...)
-    tunes = Any[TunerStepsize(init)]
+    tuners = Union{StepsizeTuner, StepsizeCovTuner}[StepsizeTuner(init)]
     for _ in 1:M
-        tunes = push!(tunes, TunerStepsizeCov(mid, regularize))
+        tuners = push!(tuners, StepsizeCovTuner(mid, regularize))
         mid *= 2
     end
-    push!(tunes, TunerStepsize(term))
-    TunerSequence(tunes)
+    push!(tuners, StepsizeTuner(term))
+    TunerSequence(tuners)
 end
 
-function tune(rng, sampler, seq::TunerSequence)
+function tune(sampler, seq::TunerSequence)
     for tuner in seq.tuners
-        sampler = tune(rng, sampler, tuner)
+        sampler = tune(sampler, tuner)
     end
     sampler
 end
 
 """
-    NUTS_tune(rng, ℓ, N; args...)
+    sample, tuned_sampler = NUTS_init_tune_mcmc(rng, ℓ, N; args...)
 
-Given a random number generator `rng` and a log density function `ℓ`, tune the
-NUTS sampler for `N` steps adaptively.
-"""
-function NUTS_tune(rng, ℓ, N; args...)
-    init_sampler = NUTS_init(rng, ℓ; args...)
-    tune(rng, init_sampler, bracketed_doubling_tuner(; args...))
-end
-
-"""
-    sample, tuned_sampler = NUTS_tune_and_mcmc(rng, ℓ, N; args...)
-
- and then generate `N` samples.
-
-`args` are passed on to [`TunerNUTS_init`](@ref) and
+Init, tune, and then draw `N` samples from `ℓ` using the NUTS algorithm. `args`
+are passed on to various methods, see [`NUTS_init`](@ref) and
 [`bracketed_doubling_tuner`](@ref).
 
-`ℓ` should support the following methods:
+For parameters `q`, `ℓ(q)` should return an object that support the following
+methods: `DiffResults.value`, `DiffResults.gradient`. `ℓ` should support
+`Base.length` which returns the dimension.
 
 `logdensity(ℓ, x)`, `loggradient(ℓ, x)`, `length(ℓ)`.
 
 Most users would use this function, unless they are doing something that
 requires manual tuning.
 """
-function NUTS_tune_and_mcmc(rng, ℓ, N; args...)
-    tuned_sampler = NUTS_tune(rng, ℓ, N; args...)
-    mcmc(rng, tuned_sampler, N), tuned_sampler
+function NUTS_init_tune_mcmc(rng, ℓ, N; args...)
+    sampler_init = NUTS_init(rng, ℓ; args...)
+    sampler_tuned = tune(sampler_init, bracketed_doubling_tuner(; args...))
+    mcmc(sampler_tuned, N), sampler_tuned
 end
 
-"Acceptance quantiles for NUTSStatistics."
+######################################################################
+# statistics and diagnostics
+######################################################################
+
+"Acceptance quantiles for NUTS_Statistics."
 const ACCEPTANCE_QUANTILES = linspace(0, 1, 5)
 
-struct NUTSStatistics{T <: Real,
-                      DT <: Associative{Termination,Int},
-                      DD <: Associative{Int,Int}}
+struct NUTS_Statistics{T <: Real,
+                       DT <: Associative{Termination,Int},
+                       DD <: Associative{Int,Int}}
     "Sample length."
     N::Int
     "average_acceptance"
@@ -1053,12 +1080,12 @@ NUTS diagnostics.
 """
 function NUTS_statistics(sample)
     as = acceptance_rate.(sample)
-    NUTSStatistics(length(sample),
-                   mean(as), quantile(as, ACCEPTANCE_QUANTILES),
-                   counter(termination.(sample)), counter(depth.(sample)))
+    NUTS_Statistics(length(sample),
+                    mean(as), quantile(as, ACCEPTANCE_QUANTILES),
+                    counter(termination.(sample)), counter(depth.(sample)))
 end
 
-function show(io::IO, stats::NUTSStatistics)
+function show(io::IO, stats::NUTS_Statistics)
     @unpack N, a_mean, a_quantiles, termination_counts, depth_counts = stats
     println(io, "Hamiltonian Monte Carlo sample of length $(N)")
     print(io, "  acceptance rate mean: $(round(a_mean,2)), min/25%/median/75%/max:")

@@ -37,9 +37,9 @@ end
     ℓ = MvNormal(zeros(K), fill(2.0, K))
     q = randn(K)
     sampler = NUTS_init(RNG, ℓ)
-    tuner = TunerStepsize(100)
-    sampler2 = tune(RNG, sampler, tuner)
-    tuner2 = TunerStepsizeCov(200, 10)
-    sampler3 = tune(RNG, sampler, tuner2)
+    tuner = StepsizeTuner(100)
+    sampler2 = tune(sampler, tuner)
+    tuner2 = StepsizeCovTuner(200, 10)
+    sampler3 = tune(sampler, tuner2)
     @test all(diag(sampler3.H.κ.Minv) .≥ 2)
 end

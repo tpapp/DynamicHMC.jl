@@ -1,5 +1,14 @@
+import DynamicHMC:
+    adapt_stepsize, DualAveragingParameters, DualAveragingAdaptation
+
+"""
+    dummy_acceptance_rate(logϵ)
+
+A parametric random acceptance rate that depends on the stepsize. For unit
+testing acceptance rate tuning.
+"""
 function dummy_acceptance_rate(logϵ, σ = 0.05)
-    exp(-logϵ+randn()*σ-σ^2/2)  # not constrained to be ≤ 1, modify accordingly
+    exp(-logϵ + randn()*σ - σ^2/2)  # not constrained to be ≤ 1, modify accordingly
 end
 
 @testset "dummy acceptance rate stochastic" begin
@@ -16,7 +25,7 @@ end
     @test A.m == 0
     @test A.H̄ == 0
     for _ in 1:5000
-        A = adapt(params, A, min(dummy_acceptance_rate(A.logϵ), 1))
+        A = adapt_stepsize(params, A, min(dummy_acceptance_rate(A.logϵ), 1))
     end
     @test dummy_acceptance_rate(A.logϵ, 0) ≈ δ atol = 0.03
 end
@@ -27,7 +36,7 @@ end
     params = DualAveragingParameters(logϵ₀; δ = δ)
     A = DualAveragingAdaptation(logϵ₀)
     for _ in 1:2000
-        A = adapt(params, A, min(dummy_acceptance_rate(A.logϵ), 1))
+        A = adapt_stepsize(params, A, min(dummy_acceptance_rate(A.logϵ), 1))
     end
     @test dummy_acceptance_rate(A.logϵ, 0) ≈ δ atol = 0.03
 end
