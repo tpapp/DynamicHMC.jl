@@ -1,11 +1,11 @@
 using DynamicHMC
 import DynamicHMC:
-    logdensity,
+    neg_energy,
     loggradient,
     GaussianKE,
     Hamiltonian,
     loggradient,
-    logdensity,
+    neg_energy,
     PhasePoint,
     rand_phasepoint,
     leapfrog,
@@ -37,10 +37,10 @@ rand_Σ(::Type{Diagonal}, n) = Diagonal(randn(RNG, n).^2+0.01)
 
 rand_Σ(n::Int) = rand_Σ(Symmetric, n)
 
-"Test `loggradient` vs autodiff `logdensity`."
+"Test `loggradient` vs autodiff `neg_energy`."
 function test_loggradient(ℓ, x)
     ∇ = loggradient(ℓ, x)
-    ∇_AD = ForwardDiff.gradient(x->logdensity(ℓ,x), x)
+    ∇_AD = ForwardDiff.gradient(x->neg_energy(ℓ,x), x)
     @test ∇ ≈ ∇_AD
 end
 
@@ -109,12 +109,12 @@ end
 
 "Simple Hamiltonian Monte Carlo transition, for testing."
 function simple_HMC(rng, H, z::PhasePoint, ϵ, L)
-    π₀ = logdensity(H, z)
+    π₀ = neg_energy(H, z)
     z′ = z
     for _ in 1:L
         z′ = leapfrog(H, z′, ϵ)
     end
-    Δ = logdensity(H, z′) - π₀
+    Δ = neg_energy(H, z′) - π₀
     accept = Δ > 0 || (rand(rng) < exp(Δ))
     accept ? z′ : z
 end

@@ -33,7 +33,7 @@ export
     # Hamiltonian
     KineticEnergy, EuclideanKE, GaussianKE,
     # transition
-    NUTS_Transition, get_position, get_logdensity, get_depth, get_termination,
+    NUTS_Transition, get_position, get_neg_energy, get_depth, get_termination,
     get_acceptance_rate, get_steps, NUTS, mcmc, mcmc_adapting_ϵ,
     # tuning and diagnostics
     NUTS_init_tune_mcmc, sample_cov, EBFMI, NUTS_statistics, get_position_matrix
@@ -50,7 +50,7 @@ For all subtypes, it is assumed that kinetic energy is symmetric in
 the momentum `p`, ie.
 
 ```julia
-logdensity(::KineticEnergy, p, q) == logdensity(::KineticEnergy, -p, q)
+neg_energy(::KineticEnergy, p, q) == neg_energy(::KineticEnergy, -p, q)
 ```
 
 When the above is violated, various implicit assumptions will not hold.
@@ -98,16 +98,16 @@ show(io::IO, κ::GaussianKE) =
     print(io::IO, "Gaussian kinetic energy, √diag(M⁻¹): $(.√(diag(κ.Minv)))")
 
 """
-    logdensity(κ, p, [q])
+    neg_energy(κ, p, [q])
 
 Return the log density of kinetic energy `κ`, at momentum `p`. Some kinetic
 energies (eg Riemannian geometry) will need `q`, too.
 """
-logdensity(κ::GaussianKE, p, q = nothing) = -dot(p, κ.Minv * p) / 2
+neg_energy(κ::GaussianKE, p, q = nothing) = -dot(p, κ.Minv * p) / 2
 
-getp♯(κ::GaussianKE, p, q = nothing) = κ.Minv * p
+get_p♯(κ::GaussianKE, p, q = nothing) = κ.Minv * p
 
-loggradient(κ::GaussianKE, p, q = nothing) = -getp♯(κ, p)
+loggradient(κ::GaussianKE, p, q = nothing) = -get_p♯(κ, p)
 
 rand(rng, κ::GaussianKE, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
 
@@ -165,10 +165,10 @@ rand_phasepoint(rng, H, q) = phasepoint_in(H, q, rand(rng, H.κ))
 """
 Log density for Hamiltonian `H` at point `z`.
 """
-logdensity(H::Hamiltonian, z::PhasePoint) =
-    DiffResults.value(z.ℓq) + logdensity(H.κ, z.p, z.q)
+neg_energy(H::Hamiltonian, z::PhasePoint) =
+    DiffResults.value(z.ℓq) + neg_energy(H.κ, z.p, z.q)
 
-getp♯(H::Hamiltonian, z::PhasePoint) = getp♯(H.κ, z.p, z.q)
+get_p♯(H::Hamiltonian, z::PhasePoint) = get_p♯(H.κ, z.p, z.q)
 
 "Take a leapfrog step in phase space."
 function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ)
@@ -297,10 +297,10 @@ stepsize, `A` is the acceptance rate for a single leapfrog step, and `a` is the
 target.
 """
 function logϵ_residual(H, z, a)
-    target = logdensity(H, z) + log(a)
+    target = neg_energy(H, z) + log(a)
     function(logϵ)
         z′ = leapfrog(H, z, exp(logϵ))
-        logdensity(H, z′) - target
+        neg_energy(H, z′) - target
     end
 end
 
@@ -313,7 +313,7 @@ Let
 
 and
 
-``A(ϵ) = exp(logdensity(H, z′) - logdensity(H, z))``
+``A(ϵ) = exp(neg_energy(H, z′) - neg_energy(H, z))``
 
 denote the ratio of densities between a point `z` and another point after one
 leapfrog step with stepsize `ϵ`.
@@ -376,12 +376,12 @@ struct DualAveragingAdaptation{T <: AbstractFloat}
 end
 
 """
-    getϵ(A, tuning = true)
+    get_ϵ(A, tuning = true)
 
 When `tuning`, return the stepsize `ϵ` for the next HMC step. Otherwise return
 the tuned `ϵ`.
 """
-getϵ(A::DualAveragingAdaptation, tuning = true) = exp(tuning ? A.logϵ : A.logϵ̄)
+get_ϵ(A::DualAveragingAdaptation, tuning = true) = exp(tuning ? A.logϵ : A.logϵ̄)
 
 DualAveragingAdaptation(logϵ₀) =
     DualAveragingAdaptation(0, zero(logϵ₀), logϵ₀, zero(logϵ₀))
@@ -701,11 +701,11 @@ Return
 """
 function leaf(trajectory::Trajectory, z, isinitial)
     @unpack H, π₀, min_Δ = trajectory
-    Δ = isinitial ? zero(π₀) : logdensity(H, z) - π₀
+    Δ = isinitial ? zero(π₀) : neg_energy(H, z) - π₀
     isdiv = isrejected(z) || (min_Δ > Δ)
     d = isinitial ? divergence_statistic() : divergence_statistic(isdiv, Δ)
     ζ = isdiv ? nothing : Proposal(z, Δ)
-    τ = isdiv ? nothing : (p♯ = getp♯(trajectory.H, z); TurnStatistic(p♯, p♯, z.p))
+    τ = isdiv ? nothing : (p♯ = get_p♯(trajectory.H, z); TurnStatistic(p♯, p♯, z.p))
     ζ, τ, d
 end
 
@@ -727,7 +727,7 @@ diagnostic information.
 struct NUTS_Transition{Tv,Tf}
     "New position."
     q::Tv
-    "Log density."
+    "Log density (negative energy)."
     π::Tf
     "Depth of the tree."
     depth::Int
@@ -742,8 +742,8 @@ end
 "Position after transition."
 get_position(x::NUTS_Transition) = x.q
 
-"Log density (negative energy of the Hamiltonian) at the position."
-get_logdensity(x::NUTS_Transition) = x.π
+"Negative energy of the Hamiltonian at the position."
+get_neg_energy(x::NUTS_Transition) = x.π
 
 "Tree depth."
 get_depth(x::NUTS_Transition) = x.depth
@@ -767,9 +767,9 @@ the random number generator used.
 """
 function NUTS_transition(rng, H, q, ϵ, max_depth; args...)
     z = rand_phasepoint(rng, H, q)
-    trajectory = Trajectory(H, logdensity(H, z), ϵ; args...)
+    trajectory = Trajectory(H, neg_energy(H, z), ϵ; args...)
     ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth)
-    NUTS_Transition(ζ.z.q, logdensity(H, ζ.z), depth, termination,
+    NUTS_Transition(ζ.z.q, neg_energy(H, ζ.z), depth, termination,
                     get_acceptance_rate(d), d.steps)
 end
 
@@ -832,7 +832,7 @@ function mcmc_adapting_ϵ(sampler::NUTS{Tv,Tf}, N::Int, A_params, A) where {Tv,T
     @unpack rng, H, q, max_depth = sampler
     sample = Vector{NUTS_Transition{Tv,Tf}}(N)
     for i in 1:N
-        trans = NUTS_transition(rng, H, q, getϵ(A), max_depth)
+        trans = NUTS_transition(rng, H, q, get_ϵ(A), max_depth)
         A = adapt_stepsize(A_params, A, trans.a)
         q = trans.q
         sample[i] .= trans
@@ -870,7 +870,7 @@ chosen kinetic energies.
 
 Low values (`≤ 0.3`) are considered problematic. See Betancourt (2016).
 """
-EBFMI(sample) = (πs = get_logdensity.(sample); mean(abs2, diff(πs)) / var(πs))
+EBFMI(sample) = (πs = get_neg_energy.(sample); mean(abs2, diff(πs)) / var(πs))
 
 """
     NUTS_init(rng, ℓ; κ = GaussianKE(length(ℓ)), q, p, max_depth, ϵ)
@@ -947,7 +947,7 @@ show(io::IO, tuner::StepsizeTuner) =
 function tune(sampler::NUTS, tuner::StepsizeTuner)
     @unpack rng, H, max_depth = sampler
     sample, A = mcmc_adapting_ϵ(sampler, tuner.N)
-    NUTS(rng, H, sample[end].q, getϵ(A, false), max_depth)
+    NUTS(rng, H, sample[end].q, get_ϵ(A, false), max_depth)
 end
 
 """
@@ -977,7 +977,7 @@ function tune(sampler::NUTS, tuner::StepsizeCovTuner)
     Σ = sample_cov(sample)
     Σ .+= (UniformScaling(median(diag(Σ)))-Σ) * regularize/N
     κ = GaussianKE(Σ)
-    NUTS(rng, Hamiltonian(H.ℓ, κ), sample[end].q, getϵ(A), max_depth)
+    NUTS(rng, Hamiltonian(H.ℓ, κ), sample[end].q, get_ϵ(A), max_depth)
 end
 
 "Sequence of tuners, applied in the given order."
@@ -1038,8 +1038,6 @@ are passed on to various methods, see [`NUTS_init`](@ref) and
 For parameters `q`, `ℓ(q)` should return an object that support the following
 methods: `DiffResults.value`, `DiffResults.gradient`. `ℓ` should support
 `Base.length` which returns the dimension.
-
-`logdensity(ℓ, x)`, `loggradient(ℓ, x)`, `length(ℓ)`.
 
 Most users would use this function, unless they are doing something that
 requires manual tuning.

@@ -1,5 +1,5 @@
 import DynamicHMC:
-    logdensity, phasepoint_in, rand_phasepoint, leapfrog, move, isrejected,
+    neg_energy, phasepoint_in, rand_phasepoint, leapfrog, move, isrejected,
     find_reasonable_logϵ
 
 import DiffResults: MutableDiffResult
@@ -52,7 +52,7 @@ end
 
 @testset "leapfrog" begin
     """
-    Simple leapfrog implementation. `q`: position, `p`: momentum, `ℓ`: logdensity, `ϵ`: stepsize. `m` is the diagonal of the kinetic energy ``K(p)=p'M⁻¹p``, defaults to `1`.
+    Simple leapfrog implementation. `q`: position, `p`: momentum, `ℓ`: neg_energy, `ϵ`: stepsize. `m` is the diagonal of the kinetic energy ``K(p)=p'M⁻¹p``, defaults to `1`.
     """
     function leapfrog_Gaussian(q, p, ℓ, ϵ, m = ones(length(p)))
         u = .√(1./m)
@@ -100,7 +100,7 @@ end
         tol = 0.2
         a = 0.5
         ϵ = exp(find_reasonable_logϵ(H, z; tol = tol, a = a))
-        logA = logdensity(H, leapfrog(H, z, ϵ)) - logdensity(H, z)
+        logA = neg_energy(H, leapfrog(H, z, ϵ)) - neg_energy(H, z)
         @test logA ≈ log(a) atol = tol
     end
 end
@@ -108,11 +108,11 @@ end
 @testset "leapfrog" begin
     "Test that the Hamiltonian is invariant using the leapfrog integrator."
     function test_hamiltonian_invariance(H, z, L, ϵ; atol = one(ϵ))
-        π₀ = logdensity(H, z)
+        π₀ = neg_energy(H, z)
         warned = false
         for i in 1:L
             z = leapfrog(H, z, ϵ)
-            Δ = π₀ - logdensity(H, z)
+            Δ = π₀ - neg_energy(H, z)
             if abs(Δ) ≥ atol && !warned
                 warn("Hamiltonian invariance violated: step $(i) of $(L), Δ = $(Δ)")
                 show(H)
