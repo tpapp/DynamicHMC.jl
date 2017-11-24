@@ -37,7 +37,7 @@ export
     logϵ_residual, find_reasonable_logϵ, adapt, DualAveragingParameters,
     DualAveragingAdaptation, adapting_ϵ,
     # transition
-    NUTSTransition, variable, logdensity, depth, termination, acceptance_rate,
+    NUTS_Transition, variable, logdensity, depth, termination, acceptance_rate,
     steps, NUTS_transition, NUTS, mcmc, mcmc_adapting_ϵ, variable_matrix,
     # tuning and diagnostics
     sample_cov, EBFMI, NUTS_init, tune, TunerStepsize,
@@ -85,7 +85,19 @@ end
 
 GaussianKE(M::T, W::S) where {T,S} = GaussianKE{T,S}(M, W)
 
+"""
+    GaussianKE(M⁻¹::AbstractMatrix)
+
+Gaussian kinetic energy with the given inverse covariance matrix `M⁻¹`.
+"""
 GaussianKE(Minv::AbstractMatrix) = GaussianKE(Minv, inv(chol(Minv)))
+
+"""
+    GaussianKE(N::Int, [m⁻¹ = 1.0])
+
+Gaussian kinetic energy with a diagonal inverse covariance matrix `M⁻¹=m⁻¹*I`.
+"""
+GaussianKE(N::Int, m⁻¹ = 1.0) = GaussianKE(Diagonal(fill(m⁻¹, N)))
 
 show(io::IO, κ::GaussianKE) =
     print(io::IO, "Gaussian kinetic energy, √diag(M⁻¹): $(.√(diag(κ.Minv)))")
@@ -716,7 +728,7 @@ end
 Single transition by the No-U-turn sampler. Contains new position and
 diagnostic information.
 """
-struct NUTSTransition{Tv,Tf}
+struct NUTS_Transition{Tv,Tf}
     "New position."
     q::Tv
     "Log density."
@@ -732,22 +744,22 @@ struct NUTSTransition{Tv,Tf}
 end
 
 "Position after transition."
-variable(x::NUTSTransition) = x.q
+variable(x::NUTS_Transition) = x.q
 
 "Log density (negative energy of the Hamiltonian) at the position."
-logdensity(x::NUTSTransition) = x.π
+logdensity(x::NUTS_Transition) = x.π
 
 "Tree depth."
-depth(x::NUTSTransition) = x.depth
+depth(x::NUTS_Transition) = x.depth
 
 "Reason for termination, see [`Termination`](@ref)."
-termination(x::NUTSTransition) = x.termination
+termination(x::NUTS_Transition) = x.termination
 
 "Average acceptance rate over trajectory."
-acceptance_rate(x::NUTSTransition) = x.a
+acceptance_rate(x::NUTS_Transition) = x.a
 
 "Number of integrator steps."
-steps(x::NUTSTransition) = x.steps
+steps(x::NUTS_Transition) = x.steps
 
 """
     NUTS_transition(rng, H, q, ϵ, max_depth; args...)
@@ -761,7 +773,7 @@ function NUTS_transition(rng, H, q, ϵ, max_depth; args...)
     z = rand_phasepoint(rng, H, q)
     trajectory = Trajectory(H, logdensity(H, z), ϵ; args...)
     ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth)
-    NUTSTransition(ζ.z.q, logdensity(H, ζ.z), depth, termination, acceptance_rate(d), d.steps)
+    NUTS_Transition(ζ.z.q, logdensity(H, ζ.z), depth, termination, acceptance_rate(d), d.steps)
 end
 
 """
@@ -795,7 +807,7 @@ which has elements that conform to the sampler.
 """
 function mcmc(rng, sampler::NUTS{TH,Tv,Tf}, N::Int) where {TH,Tv,Tf}
     @unpack H, q, ϵ, max_depth = sampler
-    sample = Vector{NUTSTransition{Tv,Tf}}(N)
+    sample = Vector{NUTS_Transition{Tv,Tf}}(N)
     for i in 1:N
         trans = NUTS_transition(rng, H, q, ϵ, max_depth)
         q = trans.q
@@ -815,7 +827,7 @@ When the last two parameters are not specified, initialize using `adapting_ϵ`.
 """
 function mcmc_adapting_ϵ(rng, sampler::NUTS{TH,Tv,Tf}, N::Int, A_params, A) where {TH,Tv,Tf}
     @unpack H, q, max_depth = sampler
-    sample = Vector{NUTSTransition{Tv,Tf}}(N)
+    sample = Vector{NUTS_Transition{Tv,Tf}}(N)
     for i in 1:N
         trans = NUTS_transition(rng, H, q, getϵ(A), max_depth)
         A = adapt(A_params, A, trans.a)
@@ -858,20 +870,23 @@ Low values (`≤ 0.3`) are considered problematic. See Betancourt (2016).
 EBFMI(sample) = (πs = logdensity.(sample); mean(abs2, diff(πs)) / var(πs))
 
 """
-    NUTS_init(rng, ℓ; q = random, Minv = I, logϵ)
+    NUTS_init(rng, ℓ; κ = GaussianKE(length(ℓ)), q, p, max_depth, ϵ)
 
-Given a density `ℓ` and a position `q`, return an initial NUTS sampler using
-local information.
+Initialize a NUTS sampler for log density `ℓ` using local information.
+
+# Arguments
+
+- 
 """
 function NUTS_init(rng, ℓ;
+                   κ = GaussianKE(length(ℓ)),
                    q = randn(rng, length(ℓ)),
-                   Minv = Diagonal(ones(length(ℓ))),
+                   p = rand(rng, κ),
                    max_depth = 5,
                    ϵ = nothing,
                    args...)
-    κ = GaussianKE(Minv)
     H = Hamiltonian(ℓ, κ)
-    z = rand_phasepoint(rng, H, q)
+    z = phasepoint_in(H, q, p)
     if ϵ == nothing
         ϵ = exp(find_reasonable_logϵ(H, z; args...))
     end
@@ -985,7 +1000,7 @@ end
     NUTS_tune(rng, ℓ, N; args...)
 
 Given a random number generator `rng` and a log density function `ℓ`, tune the
-NUTS sampler
+NUTS sampler for `N` steps adaptively.
 """
 function NUTS_tune(rng, ℓ, N; args...)
     init_sampler = NUTS_init(rng, ℓ; args...)
