@@ -33,12 +33,11 @@ export
     # Hamiltonian
     KineticEnergy, EuclideanKE, GaussianKE,
     # transition
-    NUTS_Transition, variable, logdensity, depth, termination, acceptance_rate,
-    steps, NUTS_transition, NUTS_Sampler, mcmc, mcmc_adapting_ϵ, variable_matrix,
+    NUTS_Transition, get_position, get_logdensity, get_depth, get_termination,
+    get_acceptance_rate, get_steps, NUTS, mcmc, mcmc_adapting_ϵ,
     # tuning and diagnostics
-    sample_cov, EBFMI, NUTS_init, tune,
-    StepsizeTuner, StepsizeCovTuner, TunerSequence, bracketed_doubling_tuner,
-    NUTS_Statistics, NUTS_statistics, NUTS_init_tune_mcmc
+    NUTS_init_tune_mcmc, sample_cov, EBFMI, NUTS_statistics, get_position_matrix
+
 
 ######################################################################
 # Hamiltonian and leapfrog
@@ -615,11 +614,11 @@ function combine_divstats(x::DivergenceStatistic, y::DivergenceStatistic)
 end
 
 """
-    acceptance_rate(x)
+    get_acceptance_rate(x)
 
 Return average Metropolis acceptance rate.
 """
-acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
+get_acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
 
 
 ######################################################################
@@ -741,22 +740,22 @@ struct NUTS_Transition{Tv,Tf}
 end
 
 "Position after transition."
-variable(x::NUTS_Transition) = x.q
+get_position(x::NUTS_Transition) = x.q
 
 "Log density (negative energy of the Hamiltonian) at the position."
-logdensity(x::NUTS_Transition) = x.π
+get_logdensity(x::NUTS_Transition) = x.π
 
 "Tree depth."
-depth(x::NUTS_Transition) = x.depth
+get_depth(x::NUTS_Transition) = x.depth
 
 "Reason for termination, see [`Termination`](@ref)."
-termination(x::NUTS_Transition) = x.termination
+get_termination(x::NUTS_Transition) = x.termination
 
 "Average acceptance rate over trajectory."
-acceptance_rate(x::NUTS_Transition) = x.a
+get_acceptance_rate(x::NUTS_Transition) = x.a
 
 "Number of integrator steps."
-steps(x::NUTS_Transition) = x.steps
+get_steps(x::NUTS_Transition) = x.steps
 
 """
     NUTS_transition(rng, H, q, ϵ, max_depth; args...)
@@ -770,7 +769,8 @@ function NUTS_transition(rng, H, q, ϵ, max_depth; args...)
     z = rand_phasepoint(rng, H, q)
     trajectory = Trajectory(H, logdensity(H, z), ϵ; args...)
     ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth)
-    NUTS_Transition(ζ.z.q, logdensity(H, ζ.z), depth, termination, acceptance_rate(d), d.steps)
+    NUTS_Transition(ζ.z.q, logdensity(H, ζ.z), depth, termination,
+                    get_acceptance_rate(d), d.steps)
 end
 
 ######################################################################
@@ -848,7 +848,7 @@ mcmc_adapting_ϵ(sampler::NUTS, N) =
 
 Return the samples of the parameter vector as rows of a matrix.
 """
-variable_matrix(sample) = vcat(variable.(sample)'...)
+get_position_matrix(sample) = vcat(get_position.(sample)'...)
 
 
 ######################################################################
@@ -860,7 +860,7 @@ variable_matrix(sample) = vcat(variable.(sample)'...)
 
 Covariance matrix of the sample.
 """
-sample_cov(sample) = cov(variable_matrix(sample), 1)
+sample_cov(sample) = cov(get_position_matrix(sample), 1)
 
 """
     EBFMI(sample)
@@ -870,7 +870,7 @@ chosen kinetic energies.
 
 Low values (`≤ 0.3`) are considered problematic. See Betancourt (2016).
 """
-EBFMI(sample) = (πs = logdensity.(sample); mean(abs2, diff(πs)) / var(πs))
+EBFMI(sample) = (πs = get_logdensity.(sample); mean(abs2, diff(πs)) / var(πs))
 
 """
     NUTS_init(rng, ℓ; κ = GaussianKE(length(ℓ)), q, p, max_depth, ϵ)

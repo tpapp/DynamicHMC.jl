@@ -1,5 +1,8 @@
+import DynamicHMC:
+    NUTS_transition, NUTS_init, StepsizeTuner, StepsizeCovTuner, tune
+
 @testset "unit normal simple HMC" begin
-    # this is just testing leapfrog
+    # just testing leapfrog
     K = 2
     ℓ = MvNormal(zeros(K), ones(K))
     q = rand(ℓ)
@@ -11,7 +14,7 @@
 end
 
 @testset "normal NUTS HMC transition mean and cov" begin
-    # this is a perfectly adapted Gaussian KE, should provide excellent mixing
+    # a perfectly adapted Gaussian KE, should provide excellent mixing
     for _ in 1:100
         K = rand(2:8)
         N = 10000

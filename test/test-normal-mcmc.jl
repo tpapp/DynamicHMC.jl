@@ -23,7 +23,7 @@ end
 
 function zvalue(sample, test::ZTest)
     @unpack name, accessor, x̄ = test
-    name => zvalue(map(accessor ∘ variable, sample), x̄)
+    name => zvalue(map(accessor ∘ get_position, sample), x̄)
 end
 
 """
@@ -69,12 +69,13 @@ end
 """
     R̂(sampler, N, M)
 
-Run `M` chains of length `N` using `sampler`, then calculate the columnwise R̂ (potential scale reduction factor).
+Run `M` chains of length `N` using `sampler`, then calculate the columnwise R̂
+(potential scale reduction factor).
 
 `sampler` is assumed to be adapted, no adaptation is performed.
 """
 function R̂(sampler, N, M)
-    variables = [variable_matrix(mcmc(sampler, N)) for _ in 1:M]
+    variables = [get_position_matrix(mcmc(sampler, N)) for _ in 1:M]
     K = size(variables[1], 2)
     [potential_scale_reduction(collect(v[:, j] for v in variables)...) for j in 1:K]
 end
