@@ -244,7 +244,7 @@ end
     end
 end
 
-@testset "detailed balance non-flat" begin
+@testset "detailed balance non-flat turning" begin
     for max_depth in 1:5
         test_detailed_balance(x->x*0.02, 0, max_depth; turning = 2:3)
     end
