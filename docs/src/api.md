@@ -82,6 +82,10 @@ Most users would use this function, which initializes and tunes the parameters o
 NUTS_init_tune_mcmc
 ```
 
+!!! important
+
+    The [`NUTS`](@ref) sampler saves a random number generator and uses it for random draws. When running in parallel, you should initialize [`NUTS_init_tune_mcmc`](@ref) with a random number generator as its first argument explicitly, making sure that each thread has its own one.
+
 These functions can be used use to perform the steps above manually.
 
 ```@docs
@@ -102,10 +106,6 @@ get_acceptance_rate
 get_steps
 get_position_matrix
 ```
-
-!!! important
-
-    The [`NUTS`](@ref) sampler saves a random number generator and uses it for random draws. When running in parallel, you should initialize [`NUTS_init_tune_mcmc`](@ref) with a random number generator as its first argument explicitly, making sure that each thread has its own one.
 
 # Diagnostics
 
