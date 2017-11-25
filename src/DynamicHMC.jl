@@ -128,6 +128,24 @@ end
 show(io::IO, H::Hamiltonian) = print(io, "Hamiltonian with $(H.κ)")
 
 """
+    is_valid_ℓq(ℓq)
+
+Test that a value returned by ℓ is *valid*, in the following sense:
+
+1. supports `DiffResults.value` and `DiffResults.gradient` (when not, a
+`MethodError` is thrown),
+
+2. the value is a float, either `-Inf` or finite,
+
+3. the gradient is finite when the value is; otherwise the gradient is ignored.
+"""
+function is_valid_ℓq(ℓq)
+    v = DiffResults.value(ℓq)
+    v isa AbstractFloat || return false
+    (v == -Inf) || (isfinite(v) && all(isfinite, DiffResults.gradient(ℓq)))
+end
+
+"""
 A point in phase space, consists of a position and a momentum.
 
 Log densities and gradients are saved for speed gains, so that the gradient of ℓ
@@ -144,6 +162,11 @@ struct PhasePoint{T,S}
     p::T
     "ℓ(q). Cached for reuse in sampling."
     ℓq::S
+    function PhasePoint(q::T, p::T, ℓq::S) where {T,S}
+        @argcheck is_valid_ℓq(ℓq) DomainError("Invalid value of ℓ.")
+        @argcheck length(p) == length(q)
+        new{T,S}(q, p, ℓq)
+    end
 end
 
 get_ℓq(z::PhasePoint) = z.ℓq
@@ -172,7 +195,18 @@ neg_energy(H::Hamiltonian, z::PhasePoint) =
 
 get_p♯(H::Hamiltonian, z::PhasePoint) = get_p♯(H.κ, z.p, z.q)
 
-"Take a leapfrog step in phase space."
+"""
+    leapfrog(H, z, ϵ)
+
+Take a leapfrog step of length `ϵ` from `z` along the Hamiltonian `H`.
+
+Return the new position.
+
+The leapfrog algorithm uses the gradient of the next position to evolve the
+momentum. If this is not finite, the momentum won't be either. Since the
+constructor `PhasePoint` validates its arguments, this can only happen for
+divergent points anyway, and should not cause a problem.
+"""
 function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ)
     @unpack ℓ, κ = H
     @unpack p, q, ℓq = z
@@ -181,35 +215,6 @@ function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePo
     ℓq′ = ℓ(q′)
     p′ = pₘ + ϵ/2 * DiffResults.gradient(ℓq′)
     PhasePoint(q′, p′, ℓq′)
-end
-
-"""
-    isrejected(z)
-
-Test if the phasepoint `z` should be rejected. This happens when the log
-density, its gradient, the position (`q`) or the momentum (`p`) would be
-non-finite.
-
-## Discussion
-
-This is a strict rejection criterion, since it also examines the derivatives and
-the momentum. The latter can only be non-finite if this creeps in via a
-non-finite derivatives, which should be caught earlier.
-
-Rejected phase points should be considered divergent.
-
-It may be controversial to reject positive `Inf`, as this is most likely a
-coding error, but this is not checked for separately.
-
-In practice, either `NaN` or `-Inf` returned from `ℓ(q)` should be used to
-indicate a rejected sample point. All the alternatives are considered coding
-errors, and relying them is bad practice.
-"""
-function isrejected(z::PhasePoint)
-    ℓq = get_ℓq(z)
-    !isfinite(DiffResults.value(ℓq)) ||
-        !all(isfinite, DiffResults.gradient(ℓq)) ||
-        !all(isfinite, z.q) || !all(isfinite, z.p)
 end
 
 ######################################################################
@@ -705,7 +710,7 @@ Return
 function leaf(trajectory::Trajectory, z, isinitial)
     @unpack H, π₀, min_Δ = trajectory
     Δ = isinitial ? zero(π₀) : neg_energy(H, z) - π₀
-    isdiv = isrejected(z) || (min_Δ > Δ)
+    isdiv = min_Δ > Δ
     d = isinitial ? divergence_statistic() : divergence_statistic(isdiv, Δ)
     ζ = isdiv ? nothing : Proposal(z, Δ)
     τ = isdiv ? nothing : (p♯ = get_p♯(trajectory.H, z); TurnStatistic(p♯, p♯, z.p))

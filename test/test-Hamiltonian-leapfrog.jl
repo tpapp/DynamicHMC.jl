@@ -1,6 +1,6 @@
 import DynamicHMC:
     GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
-    rand_phasepoint, leapfrog, move, isrejected, find_reasonable_logϵ
+    rand_phasepoint, leapfrog, move, is_valid_ℓq, find_reasonable_logϵ
 
 import DiffResults: MutableDiffResult
 
@@ -59,7 +59,7 @@ end
         pₕ = p + ϵ/2*DiffResults.gradient(ℓ(q))
         q′ = q + ϵ * u .* (u .* pₕ) # mimic numerical calculation leapfrog performs
         p′ = pₕ + ϵ/2*DiffResults.gradient(ℓ(q′))
-        q′, p′ 
+        q′, p′
     end
 
     n = 3
@@ -130,15 +130,17 @@ end
     end
 end
 
-@testset "leapfrog and rejection" begin
-    ℓ(q) = ifelse(0 ≤ q[1] ≤ 1,
-                  MutableDiffResult(1.0, (1.0,)),
-                  MutableDiffResult(-Inf, (NaN,)))
-    H = Hamiltonian(ℓ, GaussianKE(Diagonal([1.0])))
-    z₀ = phasepoint_in(H, [0.5], [0.5])
-    @test !isrejected(z₀)
-    z₁ = leapfrog(H, z₀, 1.0)
-    @test isrejected(z₁)
+@testset "PhasePoint validation" begin
+    @test PhasePoint([1.0], [1.0], MutableDiffResult(1.0, (1.0,))) isa PhasePoint
+    @test_throws ArgumentError PhasePoint([1.0], [1.0, 2.0],
+                                          MutableDiffResult(1.0, (1.0,)))
+    @test PhasePoint([1.0], [1.0], MutableDiffResult(-Inf, (1.0,))) isa PhasePoint
+    @test_throws DomainError PhasePoint([1.0], [1.0],
+                                        MutableDiffResult(1.0, (-Inf,)))
+    @test_throws DomainError PhasePoint([1.0], [1.0],
+                                        MutableDiffResult(NaN, (1.0,)))
+    @test_throws DomainError PhasePoint([1.0], [1.0],
+                                        MutableDiffResult(Inf, (1.0,)))
 end
 
 @testset "Hamiltonian and KE printing" begin
