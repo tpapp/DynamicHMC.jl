@@ -5,9 +5,12 @@ os:
 #  - osx
 julia:
   - 0.6
-# - nightly
+ - nightly
 notifications:
   email: false
+matrix:
+  allow_failures:
+    - julia: nightly
 env:
   - DOCUMENTER_DEBUG=true
 # uncomment the following lines to override the default test script
