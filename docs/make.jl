@@ -15,9 +15,4 @@ makedocs(
     html_prettyurls = haskey(ENV, "TRAVIS"),
 )
 
-deploydocs(
-    repo = "github.com/tpapp/DynamicHMC.jl.git",
-    # target = "build",
-    # deps = nothing,
-    # make = nothing,
-)
+deploydocs(repo = "github.com/tpapp/DynamicHMC.jl.git", julia = "0.6")
