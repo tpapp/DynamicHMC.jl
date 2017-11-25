@@ -225,7 +225,7 @@ const MAXITER_BISECTION = 50
 Find `x₁`, `x₂′` that bracket `f(x) = 0`. `f` should be monotone, use `Δ > 0`
 for increasing and `Δ < 0` decreasing `f`.
 
-Return `x₁, x₂′, f(x₁), f(x₂′)`. `x₁` and `x₂′ are not necessarily ordered.
+Return `x₁, f(x₁), x₂′, f(x₂′)`. `x₁` and `x₂′ are not necessarily ordered.
 
 Algorithm: start at the given `x`, adjust by `Δ` — for increasing `f`, use `Δ >
 0`. At each step, multiply `Δ` by `C`. Stop and throw an error after `maxiter`
