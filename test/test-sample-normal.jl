@@ -38,8 +38,7 @@ end
 @testset "tuning building blocks" begin
     K = 4
     ℓ = MvNormal(zeros(K), fill(2.0, K))
-    q = randn(K)
-    sampler = NUTS_init(RNG, ℓ)
+    sampler = NUTS_init(RNG, ℓ, K)
     tuner = StepsizeTuner(100)
     sampler2 = tune(sampler, tuner)
     tuner2 = StepsizeCovTuner(200, 10)

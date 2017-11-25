@@ -876,7 +876,7 @@ Low values (`≤ 0.3`) are considered problematic. See Betancourt (2016).
 EBFMI(sample) = (πs = get_neg_energy.(sample); mean(abs2, diff(πs)) / var(πs))
 
 """
-    NUTS_init(rng, ℓ; κ = GaussianKE(length(ℓ)), q, p, max_depth, ϵ)
+    NUTS_init(rng, ℓ, q; κ = GaussianKE(length(q)), p, max_depth, ϵ)
 
 Initialize a NUTS sampler for log density `ℓ` using local information.
 
@@ -887,9 +887,9 @@ Initialize a NUTS sampler for log density `ℓ` using local information.
 - `ℓ`: the likelihood function, should return a type that supports
   `DiffResults.value` and `DiffResults.gradient`
 
-- `κ`: kinetic energy specification. *Default*: Gaussian with identity matrix.
+- `q`: initial position.
 
-- `q`: initial position. *Default*: random from standard multivariate normal.
+- `κ`: kinetic energy specification. *Default*: Gaussian with identity matrix.
 
 - `p`: initial momentum. *Default*: random from standard multivariate normal.
 
@@ -897,9 +897,8 @@ Initialize a NUTS sampler for log density `ℓ` using local information.
 
 - `ϵ`: initial stepsize. Default: found using a bracketing algorithm.
 """
-function NUTS_init(rng, ℓ;
-                   κ = GaussianKE(length(ℓ)),
-                   q = randn(rng, length(ℓ)),
+function NUTS_init(rng, ℓ, q;
+                   κ = GaussianKE(length(q)),
                    p = rand(rng, κ),
                    max_depth = 5,
                    ϵ = nothing,
@@ -911,6 +910,14 @@ function NUTS_init(rng, ℓ;
     end
     NUTS(rng, H, q, ϵ, max_depth)
 end
+
+"""
+    NUTS_init(rng, ℓ, dim::Integer; args...)
+
+Random initialization with position `randn(dim)`, all other arguments are passed
+on the the other method of `[`NUTS_init`](@ref).
+"""
+NUTS_init(rng, ℓ, dim::Integer; args...) = NUTS_init(rng, ℓ, randn(dim); args...)
 
 ######################################################################
 # tuning: abstract interface
@@ -1031,21 +1038,24 @@ function tune(sampler, seq::TunerSequence)
 end
 
 """
-    sample, tuned_sampler = NUTS_init_tune_mcmc(rng, ℓ, N; args...)
+    sample, tuned_sampler = NUTS_init_tune_mcmc(rng, ℓ, q_or_dim, N; args...)
 
-Init, tune, and then draw `N` samples from `ℓ` using the NUTS algorithm. `args`
-are passed on to various methods, see [`NUTS_init`](@ref) and
+Init, tune, and then draw `N` samples from `ℓ` using the NUTS algorithm.
+
+`rng` is the random number generator, `q_or_dim` is a starting position or the
+dimension (for random initialization).
+
+`args` are passed on to various methods, see [`NUTS_init`](@ref) and
 [`bracketed_doubling_tuner`](@ref).
 
 For parameters `q`, `ℓ(q)` should return an object that support the following
-methods: `DiffResults.value`, `DiffResults.gradient`. `ℓ` should support
-`Base.length` which returns the dimension.
+methods: `DiffResults.value`, `DiffResults.gradient`.
 
 Most users would use this function, unless they are doing something that
 requires manual tuning.
 """
-function NUTS_init_tune_mcmc(rng, ℓ, N; args...)
-    sampler_init = NUTS_init(rng, ℓ; args...)
+function NUTS_init_tune_mcmc(rng, ℓ, q_or_dim, N; args...)
+    sampler_init = NUTS_init(rng, ℓ, q_or_dim; args...)
     sampler_tuned = tune(sampler_init, bracketed_doubling_tuner(; args...))
     mcmc(sampler_tuned, N), sampler_tuned
 end
