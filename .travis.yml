@@ -8,6 +8,8 @@ julia:
 # - nightly
 notifications:
   email: false
+env:
+  - DOCUMENTER_DEBUG=true
 # uncomment the following lines to override the default test script
 script:
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
@@ -18,5 +20,5 @@ after_success:
   # push coverage results to Codecov
   - julia -e 'cd(Pkg.dir("DynamicHMC")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
   # build documentation
-  - DOCUMENTER_DEBUG=true; julia -e 'Pkg.add("Documenter")'
+  - julia -e 'Pkg.add("Documenter")'
   - julia -e 'cd(Pkg.dir("DynamicHMC")); include(joinpath("docs", "make.jl"))'
