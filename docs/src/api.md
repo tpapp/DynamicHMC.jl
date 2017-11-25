@@ -50,10 +50,10 @@ pt∇ = ForwardGradientWrapper(pt, [0.0]);                  # AD using ForwardDi
 Then we can call the high-level function [`NUTS_init_tune_mcmc`](@ref) that initializes and tunes the sampler, and samples from it:
 
 ```julia
-sample, NUTS_tuned = NUTS_init_tune_mcmc(Base.Random.GLOBAL_RNG, pt∇, 1, 1000);
+sample, NUTS_tuned = NUTS_init_tune_mcmc(pt∇, 1, 1000);
 ```
 
-The returned objects are the *sample*, which contains the draws and diagnostic information, and the tuned sampler, which we could use to continue sampling, perhaps in parallel.
+The returned objects are the *sample*, which contains the draws and diagnostic information, and the tuned sampler, which we could use to continue sampling.
 
 We obtain the posterior using the transformation and [`get_position`](@ref):
 
@@ -102,6 +102,10 @@ get_acceptance_rate
 get_steps
 get_position_matrix
 ```
+
+!!! important
+
+    The [`NUTS`](@ref) sampler saves a random number generator and uses it for random draws. When running in parallel, you should initialize [`NUTS_init_tune_mcmc`](@ref) with a random number generator as its first argument explicitly, making sure that each thread has its own one.
 
 # Diagnostics
 

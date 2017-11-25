@@ -209,6 +209,7 @@ function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePo
     PhasePoint(q′, p′, ℓq′)
 end
 
+
 ######################################################################
 # stepsize heuristics and adaptation
 ######################################################################
@@ -414,6 +415,7 @@ function adapt_stepsize(parameters::DualAveragingParameters,
     logϵ̄ += m^(-κ)*(logϵ - logϵ̄)
     DualAveragingAdaptation(m, H̄, logϵ, logϵ̄)
 end
+
 
 ###############################################################################
 # random booleans
@@ -779,6 +781,7 @@ function NUTS_transition(rng, H, q, ϵ, max_depth; args...)
                     get_acceptance_rate(d), d.steps)
 end
 
+
 ######################################################################
 # high-level interface: sampler
 ######################################################################
@@ -922,6 +925,7 @@ on the the other method of this function.
 """
 NUTS_init(rng, ℓ, dim::Integer; args...) = NUTS_init(rng, ℓ, randn(dim); args...)
 
+
 ######################################################################
 # tuning: abstract interface
 ######################################################################
@@ -943,6 +947,7 @@ Given a `sampler` (or similar a parametrization) and a `tuner`, return the
 updated sampler state after tuning.
 """
 function tune end
+
 
 ######################################################################
 # tuning: tuner building blocks
@@ -1045,8 +1050,8 @@ end
 
 Init, tune, and then draw `N` samples from `ℓ` using the NUTS algorithm.
 
-`rng` is the random number generator, `q_or_dim` is a starting position or the
-dimension (for random initialization).
+`rng` is the random number generator (defaults to `Base.Random.GLOBAL_RNG`),
+`q_or_dim` is a starting position or the dimension (for random initialization).
 
 `args` are passed on to various methods, see [`NUTS_init`](@ref) and
 [`bracketed_doubling_tuner`](@ref).
@@ -1057,11 +1062,15 @@ methods: `DiffResults.value`, `DiffResults.gradient`.
 Most users would use this function, unless they are doing something that
 requires manual tuning.
 """
-function NUTS_init_tune_mcmc(rng, ℓ, q_or_dim, N; args...)
+function NUTS_init_tune_mcmc(rng, ℓ, q_or_dim, N::Int; args...)
     sampler_init = NUTS_init(rng, ℓ, q_or_dim; args...)
     sampler_tuned = tune(sampler_init, bracketed_doubling_tuner(; args...))
     mcmc(sampler_tuned, N), sampler_tuned
 end
+
+NUTS_init_tune_mcmc(ℓ, q_or_dim, N::Int; args...) =
+    NUTS_init_tune_mcmc(Base.Random.GLOBAL_RNG, ℓ, q_or_dim, N; args...)
+
 
 ######################################################################
 # statistics and diagnostics
