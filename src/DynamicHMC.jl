@@ -1021,7 +1021,7 @@ function bracketed_doubling_tuner(; init = 75, mid = 25, M = 5, term = 50,
         mid *= 2
     end
     push!(tuners, StepsizeTuner(term))
-    TunerSequence(tuners)
+    TunerSequence((tuners...))
 end
 
 function tune(sampler, seq::TunerSequence)
