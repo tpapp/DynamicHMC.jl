@@ -6,6 +6,7 @@ import DynamicHMC:
 using Base.Test
 
 using ArgCheck
+using DataStructures
 using DiffResults
 using Distributions
 import ForwardDiff: gradient

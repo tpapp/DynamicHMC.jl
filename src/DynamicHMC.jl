@@ -1094,10 +1094,10 @@ Return statistics about the sample (ie not the variables). Mostly useful for
 NUTS diagnostics.
 """
 function NUTS_statistics(sample)
-    as = acceptance_rate.(sample)
+    as = get_acceptance_rate.(sample)
     NUTS_Statistics(length(sample),
                     mean(as), quantile(as, ACCEPTANCE_QUANTILES),
-                    counter(termination.(sample)), counter(depth.(sample)))
+                    counter(get_termination.(sample)), counter(get_depth.(sample)))
 end
 
 function show(io::IO, stats::NUTS_Statistics)
