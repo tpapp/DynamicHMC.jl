@@ -944,8 +944,7 @@ struct StepsizeTuner <: AbstractTuner
 end
 
 show(io::IO, tuner::StepsizeTuner) =
-    println(io, "Stepsize tuner, $(tuner.N) samples")
-
+    print(io, "Stepsize tuner, $(tuner.N) samples")
 
 function tune(sampler::NUTS, tuner::StepsizeTuner)
     @unpack rng, H, max_depth = sampler
@@ -970,7 +969,7 @@ end
 
 function show(io::IO, tuner::StepsizeCovTuner)
     @unpack N, regularize = tuner
-    println(io, "Stepsize and covariance tuner, $(N) samples, regularization $(regularize)")
+    print(io, "Stepsize and covariance tuner, $(N) samples, regularization $(regularize)")
 end
 
 function tune(sampler::NUTS, tuner::StepsizeCovTuner)
@@ -990,9 +989,9 @@ end
 
 function show(io::IO, tuner::TunerSequence)
     @unpack tuners = tuner
-    println(io, "Sequence of $(length(tuners)) tuners, $(length(tuner)) total samples")
+    print(io, "Sequence of $(length(tuners)) tuners, $(length(tuner)) total samples")
     for t in tuners
-        print(io, "  ")
+        print(io, "\n  ")
         show(io, t)
     end
 end
