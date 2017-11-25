@@ -1,6 +1,5 @@
 import DynamicHMC:
-    TurnStatistic, isturning, combine_turnstats,
-    Proposal, combine_proposals, 
+    TurnStatistic, isturning, combine_turnstats, Proposal, combine_proposals,
     DivergenceStatistic, combine_divstats, get_acceptance_rate
 
 import StatsFuns: logsumexp

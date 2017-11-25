@@ -1,6 +1,6 @@
 import DynamicHMC:
-    neg_energy, phasepoint_in, rand_phasepoint, leapfrog, move, isrejected,
-    find_reasonable_logϵ
+    GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
+    rand_phasepoint, leapfrog, move, isrejected, find_reasonable_logϵ
 
 import DiffResults: MutableDiffResult
 
@@ -139,4 +139,12 @@ end
     @test !isrejected(z₀)
     z₁ = leapfrog(H, z₀, 1.0)
     @test isrejected(z₁)
+end
+
+@testset "Hamiltonian and KE printing" begin
+    κ = GaussianKE(Diagonal([1.0, 4.0]))
+    @test repr(κ) == "Gaussian kinetic energy, √diag(M⁻¹): [1.0, 2.0]"
+    H = Hamiltonian(identity, κ)
+    @test repr(H) ==
+        "Hamiltonian with Gaussian kinetic energy, √diag(M⁻¹): [1.0, 2.0]"
 end

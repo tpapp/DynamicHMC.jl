@@ -1,15 +1,7 @@
 using DynamicHMC
+
 import DynamicHMC:
-    neg_energy,
-    loggradient,
-    GaussianKE,
-    Hamiltonian,
-    loggradient,
-    neg_energy,
-    PhasePoint,
-    rand_phasepoint,
-    leapfrog,
-    move
+    Hamiltonian, GaussianKE, PhasePoint, rand_phasepoint, loggradient
 
 using Base.Test
 

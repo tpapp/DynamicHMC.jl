@@ -46,3 +46,33 @@ end
     sampler3 = tune(sampler, tuner2)
     @test all(diag(sampler3.H.κ.Minv) .≥ 2)
 end
+
+@testset "transition accessors and consistency checks" begin
+    K = 2
+    Σ = rand_Σ(K)
+    ℓ = MvNormal(randn(K), full(Σ))
+    q = rand(ℓ)
+    H = Hamiltonian(ℓ, GaussianKE(Σ))
+    ϵ = 0.5
+    valid_terminations = [DynamicHMC.MaxDepth,
+                          DynamicHMC.AdjacentDivergent,
+                          DynamicHMC.AdjacentTurn,
+                          DynamicHMC.DoubledTurn]
+    for _ in 1:1000
+        trans = NUTS_transition(RNG, H, q, ϵ, 5)
+        q′ = get_position(trans)
+        @test q′ isa Vector{Float64}
+        @test length(q′) == length(q)
+        @test get_neg_energy(trans) isa Float64
+        depth = get_depth(trans)
+        @test depth isa Int
+        @test depth ≥ 1
+        @test get_termination(trans) ∈ valid_terminations
+        a = get_acceptance_rate(trans)
+        @test a isa Float64
+        @test 0 ≤ a ≤ 1
+        steps = get_steps(trans)
+        @test steps isa Int
+        @test steps ≥ 1
+    end
+end

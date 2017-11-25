@@ -225,7 +225,7 @@ function test_detailed_balance(ℓ, z::T, max_depth; args...) where T
     DT(z) = DummyTrajectory(z; ℓ = ℓ, collecting = false, args...)
     K = (max_depth)-1
     dists = sample_dists(DT(z), z, max_depth)
-    for j in (z-K):(z+K) 
+    for j in (z-K):(z+K)
         p1 = exp(ℓ(z)) * transprob(dists, j)
         p2 = exp(ℓ(j)) * transprob(sample_dists(DT(j), j, max_depth), z)
         @test p1 ≈ p2
