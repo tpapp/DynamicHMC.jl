@@ -30,7 +30,7 @@ pt = TransformLogLikelihood(p, bridge(ℝ, Segment(0, 1)))  # transform
 pt∇ = ForwardGradientWrapper(pt, [0.0]);                  # AD using ForwardDiff.jl
 
 sample, NUTS_tuned = NUTS_init_tune_mcmc(Base.Random.GLOBAL_RNG, pt∇, 1, 1000);
-posterior = first.(map(get_transformation(pt) ∘ get_position, sample));
+posterior = map(get_transformation(pt) ∘ get_position, sample);
 
-effective_sample_size(posterior)
+effective_sample_size(first.(posterior))
 NUTS_statistics(sample)         # NUTS-specific statistics

@@ -3,3 +3,4 @@
 *.jl.mem
 /notes.org
 /docs/build
+/docs/site

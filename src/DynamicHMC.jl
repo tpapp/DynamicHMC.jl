@@ -1,23 +1,3 @@
-"""
-Notation follows Betancourt (2017), with some differences.
-
-Instead of energies, densities (= - energy) are used in the code.
-
-ℓ: log density (we sample from)
-κ: distribution/density that corresponds to kinetic energy
-H: Hamiltonian
-q: position
-p: momentum
-z: point in phase space (q,p)
-ϵ: stepsize
-a: acceptance rate
-A: acceptance tuning state
-ζ: proposal from trajectory (phase point and weight)
-τ: turn statistic
-d: divergence statistic
-π: log density (**different from papers**)
-Δ: logdensity relative to initial point of trajectory
-"""
 module DynamicHMC
 
 using ArgCheck
@@ -63,7 +43,9 @@ abstract type EuclideanKE <: KineticEnergy end
 """
 Gaussian kinetic energy.
 
-``p | q ∼ Normal(0, M)     (importantly, independent of q)``
+```math
+p \\mid q ∼ \\text{Normal}(0, M) \\qquad (\\text{importantly, independent of \$q\$})
+```
 
 The inverse covariance `M⁻¹` is stored.
 """
@@ -105,6 +87,11 @@ energies (eg Riemannian geometry) will need `q`, too.
 """
 neg_energy(κ::GaussianKE, p, q = nothing) = -dot(p, κ.Minv * p) / 2
 
+"""
+    get_p♯(κ, p, [q])
+
+Return ``p\sharp``, used for turn diagnostics.
+"""
 get_p♯(κ::GaussianKE, p, q = nothing) = κ.Minv * p
 
 loggradient(κ::GaussianKE, p, q = nothing) = -get_p♯(κ, p)
@@ -169,6 +156,11 @@ struct PhasePoint{T,S}
     end
 end
 
+"""
+    get_ℓq(z)
+
+The value returned by `ℓ` when evaluated at position `q`.
+"""
 get_ℓq(z::PhasePoint) = z.ℓq
 
 """
@@ -609,12 +601,18 @@ point.
 divergence_statistic(isdivergent, Δ) =
     DivergenceStatistic(isdivergent, Δ ≥ 0 ? one(Δ) : exp(Δ), 1)
 
+"""
+    isdivergent(x)
+
+Test if divergence statistic `x` indicates divergence.
+"""
 isdivergent(x::DivergenceStatistic) = x.divergent
 
 """
     combine_divstats(x, y)
 
-Combine divergence statistics from `x` and `y`.
+Combine divergence statistics from (subtrees) `x` and `y`. A divergent subtree
+make a subtree divergent.
 """
 function combine_divstats(x::DivergenceStatistic, y::DivergenceStatistic)
     DivergenceStatistic(x.divergent || y.divergent,
@@ -830,7 +828,7 @@ end
 """
     sample, A = mcmc_adapting_ϵ(rng, sampler, N, [A_params, A])
 
-Same as [`mcmc`](@ref), but [`adapt`](@ref) stepsize ϵ according to the
+Same as [`mcmc`](@ref), but [`tune`](@ref) stepsize ϵ according to the
 parameters `A_params` and initial state `A`. Return the updated `A` as the
 second value.
 
@@ -920,7 +918,7 @@ end
     NUTS_init(rng, ℓ, dim::Integer; args...)
 
 Random initialization with position `randn(dim)`, all other arguments are passed
-on the the other method of `[`NUTS_init`](@ref).
+on the the other method of this function.
 """
 NUTS_init(rng, ℓ, dim::Integer; args...) = NUTS_init(rng, ℓ, randn(dim); args...)
 
@@ -1069,7 +1067,7 @@ end
 # statistics and diagnostics
 ######################################################################
 
-"Acceptance quantiles for NUTS_Statistics."
+"Acceptance quantiles for NUTS_Statistics diagnostic summary."
 const ACCEPTANCE_QUANTILES = linspace(0, 1, 5)
 
 struct NUTS_Statistics{T <: Real,
