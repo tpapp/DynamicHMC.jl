@@ -17,3 +17,7 @@ after_success:
   - julia -e 'cd(Pkg.dir("DynamicHMC")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
   # push coverage results to Codecov
   - julia -e 'cd(Pkg.dir("DynamicHMC")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
+  # build documentation
+  - julia -e 'Pkg.add("Documenter")'
+  - julia -e 'cd(Pkg.dir("DynamicHMC")); include(joinpath("docs", "make.jl"))'
+

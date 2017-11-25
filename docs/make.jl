@@ -14,3 +14,10 @@ makedocs(
     # Use clean URLs when built on Travis
     html_prettyurls = haskey(ENV, "TRAVIS"),
 )
+
+deploydocs(
+    repo = "github.com/tpapp/DynamicHMC.jl.git",
+    # target = "build",
+    # deps = nothing,
+    # make = nothing,
+)
