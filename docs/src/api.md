@@ -36,9 +36,9 @@ p = BernoulliProblem(100, 40)                             # original problem
 
 The value `p` is a function that takes a single real number, and returns the likelihood. However, the functions in this package
 
-1. take a vector which contains elements in ``\mathbb{R}``, and
+1. take a **vector** which contains elements in ``\mathbb{R}``, and
 
-2. return an object that can provide the value and the derivatives.
+2. expect ``\ell`` (ie `p` above) to return an object that can provide the **value and the derivatives**.
 
 We could implement both manually, but it is convenient to use wrappers from two packages mentioned in the [introduction](@ref Introduction):
 

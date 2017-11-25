@@ -1067,9 +1067,13 @@ end
 # statistics and diagnostics
 ######################################################################
 
-"Acceptance quantiles for NUTS_Statistics diagnostic summary."
+"Acceptance quantiles for [`NUTS_Statistics`](@ref) diagnostic summary."
 const ACCEPTANCE_QUANTILES = linspace(0, 1, 5)
 
+"""
+Storing the output of [`NUTS_statistics`](@ref) in a structured way, for pretty
+printing. Currently for internal use.
+"""
 struct NUTS_Statistics{T <: Real,
                        DT <: Associative{Termination,Int},
                        DD <: Associative{Int,Int}}

@@ -114,9 +114,15 @@ move
 NUTS_transition
 ```
 
+## [Diagnostics](@id diagnostics_lowlevel)
+
+```@docs
+NUTS_Statistics
+ACCEPTANCE_QUANTILES
+```
+
 ## Utilities and miscellanea
 
 ```@docs
 rand_bool
-ACCEPTANCE_QUANTILES
 ```
