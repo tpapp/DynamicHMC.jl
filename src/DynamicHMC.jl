@@ -970,7 +970,8 @@ Initialize a NUTS sampler for log density `ℓ` using local information.
 
 - `max_depth`: maximum tree depth. *Default*: `5`.
 
-- `ϵ`: initial stepsize. Default: found using a bracketing algorithm.
+- `ϵ`: initial stepsize, or parameters for finding it (passed on to
+  [`find_initial_stepsize`](@ref).
 """
 function NUTS_init(rng, ℓ, q;
                    κ = GaussianKE(length(q)),
