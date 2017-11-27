@@ -1115,11 +1115,15 @@ function tune(sampler, seq::TunerSequence)
 end
 
 """
-    sample, tuned_sampler = NUTS_init_tune_mcmc(rng, ℓ, q_or_dim, N; args...)
+    $SIGNATURES
 
 Init, tune, and then draw `N` samples from `ℓ` using the NUTS algorithm.
 
-`rng` is the random number generator (defaults to `Base.Random.GLOBAL_RNG`),
+Return the *sample* (a vector of [`NUTS_transition`](@ref)s) and the *tuned
+sampler*.
+
+`rng` is the random number generator.
+
 `q_or_dim` is a starting position or the dimension (for random initialization).
 
 `args` are passed on to various methods, see [`NUTS_init`](@ref) and
@@ -1137,6 +1141,12 @@ function NUTS_init_tune_mcmc(rng, ℓ, q_or_dim, N::Int; args...)
     mcmc(sampler_tuned, N), sampler_tuned
 end
 
+"""
+    $SIGNATURES
+
+Same as the other method, but with random number generator
+`Base.Random.GLOBAL_RNG`.
+"""
 NUTS_init_tune_mcmc(ℓ, q_or_dim, N::Int; args...) =
     NUTS_init_tune_mcmc(Base.Random.GLOBAL_RNG, ℓ, q_or_dim, N; args...)
 
