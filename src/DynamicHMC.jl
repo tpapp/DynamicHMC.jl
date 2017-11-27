@@ -260,7 +260,7 @@ struct InitialStepsizeSearch
         @argcheck 1 < C
         @argcheck maxiter_crossing ≥ 50
         @argcheck maxiter_bisect ≥ 50
-        new(a_min, a_max, ϵ₀, C, maxiter_crossing, maxiter_bracket)
+        new(a_min, a_max, ϵ₀, C, maxiter_crossing, maxiter_bisect)
     end
 end
 

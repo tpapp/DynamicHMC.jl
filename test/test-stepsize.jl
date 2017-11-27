@@ -17,11 +17,11 @@ import DynamicHMC:
     @test params.ϵ₀ == 1.0
     @test params.C == 2.0
     @test params.maxiter_crossing == 400
-    @test params.maxiter_bracket == 400
+    @test params.maxiter_bisect == 400
     @test_throws ArgumentError InitialStepsizeSearch(; a_min = 0.9, a_max = 0.1) # not <
     @test_throws ArgumentError InitialStepsizeSearch(; C = 0.5) # not > 1
     @test_throws ArgumentError InitialStepsizeSearch(; maxiter_crossing = 2)
-    @test_throws ArgumentError InitialStepsizeSearch(; maxiter_bracket = 2)
+    @test_throws ArgumentError InitialStepsizeSearch(; maxiter_bisect = 2)
     # crossing from below
     ϵ₀, Aϵ₀, ϵ₁, Aϵ₁ = find_crossing_stepsize(params, A, invA(params.a_min-0.1))
     @test ϵ₀ ≥ invA(params.a_min) ≥ ϵ₁
