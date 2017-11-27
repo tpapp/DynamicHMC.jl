@@ -1,4 +1,6 @@
-import DynamicHMC: NUTS_Transition, Termination, ACCEPTANCE_QUANTILES
+import DynamicHMC:
+    NUTS_Transition, Termination, ACCEPTANCE_QUANTILES, NUTS_statistics,
+    get_acceptance_rate, get_termination, get_depth
 
 @testset "NUTS statistics" begin
     N = 1000
@@ -7,9 +9,9 @@ import DynamicHMC: NUTS_Transition, Termination, ACCEPTANCE_QUANTILES
                for _ in 1:N]
     stats = NUTS_statistics(sample)
     @test stats.N == N
-    @test stats.a_mean == mean(get_acceptance_rate, sample)
+    @test stats.a_mean ≈ mean(get_acceptance_rate, sample)
     @test stats.a_quantiles == quantile(get_acceptance_rate.(sample), ACCEPTANCE_QUANTILES)
     @test stats.termination_counts == counter(map(get_termination, sample))
     @test stats.depth_counts == counter(map(get_depth, sample))
-    @test 1.9 ≤ EBFMI(sample) ≤ 2.1 # nonsensical value, just checking calculation
+    @test 1.8 ≤ EBFMI(sample) ≤ 2.2 # nonsensical value, just checking calculation
 end

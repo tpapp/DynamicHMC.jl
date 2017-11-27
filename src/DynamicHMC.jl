@@ -1,12 +1,13 @@
 module DynamicHMC
 
+import Base: rand, length, show
+import Base.LinAlg.checksquare
+
 using ArgCheck
 using DataStructures
 using DiffResults
+using DocStringExtensions
 using Parameters
-
-import Base: rand, length, show
-import Base.LinAlg.checksquare
 import StatsFuns: logsumexp
 
 export
@@ -19,9 +20,8 @@ export
     NUTS_init_tune_mcmc, sample_cov, EBFMI, NUTS_statistics, get_position_matrix
 
 
-######################################################################
+
 # Hamiltonian and leapfrog
-######################################################################
 
 """
 Kinetic energy specifications.
@@ -180,10 +180,16 @@ kinetic energy of `H`.
 rand_phasepoint(rng, H, q) = phasepoint_in(H, q, rand(rng, H.κ))
 
 """
+    $SIGNATURES
+
 Log density for Hamiltonian `H` at point `z`.
+
+If `ℓ(q) == -Inf` (rejected), ignores the kinetic energy.
 """
-neg_energy(H::Hamiltonian, z::PhasePoint) =
-    DiffResults.value(get_ℓq(z)) + neg_energy(H.κ, z.p, z.q)
+function neg_energy(H::Hamiltonian, z::PhasePoint)
+    v = DiffResults.value(get_ℓq(z))
+    v == -Inf ? v : (v + neg_energy(H.κ, z.p, z.q))
+end
 
 get_p♯(H::Hamiltonian, z::PhasePoint) = get_p♯(H.κ, z.p, z.q)
 
@@ -210,129 +216,192 @@ function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePo
 end
 
 
-######################################################################
+
 # stepsize heuristics and adaptation
-######################################################################
-
-const MAXITER_BRACKET = 50
-const MAXITER_BISECTION = 50
 
 """
-    bracket_zero(f, x, Δ, C; maxiter)
+Parameters for the search algorithm for the initial stepsize.
 
-Find `x₁`, `x₂′` that bracket `f(x) = 0`. `f` should be monotone, use `Δ > 0`
-for increasing and `Δ < 0` decreasing `f`.
+The algorithm finds an initial stepsize ``ϵ`` so that the local acceptance ratio
+``A(ϵ)`` satisfies
 
-Return `x₁, f(x₁), x₂′, f(x₂′)`. `x₁` and `x₂′ are not necessarily ordered.
+```math
+a_\\text{min} ≤ A(ϵ) ≤ a_\\text{max}
+```
 
-Algorithm: start at the given `x`, adjust by `Δ` — for increasing `f`, use `Δ >
-0`. At each step, multiply `Δ` by `C`. Stop and throw an error after `maxiter`
-iterations.
+This is achieved by an initial bracketing, then bisection.
+
+$FIELDS
+
+!!! note
+
+    Cf. Hoffman and Gelman (2014), which does not ensure bounds for the
+    acceptance ratio, just that it has crossed a threshold. This version seems
+    to work better for some tricky posteriors with high curvature.
 """
-function bracket_zero(f, x, Δ, C; maxiter = MAXITER_BRACKET)
-    @argcheck C > 1
-    @argcheck Δ ≠ 0
-    fx = f(x)
-    s = sign(fx)
-    for _ in 1:maxiter
-        x′ = x - s*Δ            # note: in the unlikely case s=0 ...
-        fx′ = f(x′)
-        if s*fx′ ≤ 0            # ... should still work
-            return x, fx, x′, fx′
+struct InitialStepsizeSearch
+    "Lowest local acceptance rate."
+    a_min::Float64
+    "Highest local acceptance rate."
+    a_max::Float64
+    "Initial stepsize."
+    ϵ₀::Float64
+    "Scale factor for initial bracketing, > 1. *Default*: `2.0`."
+    C::Float64
+    "Maximum number of iterations for initial bracketing."
+    maxiter_crossing::Int
+    "Maximum number of iterations for bisection."
+    maxiter_bisect::Int
+    function InitialStepsizeSearch(; a_min = 0.25, a_max = 0.75, ϵ₀ = 1.0,
+                                   C = 2.0,
+                                   maxiter_crossing = 400, maxiter_bisect = 400)
+        @argcheck 0 < a_min < a_max < 1
+        @argcheck 0 < ϵ₀
+        @argcheck 1 < C
+        @argcheck maxiter_crossing ≥ 50
+        @argcheck maxiter_bisect ≥ 50
+        new(a_min, a_max, ϵ₀, C, maxiter_crossing, maxiter_bracket)
+    end
+end
+
+"""
+Find the stepsize for which the local acceptance rate `A(ϵ)` crosses `a`.
+
+    $SIGNATURES
+
+Return `ϵ₀, A(ϵ₀), ϵ₁`, A(ϵ₁)`, where `ϵ₀` and `ϵ₁` are stepsizes before and
+after crossing `a` with `A(ϵ)`, respectively.
+
+Assumes that ``A(ϵ₀) ∉ (a_\\text{min}, a_\\text{max})``, where the latter are
+defined in `parameters`.
+
+- `parameters`: parameters for the iteration.
+
+- `A`: local acceptance ratio (uncapped), a function of stepsize `ϵ`
+
+- `ϵ₀`, `Aϵ₀`: initial value of `ϵ`, and `A(ϵ₀)`
+"""
+function find_crossing_stepsize(parameters, A, ϵ₀, Aϵ₀ = A(ϵ₀))
+    @unpack a_min, a_max, C, maxiter_crossing = parameters
+    s, a = Aϵ₀ > a_max ? (1.0, a_max) : (-1.0, a_min)
+    if s < 0                    # when A(ϵ) < a,
+        C = 1/C                 # decrease ϵ
+    end
+    for _ in 1:maxiter_crossing
+        ϵ = ϵ₀ * C
+        Aϵ = A(ϵ)
+        if s*(Aϵ - a) ≤ 0
+            return ϵ₀, Aϵ₀, ϵ, Aϵ
         else
-            if abs(fx′) > abs(fx)
-                warn("Residual increased, function may not be monotone.")
-            end
-            Δ *= C
-            x = x′
-            fx = fx′
+            ϵ₀ = ϵ
+            Aϵ₀ = Aϵ
         end
     end
-    error("Reached maximum number of iterations without crossing 0.")
+    # should never each this, miscoded log density?
+    dir = s > 0 ? "below" : "above"
+    error("Reached maximum number of iterations searching for ϵ from $(dir).")
 end
 
 """
-    find_zero(f, a, b, tol; [fa], [fb], [maxiter])
+Return the desired stepsize `ϵ` by bisection.
 
-Use bisection to find ``x ∈ [a,b]`` such that `|f(x)| < tol`. When `f` is
-costly, specify `fa` and `fb`.
+    $SIGNATURES
 
-When does not converge within `maxiter` iterations, throw an error.
+- `parameters`: algorithm parameters, see [`InitialStepsizeSearch`](@ref)
+
+- `A`: local acceptance ratio (uncapped), a function of stepsize `ϵ`
+
+- `ϵ₀`, `ϵ₁`, `Aϵ₀`, `Aϵ₁`: stepsizes and acceptance rates (latter optional).
+
+This function assumes that ``ϵ₀ < ϵ₁``, the stepsize is not yet acceptable, and
+the cached `A` values have the correct ordering.
 """
-function find_zero(f, a, b, tol; fa=f(a), fb=f(b), maxiter = MAXITER_BISECTION)
-    @argcheck fa*fb ≤ 0 "Initial values don't bracket the root."
-    @argcheck tol > 0
-    for _ in 1:maxiter
-        x = middle(a,b)
-        fx = f(x)
-        if abs(fx) ≤ tol
-            return x
-        elseif fx*fa > 0
-            a = x
-            fa = fx
-        else
-            b = x
-            fb = fx
+function bisect_stepsize(parameters, A, ϵ₀, ϵ₁, Aϵ₀ = A(ϵ₀), Aϵ₁ = A(ϵ₁))
+    @unpack a_min, a_max, maxiter_bisect = parameters
+    @argcheck ϵ₀ < ϵ₁
+    @argcheck Aϵ₀ > a_max && Aϵ₁ < a_min
+    for _ in 1:maxiter_bisect
+        ϵₘ = middle(ϵ₀, ϵ₁)
+        Aϵₘ = A(ϵₘ)
+        if a_min ≤ Aϵₘ ≤ a_max  # in
+            return ϵₘ
+        elseif Aϵₘ < a_min      # above
+            ϵ₁ = ϵₘ
+            Aϵ₁ = Aϵₘ
+        else                    # below
+            ϵ₀ = ϵₘ
+            Aϵ₀ = Aϵₘ
         end
     end
-    error("Reached maximum number of iterations.")
+    # should never each this, miscoded log density?
+    error("Reached maximum number of iterations while bisecting interval for ϵ.")
 end
 
 """
-    bracket_find_zero(f, x, Δ, C, tol; [maxiter_bracket], [maxiter_bisection])
+    $SIGNATURES
 
-A combination of [`bracket_zero`](@ref) and [`bracket_find_zero`](@ref).
-"""
-function bracket_find_zero(f, x, Δ, C, tol;
-                           maxiter_bracket = MAXITER_BRACKET,
-                           maxiter_bisection = MAXITER_BISECTION)
-    a, fa, b, fb = bracket_zero(f, x, Δ, C; maxiter = maxiter_bracket)
-    find_zero(f, a, b, tol; fa=fa, fb = fb, maxiter = maxiter_bisection)
-end
+Find an initial stepsize that matches the conditions of `parameters` (see
+[`InitialStepsizeSearch`](@ref)).
 
+`A` is the local acceptance ratio (uncapped). When given a Hamiltonian `H` and a
+phasepoint `z`, it will be calculated using [`local_acceptance_ratio`](@ref).
 """
-    logϵ_residual(H, z, a)
-
-Return a function that calculates `A(logϵ)-a`, where `logϵ` is the log of the
-stepsize, `A` is the acceptance rate for a single leapfrog step, and `a` is the
-target.
-"""
-function logϵ_residual(H, z, a)
-    target = neg_energy(H, z) + log(a)
-    function(logϵ)
-        z′ = leapfrog(H, z, exp(logϵ))
-        neg_energy(H, z′) - target
+function find_initial_stepsize(parameters::InitialStepsizeSearch, A)
+    @unpack a_min, a_max, ϵ₀ = parameters
+    Aϵ₀ = A(ϵ₀)
+    if a_min ≤ Aϵ₀ ≤ a_max
+        ϵ₀
+    else
+        ϵ₀, Aϵ₀, ϵ₁, Aϵ₁ = find_crossing_stepsize(parameters, A, ϵ₀, Aϵ₀)
+        if a_min ≤ Aϵ₁ ≤ a_max  # in interval
+            ϵ₁
+        elseif ϵ₀ < ϵ₁          # order as necessary
+            bisect_stepsize(parameters, A, ϵ₀, ϵ₁, Aϵ₀, Aϵ₁)
+        else
+            bisect_stepsize(parameters, A, ϵ₁, ϵ₀, Aϵ₁, Aϵ₀)
+        end
     end
 end
 
+find_initial_stepsize(parameters::InitialStepsizeSearch, H, z) =
+    find_initial_stepsize(parameters, local_acceptance_ratio(H, z))
+
 """
-    find_reasonable_logϵ(H, z; tol, a, ϵ₀, maxiter_bracket, maxiter_bisection)
+    $(SIGNATURES)
 
-Let
+Return a function of the stepsize (``ϵ``) that calculates the local acceptance
+ratio for a single leapfrog step around `z` along the Hamiltonian `H`. Formally,
+let
 
-``z′(ϵ) = leapfrog(H, z, ϵ)``
+```math
+A(ϵ) = \\exp(\\text{neg_energy}(H, \\text{leapfrog}(H, z, ϵ)) - \\text{neg_energy}(H, z))
+```
 
-and
-
-``A(ϵ) = exp(neg_energy(H, z′) - neg_energy(H, z))``
-
-denote the ratio of densities between a point `z` and another point after one
-leapfrog step with stepsize `ϵ`.
-
-Returns an `ϵ` such that `|log(A(ϵ)) - log(a)| ≤ tol`. Uses iterative bracketing
-(with gently expanding steps) and rootfinding.
-
-Starts at `ϵ₀`, uses `maxiter` iterations for the bracketing and the
-rootfinding, respectively.
+Note that the ratio is not capped by `1`, so it is not a valid probability
+*per se*.
 """
-function find_reasonable_logϵ(H, z; tol = 0.15, a = 0.75, ϵ₀ = 1.0,
-                              maxiter_bracket = MAXITER_BRACKET,
-                              maxiter_bisection = MAXITER_BISECTION)
-    residual = logϵ_residual(H, z, a)
-    bracket_find_zero(residual, log(ϵ₀), log(0.5), 1.1, tol;
-                      maxiter_bracket = MAXITER_BRACKET,
-                      maxiter_bisection = MAXITER_BISECTION)
+function local_acceptance_ratio(H, z)
+    target = neg_energy(H, z)
+    ϵ -> exp(neg_energy(H, leapfrog(H, z, ϵ)) - target)
 end
+
+"""
+    $(SIGNATURES)
+
+Return a matrix of [`local_acceptance_ratio`](@ref) values for stepsizes `ϵs`
+and the given momentums `ps`. The latter is calculated from random values when
+an integer is given.
+
+To facilitate plotting, ``-∞`` values are replaced by `NaN`.
+"""
+function explore_local_acceptance_ratios(H, q, ϵs, ps)
+    R = hcat([local_acceptance_ratio(H, q, p).(ϵs) for p in ps]...)
+    R[isinfinite.(R)] .= NaN
+    R
+end
+
+explore_local_acceptance_ratios(H, q, ϵs, N::Int) =
+    explore_local_acceptance_ratios(H, q, ϵs, [rand(H.κ) for _ in 1:N])
 
 """
 Parameters for the dual averaging algorithm of Gelman and Hoffman (2014,
@@ -417,9 +486,8 @@ function adapt_stepsize(parameters::DualAveragingParameters,
 end
 
 
-###############################################################################
-# random booleans
-######################################################################
+# random booleans
+
 
 """
     rand_bool(rng, prob)
@@ -431,9 +499,9 @@ All random numbers in this library are obtained from this function.
 rand_bool{T <: AbstractFloat}(rng, prob::T) = rand(rng, T) ≤ prob
 
 
-######################################################################
+
 # abstract trajectory interface
-######################################################################
+
 
 """
     ζ, τ, d, z = adjacent_tree(rng, trajectory, z, depth, fwd)
@@ -524,9 +592,9 @@ function sample_trajectory(rng, trajectory, z, max_depth)
 end
 
 
-######################################################################
+
 # proposals
-######################################################################
+
 
 """
 Proposal that is propagated through by sampling recursively when building the
@@ -567,9 +635,9 @@ function combine_proposals(rng, ζ₁::Proposal, ζ₂::Proposal, bias)
 end
 
 
-######################################################################
+
 # divergence statistics
-######################################################################
+
 
 """
 Divergence and acceptance statistics.
@@ -629,9 +697,9 @@ Return average Metropolis acceptance rate.
 get_acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
 
 
-######################################################################
+
 # turn analysis
-######################################################################
+
 
 """
 Statistics for the identification of turning points. See Betancourt (2017,
@@ -666,9 +734,10 @@ function isturning(τ::TurnStatistic)
     dot(p♯₋, ρ) < 0 || dot(p♯₊, ρ) < 0
 end
 
-######################################################################
+
+
 # sampling
-######################################################################
+
 
 """
 Representation of a trajectory, ie a Hamiltonian with a discrete integrator that
@@ -782,9 +851,9 @@ function NUTS_transition(rng, H, q, ϵ, max_depth; args...)
 end
 
 
-######################################################################
+
 # high-level interface: sampler
-######################################################################
+
 
 """
 Specification for the No-U-turn algorithm, including the random number
@@ -860,9 +929,9 @@ Return the samples of the parameter vector as rows of a matrix.
 get_position_matrix(sample) = vcat(get_position.(sample)'...)
 
 
-######################################################################
+
 # tuning and diagnostics
-######################################################################
+
 
 """
     sample_cov(sample)
@@ -907,12 +976,11 @@ function NUTS_init(rng, ℓ, q;
                    κ = GaussianKE(length(q)),
                    p = rand(rng, κ),
                    max_depth = 5,
-                   ϵ = nothing,
-                   args...)
+                   ϵ = InitialStepsizeSearch())
     H = Hamiltonian(ℓ, κ)
     z = phasepoint_in(H, q, p)
-    if ϵ == nothing
-        ϵ = exp(find_reasonable_logϵ(H, z; args...))
+    if !(ϵ isa Float64)
+        ϵ = find_initial_stepsize(ϵ, H, z)
     end
     NUTS(rng, H, q, ϵ, max_depth)
 end
@@ -926,9 +994,9 @@ on the the other method of this function.
 NUTS_init(rng, ℓ, dim::Integer; args...) = NUTS_init(rng, ℓ, randn(dim); args...)
 
 
-######################################################################
+
 # tuning: abstract interface
-######################################################################
+
 
 """
 A tuner that adapts the sampler.
@@ -949,9 +1017,9 @@ updated sampler state after tuning.
 function tune end
 
 
-######################################################################
+
 # tuning: tuner building blocks
-######################################################################
+
 
 "Adapt the integrator stepsize for `N` samples."
 struct StepsizeTuner <: AbstractTuner
@@ -1072,9 +1140,9 @@ NUTS_init_tune_mcmc(ℓ, q_or_dim, N::Int; args...) =
     NUTS_init_tune_mcmc(Base.Random.GLOBAL_RNG, ℓ, q_or_dim, N; args...)
 
 
-######################################################################
+
 # statistics and diagnostics
-######################################################################
+
 
 "Acceptance quantiles for [`NUTS_Statistics`](@ref) diagnostic summary."
 const ACCEPTANCE_QUANTILES = linspace(0, 1, 5)

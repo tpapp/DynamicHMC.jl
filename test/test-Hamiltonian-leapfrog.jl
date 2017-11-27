@@ -1,6 +1,7 @@
 import DynamicHMC:
     GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
-    rand_phasepoint, leapfrog, move, is_valid_ℓq, find_reasonable_logϵ
+    rand_phasepoint, leapfrog, move, is_valid_ℓq, InitialStepsizeSearch,
+    find_initial_stepsize
 
 import DiffResults: MutableDiffResult
 
@@ -93,18 +94,6 @@ end
     end
 end
 
-@testset "find reasonable ϵ" begin
-    for _ in 1:100
-        H, z = rand_Hz(rand(3:5))
-        a = 0.5
-        tol = 0.2
-        a = 0.5
-        ϵ = exp(find_reasonable_logϵ(H, z; tol = tol, a = a))
-        logA = neg_energy(H, leapfrog(H, z, ϵ)) - neg_energy(H, z)
-        @test logA ≈ log(a) atol = tol
-    end
-end
-
 @testset "leapfrog" begin
     "Test that the Hamiltonian is invariant using the leapfrog integrator."
     function test_hamiltonian_invariance(H, z, L, ϵ; atol = one(ϵ))
@@ -125,12 +114,12 @@ end
 
     for _ in 1:100
         H, z = rand_Hz(rand(2:5))
-        ϵ = exp(find_reasonable_logϵ(H, z))
+        ϵ = find_initial_stepsize(InitialStepsizeSearch(), H, z)
         test_hamiltonian_invariance(H, z, 100, ϵ/20; atol = 2.0)
     end
 end
 
-@testset "PhasePoint validation" begin
+@testset "PhasePoint validation and infinite values" begin
     @test PhasePoint([1.0], [1.0], MutableDiffResult(1.0, (1.0,))) isa PhasePoint
     @test_throws ArgumentError PhasePoint([1.0], [1.0, 2.0],
                                           MutableDiffResult(1.0, (1.0,)))
@@ -141,6 +130,8 @@ end
                                         MutableDiffResult(NaN, (1.0,)))
     @test_throws DomainError PhasePoint([1.0], [1.0],
                                         MutableDiffResult(Inf, (1.0,)))
+    @test neg_energy(Hamiltonian(identity, GaussianKE(1)),
+                     PhasePoint([1.0], [1.0], MutableDiffResult(-Inf, (1.0,)))) == -Inf
 end
 
 @testset "Hamiltonian and KE printing" begin

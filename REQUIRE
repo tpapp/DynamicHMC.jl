@@ -2,5 +2,6 @@ julia 0.6
 ArgCheck
 DataStructures
 DiffResults
+DocStringExtensions
 Parameters
 StatsFuns

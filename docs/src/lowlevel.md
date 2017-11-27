@@ -45,19 +45,18 @@ is_valid_ℓq
 
 ## Finding initial stepsize ``\epsilon``
 
-General rootfinding algorithms.
-
-```@docs
-bracket_zero
-find_zero
-bracket_find_zero
-```
-
 Local stepsize tuning.
 
+The local acceptance ratio is technically a probability, but for finding the initial stepsize, it is not capped at ``1``.
+
+Also, the values are cached as this is assumed to be moderately expensive to calculate.
+
 ```@docs
-logϵ_residual
-find_reasonable_logϵ
+find_initial_stepsize
+InitialStepsizeSearch
+find_crossing_stepsize
+bisect_stepsize
+local_acceptance_ratio
 ```
 
 ## Dual averaging
@@ -119,6 +118,7 @@ NUTS_transition
 ```@docs
 NUTS_Statistics
 ACCEPTANCE_QUANTILES
+explore_local_acceptance_ratios
 ```
 
 ## Utilities and miscellanea
