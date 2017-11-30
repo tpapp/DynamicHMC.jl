@@ -2,7 +2,7 @@
 
 This package implements a variant of the “No-U-Turn Sampler” of Hoffmann and [Gelman (2014)](https://arxiv.org/abs/1111.4246), as described in [Betancourt (2017)](https://arxiv.org/abs/1701.02434). **In order to make the best use of this package, you should read at least the latter paper thoroughly**.
 
-This package is mainly useful for Bayesian inference. To make the best use of it, you need to be familiar with the conceptual building blocks of Bayesian inference, most importantly, you should be able to code a posterior function in Julia. For various techniques and a discussion of MCMC methods, you may the [Stan Modeling Language manual](http://mc-stan.org/users/documentation/index.html) helpful. If you are unfamiliar with Bayesian methods, [Bayesian Data Analysis](http://www.stat.columbia.edu/~gelman/book/) is a good introduction, among other great books.
+This package is mainly useful for Bayesian inference. In order to use it, you need to be familiar with the conceptual building blocks of Bayesian inference, most importantly, you should be able to code a (log) posterior as a function in Julia. For various techniques and a discussion of MCMC methods (eg domain transformations, or integrating out discrete parameters), you may find the [Stan Modeling Language manual](http://mc-stan.org/users/documentation/index.html) helpful. If you are unfamiliar with Bayesian methods, [Bayesian Data Analysis](http://www.stat.columbia.edu/~gelman/book/) is a good introduction, among other great books.
 
 The package aims to “[do one thing and do it well](https://en.wikipedia.org/wiki/Unix_philosophy#Do_One_Thing_and_Do_It_Well)”: given a log density function
 
