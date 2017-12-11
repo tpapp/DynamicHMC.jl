@@ -1,14 +1,14 @@
-__precompile()__
+__precompile__()
 module DynamicHMC
 
 import Base: rand, length, show
 import Base.LinAlg.checksquare
 
-using ArgCheck
+using ArgCheck: @argcheck
 using DataStructures
-using DiffResults
-using DocStringExtensions
-using Parameters
+using DiffResults: value, gradient
+using DocStringExtensions: SIGNATURES, FIELDS
+using Parameters: @unpack
 import StatsFuns: logsumexp
 
 export
@@ -19,7 +19,6 @@ export
     get_acceptance_rate, get_steps, NUTS, mcmc, mcmc_adapting_ϵ,
     # tuning and diagnostics
     NUTS_init_tune_mcmc, sample_cov, EBFMI, NUTS_statistics, get_position_matrix
-
 
 
 # Hamiltonian and leapfrog
@@ -128,9 +127,9 @@ Test that a value returned by ℓ is *valid*, in the following sense:
 3. the gradient is finite when the value is; otherwise the gradient is ignored.
 """
 function is_valid_ℓq(ℓq)
-    v = DiffResults.value(ℓq)
+    v = value(ℓq)
     v isa AbstractFloat || return false
-    (v == -Inf) || (isfinite(v) && all(isfinite, DiffResults.gradient(ℓq)))
+    (v == -Inf) || (isfinite(v) && all(isfinite, gradient(ℓq)))
 end
 
 """
@@ -188,7 +187,7 @@ Log density for Hamiltonian `H` at point `z`.
 If `ℓ(q) == -Inf` (rejected), ignores the kinetic energy.
 """
 function neg_energy(H::Hamiltonian, z::PhasePoint)
-    v = DiffResults.value(get_ℓq(z))
+    v = value(get_ℓq(z))
     v == -Inf ? v : (v + neg_energy(H.κ, z.p, z.q))
 end
 
@@ -209,13 +208,12 @@ divergent points anyway, and should not cause a problem.
 function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ)
     @unpack ℓ, κ = H
     @unpack p, q, ℓq = z
-    pₘ = p + ϵ/2 * DiffResults.gradient(ℓq)
+    pₘ = p + ϵ/2 * gradient(ℓq)
     q′ = q - ϵ * loggradient(κ, pₘ)
     ℓq′ = ℓ(q′)
-    p′ = pₘ + ϵ/2 * DiffResults.gradient(ℓq′)
+    p′ = pₘ + ϵ/2 * gradient(ℓq′)
     PhasePoint(q′, p′, ℓq′)
 end
-
 
 
 # stepsize heuristics and adaptation
@@ -486,9 +484,7 @@ function adapt_stepsize(parameters::DualAveragingParameters,
     DualAveragingAdaptation(m, H̄, logϵ, logϵ̄)
 end
 
-
 # random booleans
-
 
 """
     rand_bool(rng, prob)
@@ -499,10 +495,8 @@ All random numbers in this library are obtained from this function.
 """
 rand_bool{T <: AbstractFloat}(rng, prob::T) = rand(rng, T) ≤ prob
 
-
 
 # abstract trajectory interface
-
 
 """
     ζ, τ, d, z = adjacent_tree(rng, trajectory, z, depth, fwd)
@@ -592,10 +586,8 @@ function sample_trajectory(rng, trajectory, z, max_depth)
     ζ, d, termination, depth
 end
 
-
 
 # proposals
-
 
 """
 Proposal that is propagated through by sampling recursively when building the
@@ -635,10 +627,8 @@ function combine_proposals(rng, ζ₁::Proposal, ζ₂::Proposal, bias)
     Proposal(z, ω)
 end
 
-
 
 # divergence statistics
-
 
 """
 Divergence and acceptance statistics.
@@ -697,10 +687,8 @@ Return average Metropolis acceptance rate.
 """
 get_acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
 
-
 
 # turn analysis
-
 
 """
 Statistics for the identification of turning points. See Betancourt (2017,
@@ -735,10 +723,8 @@ function isturning(τ::TurnStatistic)
     dot(p♯₋, ρ) < 0 || dot(p♯₊, ρ) < 0
 end
 
-
 
 # sampling
-
 
 """
 Representation of a trajectory, ie a Hamiltonian with a discrete integrator that
@@ -851,10 +837,8 @@ function NUTS_transition(rng, H, q, ϵ, max_depth; args...)
                     get_acceptance_rate(d), d.steps)
 end
 
-
 
 # high-level interface: sampler
-
 
 """
 Specification for the No-U-turn algorithm, including the random number
@@ -929,7 +913,6 @@ Return the samples of the parameter vector as rows of a matrix.
 """
 get_position_matrix(sample) = vcat(get_position.(sample)'...)
 
-
 
 # tuning and diagnostics
 
@@ -995,10 +978,8 @@ on the the other method of this function.
 """
 NUTS_init(rng, ℓ, dim::Integer; args...) = NUTS_init(rng, ℓ, randn(dim); args...)
 
-
 
 # tuning: abstract interface
-
 
 """
 A tuner that adapts the sampler.
@@ -1018,10 +999,8 @@ updated sampler state after tuning.
 """
 function tune end
 
-
 
 # tuning: tuner building blocks
-
 
 "Adapt the integrator stepsize for `N` samples."
 struct StepsizeTuner <: AbstractTuner
@@ -1151,10 +1130,8 @@ Same as the other method, but with random number generator
 NUTS_init_tune_mcmc(ℓ, q_or_dim, N::Int; args...) =
     NUTS_init_tune_mcmc(Base.Random.GLOBAL_RNG, ℓ, q_or_dim, N; args...)
 
-
 
 # statistics and diagnostics
-
 
 "Acceptance quantiles for [`NUTS_Statistics`](@ref) diagnostic summary."
 const ACCEPTANCE_QUANTILES = linspace(0, 1, 5)
