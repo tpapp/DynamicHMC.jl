@@ -1,3 +1,5 @@
+using MCMCDiagnostics: effective_sample_size, potential_scale_reduction
+
 """
     zvalue(xs, x̄)
 
@@ -64,7 +66,7 @@ function mean_cov_ztests(dist::Distribution{Multivariate,Continuous})
         for j in 1:i
             μj = μ[j]
             push!(tests, ZTest("μ$i", x->(x[i]-μi)*(x[j]-μj), Σ[i,j]))
-        end            
+        end
     end
     tests
 end
