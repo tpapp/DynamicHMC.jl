@@ -1,7 +1,9 @@
-import DynamicHMC:
+using DynamicHMC:
     find_crossing_stepsize, bisect_stepsize, find_initial_stepsize,
     InitialStepsizeSearch,
     adapt_stepsize, DualAveragingParameters, DualAveragingAdaptation
+
+using DiffResults: DiffResult
 
 @testset "stepsize general rootfinding" begin
     Δ = 3.0                   # shift exponential so that ϵ=1 is not in interval
@@ -105,4 +107,11 @@ end
         logA = neg_energy(H, leapfrog(H, z, ϵ)) - neg_energy(H, z)
         @test p.a_min ≤ exp(logA) ≤ p.a_max
     end
+end
+
+@testset "error for non-finite initial density" begin
+    p = InitialStepsizeSearch()
+    H = Hamiltonian((x)->DiffResult(-Inf, ([0.0], )), GaussianKE(1))
+    z = DynamicHMC.phasepoint_in(H, [1.0], [1.0])
+    @test_throws ArgumentError find_initial_stepsize(p, H, z)
 end

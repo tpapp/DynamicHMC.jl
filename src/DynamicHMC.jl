@@ -381,6 +381,7 @@ Note that the ratio is not capped by `1`, so it is not a valid probability
 """
 function local_acceptance_ratio(H, z)
     target = neg_energy(H, z)
+    @argcheck isfinite(target) "Starting point has non-finite density."
     ϵ -> exp(neg_energy(H, leapfrog(H, z, ϵ)) - target)
 end
 
