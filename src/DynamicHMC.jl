@@ -5,6 +5,7 @@ import Base: rand, length, show
 import Base.LinAlg.checksquare
 
 using ArgCheck: @argcheck
+import Compat                   # for DomainError(val, msg) in v0.6
 using DataStructures
 using DiffResults: value, gradient
 using DocStringExtensions: SIGNATURES, FIELDS
@@ -381,7 +382,8 @@ Note that the ratio is not capped by `1`, so it is not a valid probability
 """
 function local_acceptance_ratio(H, z)
     target = neg_energy(H, z)
-    @argcheck isfinite(target) "Starting point has non-finite density."
+    isfinite(target) ||
+        throw(DomainError(z.p, "Starting point has non-finite density."))
     ϵ -> exp(neg_energy(H, leapfrog(H, z, ϵ)) - target)
 end
 

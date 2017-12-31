@@ -113,5 +113,5 @@ end
     p = InitialStepsizeSearch()
     H = Hamiltonian((x)->DiffResult(-Inf, ([0.0], )), GaussianKE(1))
     z = DynamicHMC.phasepoint_in(H, [1.0], [1.0])
-    @test_throws ArgumentError find_initial_stepsize(p, H, z)
+    @test_throws DomainError find_initial_stepsize(p, H, z)
 end
