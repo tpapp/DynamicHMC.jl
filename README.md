@@ -20,6 +20,7 @@ Consequently, this package requires that the user is comfortable with the basics
 
 Also, the building blocks of the algorithm are implemented using a *functional* (non-modifying) approach whenever possible, allowing extensive unit testing of components, while at the same time also intended to serve as a transparent, pedagogical introduction to the low-level mechanics of current Hamiltonian Monte Carlo samplers.
 
+Examples are available in [DynamicHMCExamples.jl](https://github.com/tpapp/DynamicHMCExamples.jl).
 
 ## Bibliography
 

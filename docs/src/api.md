@@ -6,7 +6,16 @@ CurrentModule = DynamicHMC
 
 The density function should take a single argument `q`, which is a vector of numbers, and return an object which provides the methods `DiffResults.value` and `DiffResults.gradient` to access ``\ell(q)`` and ``\nabla\ell(q)``, respectively.
 
-The following example implements the density function for ``n`` observations from a ``\text{Bernoulli}(\alpha)`` distribution, ``s`` of which are `1`. The complete example is available in [`tests/example.jl`](https://github.com/tpapp/DynamicHMC.jl/blob/master/test/test-sample-dummy.jl).
+The following example implements the density function for ``n`` observations from a ``\text{Bernoulli}(\alpha)`` distribution, ``s`` of which are `1`. This example and others are available in [DynamicHMCExamples.jl](https://github.com/tpapp/DynamicHMCExamples.jl).
+
+First, we load some packages we use (you may have to install them):
+```julia
+using DynamicHMC
+using ContinuousTransformations
+using Parameters
+using MCMCDiagnostics
+using DiffWrappers
+```
 
 It is convenient to define a structure that holds the data,
 
@@ -19,10 +28,11 @@ struct BernoulliProblem
 end
 ```
 
-then make it callable:
+then make it callable (with a vector argument):
 
 ```julia
-function (problem::BernoulliProblem)(α)
+function (problem::BernoulliProblem)(θ)
+    α, = θ                        # extract the first parameter
     @unpack n, s = problem        # using Parameters
     s * log(α) + (n-s) * log(1-α) # log likelihood
 end
