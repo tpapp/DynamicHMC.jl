@@ -8,7 +8,7 @@ Bare-bones implementation of robust dynamic Hamiltonian Monte Carlo methods.
 [![codecov.io](http://codecov.io/github/tpapp/DynamicHMC.jl/coverage.svg?branch=master)](http://codecov.io/github/tpapp/DynamicHMC.jl?branch=master)
 [![Documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://tpapp.github.io/DynamicHMC.jl/latest)
 
-## Introduction
+## Overview
 
 This package implements a modern version of the “No-U-turn sampler” in the Julia language, mostly as described in [Betancourt (2017)](https://arxiv.org/abs/1701.02434), with some tweaks.
 
@@ -20,7 +20,15 @@ Consequently, this package requires that the user is comfortable with the basics
 
 Also, the building blocks of the algorithm are implemented using a *functional* (non-modifying) approach whenever possible, allowing extensive unit testing of components, while at the same time also intended to serve as a transparent, pedagogical introduction to the low-level mechanics of current Hamiltonian Monte Carlo samplers.
 
+## Examples
+
 Examples are available in [DynamicHMCExamples.jl](https://github.com/tpapp/DynamicHMCExamples.jl).
+
+## Support and participation
+
+For general questions, open an issue or ask on [the Discourse forum](https://discourse.julialang.org/).
+
+The API is in the process of being refined to accommodate various modeling approaches. Users who wish to participate in the discussion should subscribe to the Github notifications (“watching” the package). Also, I will do my best to accommodate feature requests, just open issues.
 
 ## Bibliography
 
