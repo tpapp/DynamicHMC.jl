@@ -5,7 +5,7 @@ import DynamicHMC:
 
 using Base.Test
 
-using ArgCheck
+using ArgCheck: @argcheck
 using DataStructures
 using DiffResults
 using Distributions
@@ -13,6 +13,7 @@ import ForwardDiff: gradient
 using MCMCDiagnostics
 using Parameters
 using StatsBase
+using Suppressor
 
 "RNG for consistent test environment"
 const RNG = srand(UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
