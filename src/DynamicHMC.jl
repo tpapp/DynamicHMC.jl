@@ -6,7 +6,7 @@ import Base.LinAlg.checksquare
 
 using ArgCheck: @argcheck
 import Compat                   # for DomainError(val, msg) in v0.6
-using DataStructures
+using DataStructures: counter
 using DiffResults: value, gradient
 using DocStringExtensions: SIGNATURES, FIELDS
 using Parameters: @unpack
