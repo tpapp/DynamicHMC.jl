@@ -9,3 +9,5 @@ include("test-tuners.jl")
 include("test-sample-normal.jl")
 include("test-normal-mcmc.jl")
 include("test-statistics.jl")
+
+include("../docs/make.jl")
