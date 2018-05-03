@@ -1,4 +1,6 @@
+Compat
 Distributions
 Documenter
 ForwardDiff
 MCMCDiagnostics
+Suppressor

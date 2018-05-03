@@ -16,6 +16,7 @@ include("utilities.jl")
 include("hamiltonian.jl")
 include("stepsize.jl")
 include("buildingblocks.jl")
+include("reporting.jl")
 include("sampler.jl")
 include("diagnostics.jl")
 

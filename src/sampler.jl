@@ -8,7 +8,7 @@ export
 Specification for the No-U-turn algorithm, including the random number
 generator, Hamiltonian, the initial position, and various parameters.
 """
-struct NUTS{Tv, Tf, TR, TH}
+struct NUTS{Tv, Tf, TR, TH, Trep <: AbstractReport}
     "Random number generator."
     rng::TR
     "Hamiltonian"
@@ -19,6 +19,8 @@ struct NUTS{Tv, Tf, TR, TH}
     ϵ::Tf
     "maximum depth of the tree"
     max_depth::Int
+    "reporting"
+    report::Trep
 end
 
 function show(io::IO, nuts::NUTS)
@@ -36,13 +38,16 @@ Run the MCMC `sampler` for `N` iterations, returning the results as a vector,
 which has elements that conform to the sampler.
 """
 function mcmc(sampler::NUTS{Tv,Tf}, N::Int) where {Tv,Tf}
-    @unpack rng, H, q, ϵ, max_depth = sampler
+    @unpack rng, H, q, ϵ, max_depth, report = sampler
     sample = Vector{NUTS_Transition{Tv,Tf}}(N)
+    start_progress!(report, N, "MCMC")
     for i in 1:N
         trans = NUTS_transition(rng, H, q, ϵ, max_depth)
         q = trans.q
         sample[i] .= trans
+        report!(report, i)
     end
+    end_progress!(report)
     sample
 end
 
@@ -56,14 +61,17 @@ second value.
 When the last two parameters are not specified, initialize using `adapting_ϵ`.
 """
 function mcmc_adapting_ϵ(sampler::NUTS{Tv,Tf}, N::Int, A_params, A) where {Tv,Tf}
-    @unpack rng, H, q, max_depth = sampler
+    @unpack rng, H, q, max_depth, report = sampler
     sample = Vector{NUTS_Transition{Tv,Tf}}(N)
+    start_progress!(report, N, "MCMC, adapting ϵ")
     for i in 1:N
         trans = NUTS_transition(rng, H, q, get_ϵ(A), max_depth)
         A = adapt_stepsize(A_params, A, trans.a)
         q = trans.q
         sample[i] .= trans
+        report!(report, i)
     end
+    end_progress!(report)
     sample, A
 end
 
@@ -115,13 +123,14 @@ function NUTS_init(rng, ℓ, q;
                    κ = GaussianKE(length(q)),
                    p = rand(rng, κ),
                    max_depth = 5,
-                   ϵ = InitialStepsizeSearch())
+                   ϵ = InitialStepsizeSearch(),
+                   report = ReportIO())
     H = Hamiltonian(ℓ, κ)
     z = phasepoint_in(H, q, p)
     if !(ϵ isa Float64)
         ϵ = find_initial_stepsize(ϵ, H, z)
     end
-    NUTS(rng, H, q, ϵ, max_depth)
+    NUTS(rng, H, q, ϵ, max_depth, report)
 end
 
 """
@@ -165,9 +174,9 @@ show(io::IO, tuner::StepsizeTuner) =
     print(io, "Stepsize tuner, $(tuner.N) samples")
 
 function tune(sampler::NUTS, tuner::StepsizeTuner)
-    @unpack rng, H, max_depth = sampler
+    @unpack rng, H, max_depth, report = sampler
     sample, A = mcmc_adapting_ϵ(sampler, tuner.N)
-    NUTS(rng, H, sample[end].q, get_ϵ(A, false), max_depth)
+    NUTS(rng, H, sample[end].q, get_ϵ(A, false), max_depth, report)
 end
 
 """
@@ -192,12 +201,12 @@ end
 
 function tune(sampler::NUTS, tuner::StepsizeCovTuner)
     @unpack regularize, N = tuner
-    @unpack rng, H, max_depth = sampler
+    @unpack rng, H, max_depth, report = sampler
     sample, A = mcmc_adapting_ϵ(sampler, N)
     Σ = sample_cov(sample)
     Σ .+= (UniformScaling(median(diag(Σ)))-Σ) * regularize/N
     κ = GaussianKE(Σ)
-    NUTS(rng, Hamiltonian(H.ℓ, κ), sample[end].q, get_ϵ(A), max_depth)
+    NUTS(rng, Hamiltonian(H.ℓ, κ), sample[end].q, get_ϵ(A), max_depth, report)
 end
 
 "Sequence of tuners, applied in the given order."

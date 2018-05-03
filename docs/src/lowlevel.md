@@ -121,6 +121,29 @@ ACCEPTANCE_QUANTILES
 explore_local_acceptance_ratios
 ```
 
+## Reporting information during runs
+
+Samplers take an [`AbstractReport`](@ref) argument, which is then used for reporting. The interface is as follows.
+
+```@docs
+DynamicHMC.AbstractReport
+DynamicHMC.report!
+DynamicHMC.start_progress!
+DynamicHMC.end_progress!
+```
+
+The default is
+```@docs
+ReportIO
+```
+
+Reporting information can be suppressed with
+```@docs
+ReportSilent
+```
+
+Other interfaces should define similar types.
+
 ## Utilities and miscellanea
 
 ```@docs
