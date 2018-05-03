@@ -1,18 +1,19 @@
-# Hamiltonian and leapfrog
+# This file contains building blocks for traversing a Hamiltonian
+# deterministically, using the leapfrog integrator.
 
 export KineticEnergy, EuclideanKE, GaussianKE
 
 """
 Kinetic energy specifications.
 
-For all subtypes, it is assumed that kinetic energy is symmetric in
+For all subtypes, it is implicitly assumed that kinetic energy is symmetric in
 the momentum `p`, ie.
 
 ```julia
 neg_energy(::KineticEnergy, p, q) == neg_energy(::KineticEnergy, -p, q)
 ```
 
-When the above is violated, various implicit assumptions will not hold.
+When the above is violated, the consequences are undefined.
 """
 abstract type KineticEnergy end
 
@@ -23,10 +24,12 @@ abstract type EuclideanKE <: KineticEnergy end
 Gaussian kinetic energy.
 
 ```math
-p \\mid q ∼ \\text{Normal}(0, M) \\qquad (\\text{importantly, independent of \$q\$})
+p ∣ q ∼ N(0, M)
 ```
 
-The inverse covariance `M⁻¹` is stored.
+**independently** of ``q``.
+
+The inverse covariance ``M⁻¹`` is stored.
 """
 struct GaussianKE{T <: AbstractMatrix, S <: AbstractMatrix} <: EuclideanKE
     "M⁻¹"
