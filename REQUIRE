@@ -1,6 +1,6 @@
 julia 0.7-
 ArgCheck 0.7
-DataStructures 0.9
+DataStructures 0.8
 DiffResults 0.0.3
 DocStringExtensions
 Parameters 0.9
