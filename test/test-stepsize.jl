@@ -46,8 +46,8 @@ using DiffResults: DiffResult
     @test params.a_min ≤ A(ϵ) ≤ params.a_max
     # combined algorithm - random tests
     for _ in 1:1000
-        α = abs(randn())
-        β = -abs(randn())
+        α = abs(randn(RNG))
+        β = -abs(randn(RNG))
         A = ϵ -> exp(-(α*ϵ+β)*ϵ)  # A(0)=1, has a hump, goes to A(∞)→0
         Aϵ₀ = A(params.ϵ₀)
         # uncomment line belows for coverage debugging or inverse
@@ -102,7 +102,7 @@ end
 @testset "find reasonable stepsize - random H, z" begin
     p = InitialStepsizeSearch()
     for _ in 1:100
-        H, z = rand_Hz(rand(3:5))
+        H, z = rand_Hz(RNG, rand(RNG, 3:5))
         ϵ = find_initial_stepsize(p, H, z)
         logA = neg_energy(H, leapfrog(H, z, ϵ)) - neg_energy(H, z)
         @test p.a_min ≤ exp(logA) ≤ p.a_max

@@ -1,4 +1,4 @@
-import DynamicHMC:
+using DynamicHMC:
     StepsizeTuner, StepsizeCovTuner, TunerSequence, bracketed_doubling_tuner
 
 @testset "tuner framework" begin

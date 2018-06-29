@@ -117,7 +117,7 @@ probability (`ω`).
 When `bias`, biases towards the second argument, introducing anti-correlations.
 """
 function combined_logprob_logweight(ω₁, ω₂, bias)
-    ω = logsumexp(ω₁, ω₂)
+    ω = logaddexp(ω₁, ω₂)
     ω₂ - (bias ? ω₁ : ω), ω
 end
 

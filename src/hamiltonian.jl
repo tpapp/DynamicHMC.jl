@@ -49,7 +49,11 @@ GaussianKE(M::T, W::S) where {T,S} = GaussianKE{T,S}(M, W)
 
 Gaussian kinetic energy with the given inverse covariance matrix `M⁻¹`.
 """
-GaussianKE(Minv::AbstractMatrix) = GaussianKE(Minv, inv(chol(Minv)))
+GaussianKE(Minv::AbstractMatrix) = GaussianKE(Minv, inv(cholesky(Minv).U))
+
+# TODO revisit / modify special case as a workaround for
+# https://github.com/JuliaLang/julia/issues/27821
+GaussianKE(Minv::Diagonal) = GaussianKE(Minv, .√inv(Minv))
 
 """
     GaussianKE(N::Int, [m⁻¹ = 1.0])
@@ -72,13 +76,13 @@ neg_energy(κ::GaussianKE, p, q = nothing) = -dot(p, κ.Minv * p) / 2
 """
     get_p♯(κ, p, [q])
 
-Return ``p\sharp``, used for turn diagnostics.
+Return ``p♯``, used for turn diagnostics.
 """
 get_p♯(κ::GaussianKE, p, q = nothing) = κ.Minv * p
 
 loggradient(κ::GaussianKE, p, q = nothing) = -get_p♯(κ, p)
 
-rand(rng, κ::GaussianKE, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
+rand(rng::AbstractRNG, κ::GaussianKE, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
 
 """
     Hamiltonian(ℓ, κ)
@@ -159,7 +163,7 @@ phasepoint_in(H::Hamiltonian, q, p) = PhasePoint(q, p, H.ℓ(q))
 Extend a position `q` to a phasepoint with a random momentum according to the
 kinetic energy of `H`.
 """
-rand_phasepoint(rng, H, q) = phasepoint_in(H, q, rand(rng, H.κ))
+rand_phasepoint(rng::AbstractRNG, H, q) = phasepoint_in(H, q, rand(rng, H.κ))
 
 """
     $SIGNATURES
@@ -187,7 +191,8 @@ momentum. If this is not finite, the momentum won't be either. Since the
 constructor `PhasePoint` validates its arguments, this can only happen for
 divergent points anyway, and should not cause a problem.
 """
-function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ)
+function leapfrog(H::Hamiltonian{Tℓ,Tκ},
+                  z::PhasePoint, ϵ) where {Tℓ, Tκ <: EuclideanKE}
     @unpack ℓ, κ = H
     @unpack p, q, ℓq = z
     pₘ = p + ϵ/2 * gradient(ℓq)

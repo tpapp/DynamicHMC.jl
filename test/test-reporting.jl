@@ -1,5 +1,5 @@
 @testset "reporting" begin
-    ℓ = MvNormal(zeros(3), ones(3))
+    ℓ = MultiNormal(zeros(3), Diagonal(ones(3)))
     @color_output false begin
         output = @capture_err begin
             sample, nuts = NUTS_init_tune_mcmc(RNG, ℓ, length(ℓ), 1000;
@@ -15,5 +15,5 @@
     end
     raw_regex = join(expectedA.(vcat(fill("MCMC, adapting ϵ", 7), ["MCMC"]),
                                 [75, 25, 50, 100, 200, 400, 50, 1000]), "")
-    @test ismatch(Regex(raw_regex), output)
+    @test occursin(Regex(raw_regex), output)
 end

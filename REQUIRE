@@ -1,8 +1,8 @@
-julia 0.6
-ArgCheck
-Compat
-DataStructures
-DiffResults
+julia 0.7-
+ArgCheck 0.7
+DataStructures 0.8
+DiffResults 0.0.3
 DocStringExtensions
-Parameters
-StatsFuns
+Parameters 0.9
+StatsBase 0.23.1
+StatsFuns 0.6

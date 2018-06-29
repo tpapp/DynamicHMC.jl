@@ -1,8 +1,8 @@
-import DynamicHMC:
+using DynamicHMC:
     TurnStatistic, isturning, combine_turnstats, Proposal, combine_proposals,
     DivergenceStatistic, combine_divstats, get_acceptance_rate
 
-import StatsFuns: logsumexp
+using StatsFuns: logaddexp
 
 @testset "low-level turn statistics" begin
     n = 3
@@ -34,7 +34,8 @@ end
 ######################################################################
 
 @testset "proposal" begin
-    function test_sample(rng, prop1, prop2, bias2, prob_prob2; atol = 0.02, N = 10000)
+    function test_sample(rng, prop1, prop2, bias2, prob_prob2;
+                         atol = 0.02, N = 10000)
         count = 0
         for _ in 1:N
             prop = combine_proposals(rng, prop1, prop2, bias2)
@@ -43,7 +44,7 @@ end
             else
                 @test prop.z ≂ prop1.z
             end
-            @test prop.ω ≈ logsumexp(prop1.ω, prop2.ω)
+            @test prop.ω ≈ logaddexp(prop1.ω, prop2.ω)
         end
         @test count / N ≈ prob_prob2 atol = atol
     end

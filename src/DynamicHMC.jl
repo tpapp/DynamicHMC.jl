@@ -1,16 +1,19 @@
 __precompile__()
 module DynamicHMC
 
-import Base: rand, length, show
-import Base.LinAlg.checksquare
+import Base: length, show
 
 using ArgCheck: @argcheck
-using Compat: DomainError       # for DomainError(val, msg) in v0.6
 using DataStructures: counter
 using DiffResults: value, gradient
 using DocStringExtensions: SIGNATURES, FIELDS
+using LinearAlgebra
+using LinearAlgebra: checksquare
 using Parameters: @unpack
-import StatsFuns: logsumexp
+using Random: AbstractRNG
+import Random: rand
+import StatsFuns: logaddexp
+using StatsBase: cov, var
 
 include("utilities.jl")
 include("hamiltonian.jl")
