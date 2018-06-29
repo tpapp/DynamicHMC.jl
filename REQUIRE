@@ -3,7 +3,6 @@ ArgCheck 0.7
 DataStructures 0.9
 DiffResults 0.0.3
 DocStringExtensions
-LinearAlgebra
 Parameters 0.9
 StatsBase 0.23.1
 StatsFuns 0.6
