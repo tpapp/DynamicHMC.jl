@@ -1,10 +1,10 @@
-import DynamicHMC:
-    rand_bool,
-    leaf, move,
-    combine_proposals, combine_turnstats, combined_logprob_logweight,
-    divergence_statistic, isdivergent,
-    isturning,
+using DynamicHMC:
+    combined_logprob_logweight, divergence_statistic, isdivergent,
     adjacent_tree, sample_trajectory
+
+
+import DynamicHMC:
+    combine_proposals, combine_turnstats, isturning, move, leaf, rand_bool
 
 """
 Structure that can take the place of a trajectory for testing tree traversal and
@@ -28,7 +28,7 @@ end
 "Convenience constructor for DummyTrajectory."
 function DummyTrajectory(z₀::T; turning = Set{T}(), divergent = Set{T}(),
                  collecting = true, ℓ = (z) -> 0.0) where T
-    DummyTrajectory(z₀, collecting, Vector{T}(0), turning, divergent, ℓ)
+    DummyTrajectory(z₀, collecting, Vector{T}(undef, 0), turning, divergent, ℓ)
 end
 
 "Dummy Turn statistic."
@@ -56,7 +56,7 @@ function TrajectoryDistribution(positions, probabilities)
     p = sortperm(pos)
     TrajectoryDistribution(pos[p], probs[p])
 end
-    
+
 """
 Combine two `TrajectoryDistributions` such that the second one has the given
 probability.
@@ -69,7 +69,7 @@ function mix(x::TrajectoryDistribution, y::TrajectoryDistribution, y_prob)
     p = sortperm(positions)
     TrajectoryDistribution(positions[p], probabilities[p])
 end
-    
+
 @testset "trajectory distributions" begin
     x = TrajectoryDistribution(0:1, [0.2, 0.8])
     y = TrajectoryDistribution(2:3, [0.3, 0.7])
@@ -77,7 +77,7 @@ end
     @test z.positions == collect(0:3)
     @test z.probabilities ≈ vcat(0.2*[0.2, 0.8], 0.8*[0.3, 0.7])
 end
-    
+
 "Keep track of all probabilities."
 struct ProposalDistribution{Tz, Tf}
     dist::TrajectoryDistribution{Tz, Tf}
@@ -104,7 +104,7 @@ function leaf(trajectory::DummyTrajectory, z, isinitial)
     ζ, τ, d
 end
 
-move(trajectory, z, fwd) = z + (fwd ? one(z) : -(one(z)))
+move(trajectory::DummyTrajectory, z, fwd) = z + (fwd ? one(z) : -(one(z)))
 
 @testset "dummy adjacent tree full" begin
     trajectory = DummyTrajectory(0)
@@ -199,8 +199,10 @@ Transition probability to `j` according to `dists`.
 function transprob(dists, j)
     p = 0.0
     for d in dists
-        ix = findfirst(d.positions, j)
-        (ix > 0) && (p += d.probabilities[ix])
+        ix = findfirst(isequal(d.positions), j)
+        if ix ≠ nothing
+            p += d.probabilities[ix]
+        end
     end
     p / length(dists)
 end

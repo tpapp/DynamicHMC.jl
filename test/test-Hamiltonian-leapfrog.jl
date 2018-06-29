@@ -1,9 +1,9 @@
-import DynamicHMC:
+using DynamicHMC:
     GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
     rand_phasepoint, leapfrog, move, is_valid_ℓq, InitialStepsizeSearch,
     find_initial_stepsize
 
-import DiffResults: MutableDiffResult
+using DiffResults: MutableDiffResult
 
 ######################################################################
 # Hamiltonian and leapfrog
@@ -11,12 +11,12 @@ import DiffResults: MutableDiffResult
 
 @testset "Gaussian KE full" begin
     for _ in 1:100
-        K = rand(2:10)
-        Σ = rand_Σ(Symmetric, K)
+        K = rand(RNG, 2:10)
+        Σ = rand_Σ(RNG, Symmetric, K)
         κ = GaussianKE(inv(Σ))
         @test κ.Minv * κ.W * κ.W' ≈ Diagonal(ones(K))
         m, C = simulated_meancov(()->rand(RNG, κ), 10000)
-        @test full(Σ) ≈ C rtol = 0.1
+        @test Matrix(Σ) ≈ C rtol = 0.1
         test_loggradient(κ, randn(K))
     end
 end
@@ -24,25 +24,25 @@ end
 @testset "Gaussian KE diagonal" begin
     for _ in 1:100
         K = rand(2:10)
-        Σ = rand_Σ(Diagonal, K)
+        Σ = rand_Σ(RNG, Diagonal, K)
         κ = GaussianKE(inv(Σ))
         @test κ.Minv * κ.W * κ.W' ≈ Diagonal(ones(K))
         m, C = simulated_meancov(()->rand(RNG, κ), 10000)
-        @test full(Σ) ≈ C rtol = 0.1
+        @test Matrix(Σ) ≈ C rtol = 0.1
         test_loggradient(κ, randn(K))
     end
 end
 
 @testset "phasepoint internal consistency" begin
     # when this breaks, interface was modified, rewrite tests
-    @test fieldnames(PhasePoint) == [:q, :p, :ℓq]
+    @test fieldnames(PhasePoint) == (:q, :p, :ℓq)
     "Test the consistency of cached values."
     function test_consistency(H, z)
         @unpack q, ℓq = z
         @unpack ℓ = H
         @test ℓ(q) == ℓq
     end
-    H, z = rand_Hz(rand(3:10))
+    H, z = rand_Hz(RNG, rand(3:10))
     test_consistency(H, z)
     ϵ = find_stable_ϵ(H)
     for _ in 1:10
@@ -56,7 +56,7 @@ end
     Simple leapfrog implementation. `q`: position, `p`: momentum, `ℓ`: neg_energy, `ϵ`: stepsize. `m` is the diagonal of the kinetic energy ``K(p)=p'M⁻¹p``, defaults to `1`.
     """
     function leapfrog_Gaussian(q, p, ℓ, ϵ, m = ones(length(p)))
-        u = .√(1./m)
+        u = @. √(1 / m)
         pₕ = p + ϵ/2*DiffResults.gradient(ℓ(q))
         q′ = q + ϵ * u .* (u .* pₕ) # mimic numerical calculation leapfrog performs
         p′ = pₕ + ϵ/2*DiffResults.gradient(ℓ(q′))
@@ -64,13 +64,13 @@ end
     end
 
     n = 3
-    M = rand_Σ(Diagonal, n)
+    M = rand_Σ(RNG, Diagonal, n)
     m = diag(M)
     κ = GaussianKE(inv(M))
-    q = randn(n)
-    p = randn(n)
-    Σ = rand_Σ(n)
-    ℓ = MvNormal(randn(n), full(Σ))
+    q = randn(RNG, n)
+    p = randn(RNG, n)
+    Σ = rand_Σ(RNG, n)
+    ℓ = MultiNormal(randn(RNG, n), Σ)
     H = Hamiltonian(ℓ, κ)
     ϵ = find_stable_ϵ(H)
     ℓq = ℓ(q)
@@ -113,7 +113,7 @@ end
     end
 
     for _ in 1:100
-        H, z = rand_Hz(rand(2:5))
+        H, z = rand_Hz(RNG, rand(2:5))
         ϵ = find_initial_stepsize(InitialStepsizeSearch(), H, z)
         test_hamiltonian_invariance(H, z, 100, ϵ/20; atol = 2.0)
     end

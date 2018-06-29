@@ -13,7 +13,7 @@ struct ReportSilent <: AbstractReport end
 
 report!(::ReportSilent, objects...) = nothing
 
-start_progress!(::ReportSilent, ::Union{Int, Void}, ::Any) = nothing
+start_progress!(::ReportSilent, ::Union{Int, Nothing}, ::Any) = nothing
 
 end_progress!(::ReportSilent) = nothing
 
@@ -21,21 +21,21 @@ mutable struct ReportIO{TIO <: IO} <: AbstractReport
     io::TIO
     color::Union{Symbol, Int}
     step_count::Int
-    total::Union{Int, Void}
-    last_count::Union{Int, Void}
+    total::Union{Int, Nothing}
+    last_count::Union{Int, Nothing}
     last_time::UInt
 end
 
 """
     $SIGNATURES
 
-Report to the given stream `io` (defaults to `STDERR`).
+Report to the given stream `io` (defaults to `stderr`).
 
 For progress bars, emit new information every after `step_count` steps.
 
 `color` is used with `print_with_color`.
 """
-ReportIO(; io = STDERR, color = :blue, step_count = 100) =
+ReportIO(; io = stderr, color = :blue, step_count = 100) =
     ReportIO(io, color, step_count, nothing, nothing, zero(UInt))
 
 """
@@ -54,7 +54,7 @@ function start_progress!(report::ReportIO, total, msg)
     if total isa Integer
         msg *= " ($(total) steps)"
     end
-    print_with_color(report.color, report.io, msg, '\n'; bold = true)
+    printstyled(report.io, msg, '\n'; bold = true, color = report.color)
     report.total = total
     report.last_count = 0
     report.last_time = time_ns()
@@ -67,7 +67,7 @@ end
 Terminate a progress meter.
 """
 function end_progress!(report::ReportIO)
-    print_with_color(report.color, report.io, " ...done\n"; bold = true)
+    printstyled(report.io, " ...done\n"; bold = true, color = report.color)
     report.last_count = nothing
 end
 
@@ -88,8 +88,8 @@ function report!(report::ReportIO, count::Int)
         end
         t = time_ns()
         s_per_iteration = (t - report.last_time) / step_count / 1000
-        msg *= ", $(signif(s_per_iteration, 2)) s/step"
-        print_with_color(color, io, msg, '\n')
+        msg *= ", $(round(s_per_iteration; sigdigits = 2)) s/step"
+        printstyled(io, msg, '\n'; color = color)
         report.last_time = t
         report.last_count = count
     end
