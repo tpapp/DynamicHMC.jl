@@ -1,4 +1,3 @@
-__precompile__()
 module DynamicHMC
 
 import Base: rand, length, show
