@@ -14,7 +14,7 @@ using LinearAlgebra
 using MCMCDiagnostics
 using Parameters
 using Random: MersenneTwister
-using StatsBase
+using StatsBase: mean_and_cov, mean_and_std
 using Statistics: mean, quantile
 using Suppressor
 

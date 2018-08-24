@@ -3,4 +3,5 @@ Distributions
 Documenter
 ForwardDiff
 MCMCDiagnostics
+StatsBase
 Suppressor
