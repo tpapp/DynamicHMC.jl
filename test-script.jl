@@ -1,1 +1,3 @@
-Pkg.clone(pwd()); Pkg.build("DynamicHMC"); Pkg.test("DynamicHMC"; coverage=true)
+import Pkg
+Pkg.build("DynamicHMC")
+Pkg.test("DynamicHMC"; coverage=true)

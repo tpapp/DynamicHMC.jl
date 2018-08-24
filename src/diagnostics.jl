@@ -14,15 +14,15 @@ EBFMI(sample) = (πs = get_neg_energy.(sample); mean(abs2, diff(πs)) / var(πs)
 
 
 "Acceptance quantiles for [`NUTS_Statistics`](@ref) diagnostic summary."
-const ACCEPTANCE_QUANTILES = linspace(0, 1, 5)
+const ACCEPTANCE_QUANTILES = range(0; stop = 1, length = 5)
 
 """
 Storing the output of [`NUTS_statistics`](@ref) in a structured way, for pretty
 printing. Currently for internal use.
 """
 struct NUTS_Statistics{T <: Real,
-                       DT <: Associative{Termination,Int},
-                       DD <: Associative{Int,Int}}
+                       DT <: AbstractDict{Termination,Int},
+                       DD <: AbstractDict{Int,Int}}
     "Sample length."
     N::Int
     "average_acceptance"

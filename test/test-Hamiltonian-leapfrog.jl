@@ -16,7 +16,7 @@ import DiffResults: MutableDiffResult
         κ = GaussianKE(inv(Σ))
         @test κ.Minv * κ.W * κ.W' ≈ Diagonal(ones(K))
         m, C = simulated_meancov(()->rand(RNG, κ), 10000)
-        @test full(Σ) ≈ C rtol = 0.1
+        @test Matrix(Σ) ≈ C rtol = 0.1
         test_loggradient(κ, randn(K))
     end
 end
@@ -26,16 +26,17 @@ end
         K = rand(2:10)
         Σ = rand_Σ(Diagonal, K)
         κ = GaussianKE(inv(Σ))
-        @test κ.Minv * κ.W * κ.W' ≈ Diagonal(ones(K))
+        # FIXME workaround for https://github.com/JuliaLang/julia/issues/28869
+        @test κ.Minv * Matrix(κ.W) * Matrix(κ.W') ≈ Diagonal(ones(K))
         m, C = simulated_meancov(()->rand(RNG, κ), 10000)
-        @test full(Σ) ≈ C rtol = 0.1
+        @test Matrix(Σ) ≈ C rtol = 0.1
         test_loggradient(κ, randn(K))
     end
 end
 
 @testset "phasepoint internal consistency" begin
     # when this breaks, interface was modified, rewrite tests
-    @test fieldnames(PhasePoint) == [:q, :p, :ℓq]
+    @test fieldnames(PhasePoint) == (:q, :p, :ℓq)
     "Test the consistency of cached values."
     function test_consistency(H, z)
         @unpack q, ℓq = z
@@ -56,7 +57,7 @@ end
     Simple leapfrog implementation. `q`: position, `p`: momentum, `ℓ`: neg_energy, `ϵ`: stepsize. `m` is the diagonal of the kinetic energy ``K(p)=p'M⁻¹p``, defaults to `1`.
     """
     function leapfrog_Gaussian(q, p, ℓ, ϵ, m = ones(length(p)))
-        u = .√(1./m)
+        u = .√(1 ./ m)
         pₕ = p + ϵ/2*DiffResults.gradient(ℓ(q))
         q′ = q + ϵ * u .* (u .* pₕ) # mimic numerical calculation leapfrog performs
         p′ = pₕ + ϵ/2*DiffResults.gradient(ℓ(q′))
@@ -70,7 +71,7 @@ end
     q = randn(n)
     p = randn(n)
     Σ = rand_Σ(n)
-    ℓ = MvNormal(randn(n), full(Σ))
+    ℓ = MvNormal(randn(n), Matrix(Σ))
     H = Hamiltonian(ℓ, κ)
     ϵ = find_stable_ϵ(H)
     ℓq = ℓ(q)
@@ -103,7 +104,7 @@ end
             z = leapfrog(H, z, ϵ)
             Δ = π₀ - neg_energy(H, z)
             if abs(Δ) ≥ atol && !warned
-                warn("Hamiltonian invariance violated: step $(i) of $(L), Δ = $(Δ)")
+                @warn "Hamiltonian invariance violated: step $(i) of $(L), Δ = $(Δ)"
                 show(H)
                 show(z)
                 warned = true
