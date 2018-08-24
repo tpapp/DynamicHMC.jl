@@ -49,7 +49,7 @@ GaussianKE(M::T, W::S) where {T,S} = GaussianKE{T,S}(M, W)
 
 Gaussian kinetic energy with the given inverse covariance matrix `M⁻¹`.
 """
-GaussianKE(Minv::AbstractMatrix) = GaussianKE(Minv, inv(chol(Minv)))
+GaussianKE(Minv::AbstractMatrix) = GaussianKE(Minv, cholesky(inv(Minv)).L)
 
 """
     GaussianKE(N::Int, [m⁻¹ = 1.0])
@@ -72,13 +72,13 @@ neg_energy(κ::GaussianKE, p, q = nothing) = -dot(p, κ.Minv * p) / 2
 """
     get_p♯(κ, p, [q])
 
-Return ``p\sharp``, used for turn diagnostics.
+Return ``p♯``, used for turn diagnostics.
 """
 get_p♯(κ::GaussianKE, p, q = nothing) = κ.Minv * p
 
 loggradient(κ::GaussianKE, p, q = nothing) = -get_p♯(κ, p)
 
-rand(rng, κ::GaussianKE, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
+rand(rng::AbstractRNG, κ::GaussianKE, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
 
 """
     Hamiltonian(ℓ, κ)
@@ -109,9 +109,9 @@ Test that a value returned by ℓ is *valid*, in the following sense:
 3. the gradient is finite when the value is; otherwise the gradient is ignored.
 """
 function is_valid_ℓq(ℓq)
-    v = value(ℓq)
+    v = DiffResults.value(ℓq)
     v isa AbstractFloat || return false
-    (v == -Inf) || (isfinite(v) && all(isfinite, gradient(ℓq)))
+    (v == -Inf) || (isfinite(v) && all(isfinite, DiffResults.gradient(ℓq)))
 end
 
 """
@@ -169,7 +169,7 @@ Log density for Hamiltonian `H` at point `z`.
 If `ℓ(q) == -Inf` (rejected), ignores the kinetic energy.
 """
 function neg_energy(H::Hamiltonian, z::PhasePoint)
-    v = value(get_ℓq(z))
+    v = DiffResults.value(get_ℓq(z))
     v == -Inf ? v : (v + neg_energy(H.κ, z.p, z.q))
 end
 
@@ -187,12 +187,12 @@ momentum. If this is not finite, the momentum won't be either. Since the
 constructor `PhasePoint` validates its arguments, this can only happen for
 divergent points anyway, and should not cause a problem.
 """
-function leapfrog{Tℓ, Tκ <: EuclideanKE}(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ)
+function leapfrog(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ) where {Tℓ, Tκ <: EuclideanKE}
     @unpack ℓ, κ = H
     @unpack p, q, ℓq = z
-    pₘ = p + ϵ/2 * gradient(ℓq)
+    pₘ = p + ϵ/2 * DiffResults.gradient(ℓq)
     q′ = q - ϵ * loggradient(κ, pₘ)
     ℓq′ = ℓ(q′)
-    p′ = pₘ + ϵ/2 * gradient(ℓq′)
+    p′ = pₘ + ϵ/2 * DiffResults.gradient(ℓq′)
     PhasePoint(q′, p′, ℓq′)
 end

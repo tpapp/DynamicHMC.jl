@@ -15,5 +15,5 @@
     end
     raw_regex = join(expectedA.(vcat(fill("MCMC, adapting ϵ", 7), ["MCMC"]),
                                 [75, 25, 50, 100, 200, 400, 50, 1000]), "")
-    @test ismatch(Regex(raw_regex), output)
+    @test occursin(Regex(raw_regex), output)
 end

@@ -39,12 +39,12 @@ which has elements that conform to the sampler.
 """
 function mcmc(sampler::NUTS{Tv,Tf}, N::Int) where {Tv,Tf}
     @unpack rng, H, q, ϵ, max_depth, report = sampler
-    sample = Vector{NUTS_Transition{Tv,Tf}}(N)
+    sample = Vector{NUTS_Transition{Tv,Tf}}(undef, N)
     start_progress!(report, N, "MCMC")
     for i in 1:N
         trans = NUTS_transition(rng, H, q, ϵ, max_depth)
         q = trans.q
-        sample[i] .= trans
+        sample[i] = trans
         report!(report, i)
     end
     end_progress!(report)
@@ -62,13 +62,13 @@ When the last two parameters are not specified, initialize using `adapting_ϵ`.
 """
 function mcmc_adapting_ϵ(sampler::NUTS{Tv,Tf}, N::Int, A_params, A) where {Tv,Tf}
     @unpack rng, H, q, max_depth, report = sampler
-    sample = Vector{NUTS_Transition{Tv,Tf}}(N)
+    sample = Vector{NUTS_Transition{Tv,Tf}}(undef, N)
     start_progress!(report, N, "MCMC, adapting ϵ")
     for i in 1:N
         trans = NUTS_transition(rng, H, q, get_ϵ(A), max_depth)
         A = adapt_stepsize(A_params, A, trans.a)
         q = trans.q
-        sample[i] .= trans
+        sample[i] = trans
         report!(report, i)
     end
     end_progress!(report)
@@ -94,7 +94,7 @@ get_position_matrix(sample) = vcat(get_position.(sample)'...)
 
 Covariance matrix of the sample.
 """
-sample_cov(sample) = cov(get_position_matrix(sample), 1)
+sample_cov(sample) = cov(get_position_matrix(sample); dims = 1)
 
 """
     NUTS_init(rng, ℓ, q; κ = GaussianKE(length(q)), p, max_depth, ϵ)
@@ -204,8 +204,9 @@ function tune(sampler::NUTS, tuner::StepsizeCovTuner)
     @unpack rng, H, max_depth, report = sampler
     sample, A = mcmc_adapting_ϵ(sampler, N)
     Σ = sample_cov(sample)
-    Σ .+= (UniformScaling(median(diag(Σ)))-Σ) * regularize/N
-    κ = GaussianKE(Σ)
+    Σ += (UniformScaling(median(diag(Σ)))-Σ) * regularize/N
+    # FIXME: Symmetric + Symmetric above does not preserve Symmetric
+    κ = GaussianKE(Symmetric(Σ))
     NUTS(rng, Hamiltonian(H.ℓ, κ), sample[end].q, get_ϵ(A), max_depth, report)
 end
 
@@ -247,7 +248,7 @@ function bracketed_doubling_tuner(; init = 75, mid = 25, M = 5, term = 50,
         mid *= 2
     end
     push!(tuners, StepsizeTuner(term))
-    TunerSequence((tuners...))
+    TunerSequence((tuners..., ))
 end
 
 function tune(sampler, seq::TunerSequence)

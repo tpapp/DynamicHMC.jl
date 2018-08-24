@@ -3,20 +3,23 @@ using DynamicHMC
 import DynamicHMC:
     Hamiltonian, GaussianKE, PhasePoint, rand_phasepoint, loggradient
 
-using Base.Test
+using Test
 
 using ArgCheck: @argcheck
 using DataStructures
 using DiffResults
 using Distributions
-import ForwardDiff: gradient
+import ForwardDiff
+using LinearAlgebra
 using MCMCDiagnostics
 using Parameters
+using Random: MersenneTwister
 using StatsBase
+using Statistics: mean, quantile
 using Suppressor
 
 "RNG for consistent test environment"
-const RNG = srand(UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
+const RNG = MersenneTwister(UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
 
 "Be more tolerant when testing."
 const RELAX = (k = "CONTINUOUS_INTEGRATION"; haskey(ENV, k) && ENV[k] == "true")
@@ -24,10 +27,10 @@ const RELAX = (k = "CONTINUOUS_INTEGRATION"; haskey(ENV, k) && ENV[k] == "true")
 "Random positive definite matrix of size `n` x `n` (for testing)."
 function rand_Σ(::Type{Symmetric}, n)
     A = randn(RNG, n,n)
-    Symmetric(A'*A+0.01)
+    Symmetric(A'*A .+ 0.01)
 end
 
-rand_Σ(::Type{Diagonal}, n) = Diagonal(randn(RNG, n).^2+0.01)
+rand_Σ(::Type{Diagonal}, n) = Diagonal(randn(RNG, n).^2 .+ 0.01)
 
 rand_Σ(n::Int) = rand_Σ(Symmetric, n)
 
@@ -55,7 +58,7 @@ function rand_Hz(K)
     μ = randn(K)
     Σ = rand_Σ(K)
     κ = GaussianKE(inv(rand_Σ(Diagonal, K)))
-    H = Hamiltonian(MvNormal(μ, full(Σ)), κ)
+    H = Hamiltonian(MvNormal(μ, Matrix(Σ)), κ)
     z = rand_phasepoint(RNG, H, μ)
     H, z
 end
@@ -72,8 +75,8 @@ function simulated_meancov(f, N)
     for i in 1:N
         x[i, :] = f()
     end
-    m, C = mean_and_cov(x)
-    vec(mean(x, 1)), cov(x, 1)
+    m, C = mean_and_cov(x, 1)
+    vec(m), C
 end
 
 """

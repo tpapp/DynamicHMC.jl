@@ -38,7 +38,7 @@ Print a warning when `|z| ≥ threshold`.
 function zvalue_warn(name_and_z::Pair, threshold)
     name, z = name_and_z
     if abs(z) ≥ threshold
-        warn("$(name): z = $(z)")
+        @warn "$(name): z = $(z)"
     end
 end
 
@@ -59,7 +59,7 @@ function mean_cov_ztests(dist::Distribution{Multivariate,Continuous})
     K = length(dist)
     μ = mean(dist)
     Σ = cov(dist)
-    tests = Vector{ZTest}(0)
+    tests = Vector{ZTest}()
     for i in 1:K
         μi = μ[i]
         push!(tests, ZTest("μ$i", x->x[i], μi))
@@ -117,13 +117,13 @@ end
 @testset "normal z tests random" begin
     for _ in 1:100
         K = rand(2:10)
-        ℓ = MvNormal(randn(K), full(rand_Σ(K)))
+        ℓ = MvNormal(randn(K), Matrix(rand_Σ(K)))
         sample, nuts = NUTS_init_tune_mcmc(RNG, ℓ, K, 1000;
                                            report = ReportSilent())
         @test EBFMI(sample) ≥ 0.3
         @test maximum(R̂(nuts, 1000, 3)) ≤ 1.05
         zs = zvalue.([sample], mean_cov_ztests(ℓ))
         zvalue_warn.(zs, 4)
-        @test maximum(abs ∘ last, zs) ≤ zthreshold(length(zs), 0.001) + 0.5 + 0.5*RELAX
+        @test maximum(abs ∘ last, zs) ≤ zthreshold(length(zs), 0.001) + 0.9 + 0.5*RELAX
     end
 end

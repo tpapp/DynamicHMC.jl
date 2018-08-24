@@ -10,7 +10,7 @@ import DynamicHMC:
     qs = sample_HMC(RNG, H, q, 10000)
     m, C = mean_and_cov(qs, 1)
     @test vec(m) ≈ zeros(K) atol = 0.1
-    @test C ≈ full(Diagonal(ones(K))) atol = 0.1
+    @test C ≈ Matrix(Diagonal(ones(K))) atol = 0.1
 end
 
 @testset "normal NUTS HMC transition mean and cov" begin
@@ -19,10 +19,10 @@ end
         K = rand(2:8)
         N = 10000
         Σ = rand_Σ(K)
-        ℓ = MvNormal(randn(K), full(Σ))
+        ℓ = MvNormal(randn(K), Matrix(Σ))
         q = rand(ℓ)
         H = Hamiltonian(ℓ, GaussianKE(Σ))
-        qs = Array{Float64}(N, K)
+        qs = Array{Float64}(undef, N, K)
         ϵ = 0.5
         for i in 1:N
             trans = NUTS_transition(RNG, H, q, ϵ, 5)
@@ -30,8 +30,8 @@ end
             qs[i, :] = q
         end
         m, C = mean_and_cov(qs, 1)
-        @test vec(m) ≈ mean(ℓ) atol = 0.1 rtol = maximum(diag(C))*0.02 norm = x->vecnorm(x,1)
-        @test cov(qs, 1) ≈ cov(ℓ) atol = 0.1 rtol = 0.1
+        @test vec(m) ≈ mean(ℓ) atol = 0.1 rtol = maximum(diag(C))*0.02 norm = x -> norm(x,1)
+        @test cov(qs, dims = 1) ≈ cov(ℓ) atol = 0.1 rtol = 0.1
     end
 end
 
@@ -49,7 +49,7 @@ end
 @testset "transition accessors and consistency checks" begin
     K = 2
     Σ = rand_Σ(K)
-    ℓ = MvNormal(randn(K), full(Σ))
+    ℓ = MvNormal(randn(K), Matrix(Σ))
     q = rand(ℓ)
     H = Hamiltonian(ℓ, GaussianKE(Σ))
     ϵ = 0.5

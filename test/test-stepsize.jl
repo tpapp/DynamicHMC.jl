@@ -96,7 +96,7 @@ end
     for _ in 1:2000
         A = adapt_stepsize(params, A, min(dummy_acceptance_rate(A.logϵ), 1))
     end
-    @test dummy_acceptance_rate(A.logϵ, 0) ≈ δ atol = 0.03
+    @test dummy_acceptance_rate(A.logϵ, 0) ≈ δ atol = 0.05
 end
 
 @testset "find reasonable stepsize - random H, z" begin
