@@ -1,7 +1,5 @@
-using MCMCDiagnostics: effective_sample_size, potential_scale_reduction
-
 """
-    zvalue(xs, x̄)
+    $SIGNATURES
 
 Return the normalized value (x̂-x̄)/MCMCSE(x). If the sampler is correct, follows
 a Normal(0,1) distribution.
@@ -25,6 +23,11 @@ struct ZTest{Ta, Tf}
     x̄::Tf
 end
 
+"""
+    $SIGNATURES
+
+Calculate a `zvalue` from a `sample`.
+"""
 function zvalue(sample, test::ZTest)
     @unpack name, accessor, x̄ = test
     name => zvalue(map(accessor ∘ get_position, sample), x̄)
@@ -43,7 +46,7 @@ function zvalue_warn(name_and_z::Pair, threshold)
 end
 
 """
-    zthreshold(M, p)
+    $SIGNATURES
 
 z threshold at which the maximum `|z|` out of `M` variables has cdf `1-p`,
 assuming normality.
@@ -51,7 +54,7 @@ assuming normality.
 zthreshold(M, p) = √quantile(Chisq(1), (1-p)^(1/M))
 
 """
-    mean_cov_ztests(dist)
+    $SIGNATURES
 
 Return mean and covariance tests for multivariate distributions.
 """
@@ -62,17 +65,17 @@ function mean_cov_ztests(dist::Distribution{Multivariate,Continuous})
     tests = Vector{ZTest}()
     for i in 1:K
         μi = μ[i]
-        push!(tests, ZTest("μ$i", x->x[i], μi))
+        push!(tests, ZTest("μ($i)", x->x[i], μi))
         for j in 1:i
             μj = μ[j]
-            push!(tests, ZTest("μ$i", x->(x[i]-μi)*(x[j]-μj), Σ[i,j]))
+            push!(tests, ZTest("Σ($i,$j)", x->(x[i]-μi)*(x[j]-μj), Σ[i,j]))
         end
     end
     tests
 end
 
 """
-    R̂(sampler, N, M)
+    $SIGNATURES
 
 Run `M` chains of length `N` using `sampler`, then calculate the columnwise R̂
 (potential scale reduction factor).

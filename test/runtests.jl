@@ -5,9 +5,10 @@ using DynamicHMC:
     GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
     rand_phasepoint, leapfrog, move, is_valid_ℓq,
     # building blocks
-    rand_bool, TurnStatistic, isturning, combine_turnstats, Proposal,
-    combine_proposals, DivergenceStatistic, combine_divstats,
-    get_acceptance_rate,
+    rand_bool, TurnStatistic, combine_turnstats, Proposal,
+    combined_logprob_logweight, combine_proposals,
+    DivergenceStatistic, combine_divstats, divergence_statistic, isdivergent,
+    get_acceptance_rate, isturning, adjacent_tree, sample_trajectory,
     # stepsize
     InitialStepsizeSearch, find_initial_stepsize,
     # transitions and tuning
@@ -23,7 +24,7 @@ using Distributions
 using DocStringExtensions: SIGNATURES
 import ForwardDiff
 using LinearAlgebra
-using MCMCDiagnostics
+using MCMCDiagnostics: effective_sample_size, potential_scale_reduction
 using Parameters
 import Random
 using Random: randn, rand

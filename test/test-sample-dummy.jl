@@ -1,10 +1,5 @@
-import DynamicHMC:
-    rand_bool,
-    leaf, move,
-    combine_proposals, combine_turnstats, combined_logprob_logweight,
-    divergence_statistic, isdivergent,
-    isturning,
-    adjacent_tree, sample_trajectory
+
+# trajectory type that is easy to inspect and reason about, for unit testing
 
 """
 Structure that can take the place of a trajectory for testing tree traversal and
@@ -36,10 +31,13 @@ struct DummyTurnStatistic
     turning::Bool
 end
 
-combine_turnstats(τ₁::T, τ₂::T) where {T <: DummyTurnStatistic} =
+DynamicHMC.combine_turnstats(τ₁::T, τ₂::T) where {T <: DummyTurnStatistic} =
     T(τ₁.turning && τ₂.turning)
 
-isturning(τ::DummyTurnStatistic) = τ.turning
+DynamicHMC.isturning(τ::DummyTurnStatistic) = τ.turning
+
+
+# a realized trajectory, with positions and their probabilities
 
 struct TrajectoryDistribution{Tz, Tf}
     "ordered positions"
@@ -86,15 +84,15 @@ end
 
 support(pd::ProposalDistribution) = pd.dist.positions
 
-function combine_proposals(rng, x::ProposalDistribution,
-                           y::ProposalDistribution, bias_y)
+function DynamicHMC.combine_proposals(rng, x::ProposalDistribution,
+                                      y::ProposalDistribution, bias_y)
     logprob_y, ω = combined_logprob_logweight(x.ω, y.ω, bias_y)
     prob_y = logprob_y ≥ 0 ? one(logprob_y) : exp(logprob_y)
     dist = mix(x.dist, y.dist, prob_y)
     ProposalDistribution(dist, ω)
 end
 
-function leaf(trajectory::DummyTrajectory, z, isinitial)
+function DynamicHMC.leaf(trajectory::DummyTrajectory, z, isinitial)
     @unpack z₀, collecting, positions, turning, divergent, ℓ = trajectory
     Δ = isinitial ? 0.0 : ℓ(z) - ℓ(z₀)
     collecting && push!(positions, z)
@@ -104,7 +102,7 @@ function leaf(trajectory::DummyTrajectory, z, isinitial)
     ζ, τ, d
 end
 
-move(trajectory, z, fwd) = z + (fwd ? one(z) : -(one(z)))
+DynamicHMC.move(trajectory::DummyTrajectory, z, fwd) = z + (fwd ? one(z) : -(one(z)))
 
 @testset "dummy adjacent tree full" begin
     trajectory = DummyTrajectory(0)
@@ -159,7 +157,7 @@ mutable struct DummyRNG{T}
 end
 
 "Generate specified random number placeholders using DummyRNG."
-function rand_bool(rng::DummyRNG, ::AbstractFloat)
+function DynamicHMC.rand_bool(rng::DummyRNG, ::AbstractFloat)
     value = rng.state & 1 > 0
     rng.state >>= 1
     rng.count += 1
