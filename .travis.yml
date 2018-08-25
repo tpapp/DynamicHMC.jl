@@ -11,6 +11,7 @@ notifications:
   email: false
 matrix:
   allow_failures:
+    - julia: 1.0                # FIXME remove when MCMCDiagnostics catches up
     - julia: nightly
 # uncomment the following lines for debugging Documenter.jl
 # env:
