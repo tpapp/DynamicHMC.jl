@@ -4,6 +4,9 @@ using DynamicHMC:
     # Hamiltonian
     GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
     rand_phasepoint, leapfrog, move, is_valid_ℓq,
+    # building blocks
+    TurnStatistic, isturning, combine_turnstats, Proposal, combine_proposals,
+    DivergenceStatistic, combine_divstats, get_acceptance_rate,
     # stepsize
     InitialStepsizeSearch, find_initial_stepsize,
     # transitions and tuning
@@ -24,6 +27,7 @@ using Parameters
 import Random
 using Random: randn, rand
 using StatsBase: mean_and_cov, mean_and_std
+using StatsFuns: logaddexp
 using Statistics: mean, quantile
 using Suppressor
 
@@ -52,15 +56,6 @@ rand_Σ(n::Int) = rand_Σ(Symmetric, n)
 
 ## use MvNormal as a test distribution
 (ℓ::MvNormal)(p) = DiffResults.DiffResult(logpdf(ℓ, p), (gradlogpdf(ℓ, p), ))
-
-"Lenient comparison operator for `struct`, both mutable and immutable."
-@generated function ≂(x, y)
-    if !isempty(fieldnames(x)) && x == y
-        mapreduce(n -> :(x.$n == y.$n), (a,b)->:($a && $b), fieldnames(x))
-    else
-        :(x == y)
-    end
-end
 
 "Random Hamiltonian `H` with phasepoint `z`, with dimension `K`."
 function rand_Hz(K)
