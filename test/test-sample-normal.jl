@@ -1,5 +1,33 @@
-import DynamicHMC:
-    NUTS_transition, NUTS_init, StepsizeTuner, StepsizeCovTuner, tune
+"""
+    $SIGNATURES
+
+Simple Hamiltonian Monte Carlo transition, for testing.
+"""
+function simple_HMC(H, z::PhasePoint, ϵ, L)
+    π₀ = neg_energy(H, z)
+    z′ = z
+    for _ in 1:L
+        z′ = leapfrog(H, z′, ϵ)
+    end
+    Δ = neg_energy(H, z′) - π₀
+    accept = Δ > 0 || (rand() < exp(Δ))
+    accept ? z′ : z
+end
+
+"""
+    $SIGNATURES
+
+Simple Hamiltonian Monte Carlo sample, for testing.
+"""
+function sample_HMC(H, q, N; ϵ = find_stable_ϵ(H), L = 10)
+    qs = similar(q, N, length(q))
+    for i in 1:N
+        z = rand_phasepoint(RNG, H, q)
+        q = simple_HMC( H, z, ϵ, L).q
+        qs[i, :] = q
+    end
+    qs
+end
 
 @testset "unit normal simple HMC" begin
     # just testing leapfrog

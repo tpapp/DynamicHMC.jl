@@ -1,23 +1,34 @@
 using DynamicHMC
 
-import DynamicHMC:
-    Hamiltonian, GaussianKE, PhasePoint, rand_phasepoint, loggradient
+using DynamicHMC:
+    # Hamiltonian
+    GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
+    rand_phasepoint, leapfrog, move, is_valid_ℓq,
+    # stepsize
+    InitialStepsizeSearch, find_initial_stepsize,
+    # transitions and tuning
+    NUTS_transition, NUTS_init, StepsizeTuner, StepsizeCovTuner, tune
 
 using Test
 
 using ArgCheck: @argcheck
 using DataStructures
-using DiffResults
+import DiffResults
+using DiffResults: MutableDiffResult
 using Distributions
+using DocStringExtensions: SIGNATURES
 import ForwardDiff
 using LinearAlgebra
 using MCMCDiagnostics
 using Parameters
 import Random
-using Random: MersenneTwister
+using Random: randn, rand
 using StatsBase: mean_and_cov, mean_and_std
 using Statistics: mean, quantile
 using Suppressor
+
+
+# general test environment
 
 const RNG = Random.GLOBAL_RNG   # shorthand
 Random.seed!(RNG, UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
@@ -25,7 +36,11 @@ Random.seed!(RNG, UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
 "Tolerant testing in a CI environment."
 const RELAX = (k = "CONTINUOUS_INTEGRATION"; haskey(ENV, k) && ENV[k] == "true")
 
-"Random positive definite matrix of size `n` x `n` (for testing)."
+"""
+    $SIGNATURES
+
+Random positive definite matrix of size `n` x `n` (for testing).
+"""
 function rand_Σ(::Type{Symmetric}, n)
     A = randn(n, n)
     Symmetric(A'*A .+ 0.01)
@@ -34,13 +49,6 @@ end
 rand_Σ(::Type{Diagonal}, n) = Diagonal(randn(n).^2 .+ 0.01)
 
 rand_Σ(n::Int) = rand_Σ(Symmetric, n)
-
-"Test `loggradient` vs autodiff `neg_energy`."
-function test_loggradient(ℓ, x)
-    ∇ = loggradient(ℓ, x)
-    ∇_AD = ForwardDiff.gradient(x->neg_energy(ℓ,x), x)
-    @test ∇ ≈ ∇_AD
-end
 
 ## use MvNormal as a test distribution
 (ℓ::MvNormal)(p) = DiffResults.DiffResult(logpdf(ℓ, p), (gradlogpdf(ℓ, p), ))
@@ -78,58 +86,6 @@ function simulated_meancov(f, N)
     end
     m, C = mean_and_cov(x, 1)
     vec(m), C
-end
-
-"""
-    find_stable_ϵ(κ, Σ)
-
-Return a reasonable estimate for the largest stable stepsize (which may not be
-stable, but is a good starting point for finding that).
-
-`q` is assumed to be normal with variance `Σ`. `κ` is the kinetic energy.
-
-Using the transformation ``p̃ = W⁻¹ p``, the kinetic energy is
-
-``p'M⁻¹p = p'W⁻¹'W⁻¹p/2=p̃'p̃/2``
-
-Transforming to ``q̃=W'q``, the variance of which becomes ``W' Σ W``. Return the
-square root of its smallest eigenvalue, following Neal (2011, p 136).
-
-When ``Σ⁻¹=M=WW'``, this the variance of `q̃` is ``W' Σ W=W' W'⁻¹W⁻¹W=I``, and
-thus decorrelates the density perfectly.
-"""
-find_stable_ϵ(κ::GaussianKE, Σ) = √eigmin(κ.W'*Σ*κ.W)
-
-function find_stable_ϵ(H::Hamiltonian{Tℓ, Tκ}) where
-    {Tℓ <: Distribution{Multivariate,Continuous}, Tκ}
-    find_stable_ϵ(H.κ, cov(H.ℓ))
-end
-
-"Simple Hamiltonian Monte Carlo transition, for testing."
-function simple_HMC(H, z::PhasePoint, ϵ, L)
-    π₀ = neg_energy(H, z)
-    z′ = z
-    for _ in 1:L
-        z′ = leapfrog(H, z′, ϵ)
-    end
-    Δ = neg_energy(H, z′) - π₀
-    accept = Δ > 0 || (rand() < exp(Δ))
-    accept ? z′ : z
-end
-
-"""
-    sample_HMC(H, q, N; ϵ = find_stable_ϵ(H), L = 10)
-
-Simple Hamiltonian Monte Carlo sample, for testing.
-"""
-function sample_HMC(H, q, N; ϵ = find_stable_ϵ(H), L = 10)
-    qs = similar(q, N, length(q))
-    for i in 1:N
-        z = rand_phasepoint(RNG, H, q)
-        q = simple_HMC( H, z, ϵ, L).q
-        qs[i, :] = q
-    end
-    qs
 end
 
 include("test-utilities.jl")
