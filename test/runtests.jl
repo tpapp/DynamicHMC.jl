@@ -12,7 +12,8 @@ using DynamicHMC:
     # stepsize
     InitialStepsizeSearch, find_initial_stepsize,
     # transitions and tuning
-    NUTS_transition, NUTS_init, StepsizeTuner, StepsizeCovTuner, tune
+    NUTS_transition, NUTS_init, StepsizeTuner, StepsizeCovTuner, tune,
+    TunerSequence, bracketed_doubling_tuner
 
 using Test
 
