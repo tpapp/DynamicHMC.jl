@@ -1,6 +1,3 @@
-import DynamicHMC:
-    StepsizeTuner, StepsizeCovTuner, TunerSequence, bracketed_doubling_tuner
-
 @testset "tuner framework" begin
     s = StepsizeTuner(10)
     @test length(s) == 10

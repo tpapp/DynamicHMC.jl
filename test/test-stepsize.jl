@@ -3,8 +3,6 @@ using DynamicHMC:
     InitialStepsizeSearch,
     adapt_stepsize, DualAveragingParameters, DualAveragingAdaptation
 
-using DiffResults: DiffResult
-
 @testset "stepsize general rootfinding" begin
     Δ = 3.0                   # shift exponential so that ϵ=1 is not in interval
     A = ϵ -> exp(-ϵ*Δ)
@@ -111,7 +109,7 @@ end
 
 @testset "error for non-finite initial density" begin
     p = InitialStepsizeSearch()
-    H = Hamiltonian((x)->DiffResult(-Inf, ([0.0], )), GaussianKE(1))
+    H = Hamiltonian((x)->DiffResults.DiffResult(-Inf, ([0.0], )), GaussianKE(1))
     z = DynamicHMC.phasepoint_in(H, [1.0], [1.0])
     @test_throws DomainError find_initial_stepsize(p, H, z)
 end

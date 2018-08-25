@@ -1,13 +1,63 @@
-import DynamicHMC:
-    GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
-    rand_phasepoint, leapfrog, move, is_valid_ℓq, InitialStepsizeSearch,
-    find_initial_stepsize
+
+# utility functions
 
-import DiffResults: MutableDiffResult
+"Test `loggradient` vs autodiff `neg_energy`."
+function test_loggradient(ℓ, x)
+    ∇ = DynamicHMC.loggradient(ℓ, x)
+    ∇_AD = ForwardDiff.gradient(x->neg_energy(ℓ,x), x)
+    @test ∇ ≈ ∇_AD
+end
 
-######################################################################
-# Hamiltonian and leapfrog
-######################################################################
+"""
+    $SIGNATURES
+
+Return a reasonable estimate for the largest stable stepsize (which may not be
+stable, but is a good starting point for finding that).
+
+`q` is assumed to be normal with variance `Σ`. `κ` is the kinetic energy.
+
+Using the transformation ``p̃ = W⁻¹ p``, the kinetic energy is
+
+``p'M⁻¹p = p'W⁻¹'W⁻¹p/2=p̃'p̃/2``
+
+Transforming to ``q̃=W'q``, the variance of which becomes ``W' Σ W``. Return the
+square root of its smallest eigenvalue, following Neal (2011, p 136).
+
+When ``Σ⁻¹=M=WW'``, this the variance of `q̃` is ``W' Σ W=W' W'⁻¹W⁻¹W=I``, and
+thus decorrelates the density perfectly.
+"""
+find_stable_ϵ(κ::GaussianKE, Σ) = √eigmin(κ.W'*Σ*κ.W)
+
+function find_stable_ϵ(H::Hamiltonian{Tℓ, Tκ}) where
+    {Tℓ <: Distribution{Multivariate,Continuous}, Tκ}
+    find_stable_ϵ(H.κ, cov(H.ℓ))
+end
+
+"""
+    $SIGNATURES
+
+Simulated mean and covariance of `N` values from `f()`.
+"""
+function simulated_meancov(f, N)
+    s = f()
+    K = length(s)
+    x = similar(s, (N, K))
+    for i in 1:N
+        x[i, :] = f()
+    end
+    m, C = mean_and_cov(x, 1)
+    vec(m), C
+end
+
+@testset "simulated meancov" begin
+    d = MvNormal([2,2], [2.0,1.0])
+    m, C = simulated_meancov(()->rand(d), 10000)
+    @test m ≈ mean(d) atol = 0.05 rtol = 0.1
+    @test C ≈ cov(d) atol = 0.05 rtol = 0.1
+end
+
+
+# testsets
 
 @testset "Gaussian KE full" begin
     for _ in 1:100
@@ -15,7 +65,7 @@ import DiffResults: MutableDiffResult
         Σ = rand_Σ(Symmetric, K)
         κ = GaussianKE(inv(Σ))
         @test κ.Minv * κ.W * κ.W' ≈ Diagonal(ones(K))
-        m, C = simulated_meancov(()->rand(RNG, κ), 10000)
+        m, C = simulated_meancov(()->rand(κ), 10000)
         @test Matrix(Σ) ≈ C rtol = 0.1
         test_loggradient(κ, randn(K))
     end
@@ -28,7 +78,7 @@ end
         κ = GaussianKE(inv(Σ))
         # FIXME workaround for https://github.com/JuliaLang/julia/issues/28869
         @test κ.Minv * Matrix(κ.W) * Matrix(κ.W') ≈ Diagonal(ones(K))
-        m, C = simulated_meancov(()->rand(RNG, κ), 10000)
+        m, C = simulated_meancov(()->rand(κ), 10000)
         @test Matrix(Σ) ≈ C rtol = 0.1
         test_loggradient(κ, randn(K))
     end

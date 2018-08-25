@@ -1,8 +1,46 @@
-import DynamicHMC:
-    TurnStatistic, isturning, combine_turnstats, Proposal, combine_proposals,
-    DivergenceStatistic, combine_divstats, get_acceptance_rate
+
+# utilities
 
-import StatsFuns: logaddexp
+"""
+    $SIGNATURES
+
+Recursive comparison by fields; types and values should match by `==`.
+"""
+function ≂(x::T, y::T) where T
+    fn = fieldnames(T)
+    isempty(fn) ? x == y : all(getfield(x, f) ≂ getfield(y, f) for f in fn)
+end
+
+≂(x, y) = x == y
+
+"""
+Type for testing `≂`.
+"""
+struct Foo{T}
+    a::T
+    b::T
+end
+
+@testset "≂ comparisons" begin
+    @test 1 ≂ 1
+    @test 1 ≂ 1.0
+    @test [1,2] ≂ [1,2]
+    @test [1.0,2.0] ≂ [1,2]
+    @test !(1 ≂ 2)
+    @test Foo(1,2) ≂ Foo(1,2)
+    @test !(Foo(1,2) ≂ Foo(1,3))
+    @test !(Foo{Any}(1,2) ≂ Foo(1,2))
+end
+
+
+# random booleans
+
+@testset "random booleans" begin
+    @test abs(mean(rand_bool(RNG, 0.3) for _ in 1:10000) - 0.3) ≤ 0.01
+end
+
+
+# test turn statistics
 
 @testset "low-level turn statistics" begin
     n = 3
@@ -29,9 +67,8 @@ end
     @test get_acceptance_rate(z) ≈ 0.4
 end
 
-######################################################################
-# proposals
-######################################################################
+
+# test proposals
 
 @testset "proposal" begin
     function test_sample(rng, prop1, prop2, bias2, prob_prob2; atol = 0.02, N = 10000)
