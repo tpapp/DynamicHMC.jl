@@ -1,9 +1,9 @@
-import DynamicHMC:
+using DynamicHMC:
     GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
     rand_phasepoint, leapfrog, move, is_valid_ℓq, InitialStepsizeSearch,
     find_initial_stepsize
 
-import DiffResults: MutableDiffResult
+using DiffResults: MutableDiffResult
 
 ######################################################################
 # Hamiltonian and leapfrog
@@ -15,7 +15,7 @@ import DiffResults: MutableDiffResult
         Σ = rand_Σ(Symmetric, K)
         κ = GaussianKE(inv(Σ))
         @test κ.Minv * κ.W * κ.W' ≈ Diagonal(ones(K))
-        m, C = simulated_meancov(()->rand(RNG, κ), 10000)
+        m, C = simulated_meancov(()->rand(κ), 10000)
         @test Matrix(Σ) ≈ C rtol = 0.1
         test_loggradient(κ, randn(K))
     end
@@ -28,7 +28,7 @@ end
         κ = GaussianKE(inv(Σ))
         # FIXME workaround for https://github.com/JuliaLang/julia/issues/28869
         @test κ.Minv * Matrix(κ.W) * Matrix(κ.W') ≈ Diagonal(ones(K))
-        m, C = simulated_meancov(()->rand(RNG, κ), 10000)
+        m, C = simulated_meancov(()->rand(κ), 10000)
         @test Matrix(Σ) ≈ C rtol = 0.1
         test_loggradient(κ, randn(K))
     end

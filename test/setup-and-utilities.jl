@@ -13,24 +13,25 @@ import ForwardDiff
 using LinearAlgebra
 using MCMCDiagnostics
 using Parameters
+import Random
 using Random: MersenneTwister
 using StatsBase: mean_and_cov, mean_and_std
 using Statistics: mean, quantile
 using Suppressor
 
-"RNG for consistent test environment"
-const RNG = MersenneTwister(UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
+const RNG = Random.GLOBAL_RNG   # shorthand
+Random.seed!(RNG, UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
 
-"Be more tolerant when testing."
+"Tolerant testing in a CI environment."
 const RELAX = (k = "CONTINUOUS_INTEGRATION"; haskey(ENV, k) && ENV[k] == "true")
 
 "Random positive definite matrix of size `n` x `n` (for testing)."
 function rand_Σ(::Type{Symmetric}, n)
-    A = randn(RNG, n,n)
+    A = randn(n, n)
     Symmetric(A'*A .+ 0.01)
 end
 
-rand_Σ(::Type{Diagonal}, n) = Diagonal(randn(RNG, n).^2 .+ 0.01)
+rand_Σ(::Type{Diagonal}, n) = Diagonal(randn(n).^2 .+ 0.01)
 
 rand_Σ(n::Int) = rand_Σ(Symmetric, n)
 
@@ -105,27 +106,27 @@ function find_stable_ϵ(H::Hamiltonian{Tℓ, Tκ}) where
 end
 
 "Simple Hamiltonian Monte Carlo transition, for testing."
-function simple_HMC(rng, H, z::PhasePoint, ϵ, L)
+function simple_HMC(H, z::PhasePoint, ϵ, L)
     π₀ = neg_energy(H, z)
     z′ = z
     for _ in 1:L
         z′ = leapfrog(H, z′, ϵ)
     end
     Δ = neg_energy(H, z′) - π₀
-    accept = Δ > 0 || (rand(rng) < exp(Δ))
+    accept = Δ > 0 || (rand() < exp(Δ))
     accept ? z′ : z
 end
 
 """
-    sample_HMC(rng, H, q, N; ϵ = find_stable_ϵ(H), L = 10)
+    sample_HMC(H, q, N; ϵ = find_stable_ϵ(H), L = 10)
 
 Simple Hamiltonian Monte Carlo sample, for testing.
 """
-function sample_HMC(rng, H, q, N; ϵ = find_stable_ϵ(H), L = 10)
+function sample_HMC(H, q, N; ϵ = find_stable_ϵ(H), L = 10)
     qs = similar(q, N, length(q))
     for i in 1:N
         z = rand_phasepoint(RNG, H, q)
-        q = simple_HMC(RNG, H, z, ϵ, L).q
+        q = simple_HMC( H, z, ϵ, L).q
         qs[i, :] = q
     end
     qs

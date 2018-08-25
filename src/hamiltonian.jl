@@ -159,7 +159,7 @@ phasepoint_in(H::Hamiltonian, q, p) = PhasePoint(q, p, H.ℓ(q))
 Extend a position `q` to a phasepoint with a random momentum according to the
 kinetic energy of `H`.
 """
-rand_phasepoint(rng, H, q) = phasepoint_in(H, q, rand(rng, H.κ))
+rand_phasepoint(rng::AbstractRNG, H, q) = phasepoint_in(H, q, rand(rng, H.κ))
 
 """
     $SIGNATURES

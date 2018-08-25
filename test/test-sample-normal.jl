@@ -7,7 +7,7 @@ import DynamicHMC:
     ℓ = MvNormal(zeros(K), ones(K))
     q = rand(ℓ)
     H = Hamiltonian(ℓ, GaussianKE(Diagonal(ones(K))))
-    qs = sample_HMC(RNG, H, q, 10000)
+    qs = sample_HMC(H, q, 10000)
     m, C = mean_and_cov(qs, 1)
     @test vec(m) ≈ zeros(K) atol = 0.1
     @test C ≈ Matrix(Diagonal(ones(K))) atol = 0.1
