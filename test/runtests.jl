@@ -70,23 +70,6 @@ function rand_Hz(K)
     H, z
 end
 
-"""
-    simulated_meancov(f, N)
-
-Simulated mean and covariance of `N` values from `f()`.
-"""
-function simulated_meancov(f, N)
-    s = f()
-    K = length(s)
-    x = similar(s, (N, K))
-    for i in 1:N
-        x[i, :] = f()
-    end
-    m, C = mean_and_cov(x, 1)
-    vec(m), C
-end
-
-include("test-utilities.jl")
 include("test-Hamiltonian-leapfrog.jl")
 include("test-buildingblocks.jl")
 include("test-stepsize.jl")

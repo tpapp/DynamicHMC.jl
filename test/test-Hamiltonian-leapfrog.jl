@@ -33,6 +33,29 @@ function find_stable_ϵ(H::Hamiltonian{Tℓ, Tκ}) where
     find_stable_ϵ(H.κ, cov(H.ℓ))
 end
 
+"""
+    $SIGNATURES
+
+Simulated mean and covariance of `N` values from `f()`.
+"""
+function simulated_meancov(f, N)
+    s = f()
+    K = length(s)
+    x = similar(s, (N, K))
+    for i in 1:N
+        x[i, :] = f()
+    end
+    m, C = mean_and_cov(x, 1)
+    vec(m), C
+end
+
+@testset "simulated meancov" begin
+    d = MvNormal([2,2], [2.0,1.0])
+    m, C = simulated_meancov(()->rand(d), 10000)
+    @test m ≈ mean(d) atol = 0.05 rtol = 0.1
+    @test C ≈ cov(d) atol = 0.05 rtol = 0.1
+end
+
 
 # testsets
 
