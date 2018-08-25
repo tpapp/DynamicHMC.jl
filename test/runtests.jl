@@ -5,8 +5,9 @@ using DynamicHMC:
     GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
     rand_phasepoint, leapfrog, move, is_valid_ℓq,
     # building blocks
-    TurnStatistic, isturning, combine_turnstats, Proposal, combine_proposals,
-    DivergenceStatistic, combine_divstats, get_acceptance_rate,
+    rand_bool, TurnStatistic, isturning, combine_turnstats, Proposal,
+    combine_proposals, DivergenceStatistic, combine_divstats,
+    get_acceptance_rate,
     # stepsize
     InitialStepsizeSearch, find_initial_stepsize,
     # transitions and tuning
@@ -84,7 +85,6 @@ function simulated_meancov(f, N)
 end
 
 include("test-utilities.jl")
-include("test-basics.jl")
 include("test-Hamiltonian-leapfrog.jl")
 include("test-buildingblocks.jl")
 include("test-stepsize.jl")
