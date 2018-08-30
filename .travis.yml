@@ -14,9 +14,9 @@ matrix:
 # uncomment the following lines for debugging Documenter.jl
 # env:
 #   - DOCUMENTER_DEBUG=true
-# before_script:
-#   install unregistered dependencies (FIXME remove when registered)
-#   - julia -e 'using Pkg; pkg"resolve"'
+before_script:
+  # install unregistered dependencies (FIXME remove when they are registered)
+  - julia -e 'using Pkg; pkg"resolve"'
 # uncomment the following lines to override the default test script
 # script:
 #   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
