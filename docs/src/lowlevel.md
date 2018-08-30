@@ -34,11 +34,11 @@ This is documented only for developers. These are not part of the public API, if
 ```@docs
 Hamiltonian
 PhasePoint
-get_ℓq
 phasepoint_in
 rand_phasepoint
 neg_energy
 get_p♯
+loggradient
 leapfrog
 ```
 

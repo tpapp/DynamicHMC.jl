@@ -4,6 +4,8 @@
 export KineticEnergy, EuclideanKE, GaussianKE
 
 """
+$(TYPEDEF)
+
 Kinetic energy specifications.
 
 For all subtypes, it is implicitly assumed that kinetic energy is symmetric in
@@ -17,10 +19,16 @@ When the above is violated, the consequences are undefined.
 """
 abstract type KineticEnergy end
 
-"Euclidean kinetic energies (position independent)."
+"""
+$(TYPEDEF)
+
+Euclidean kinetic energies (position independent).
+"""
 abstract type EuclideanKE <: KineticEnergy end
 
 """
+$(TYPEDEF)
+
 Gaussian kinetic energy.
 
 ```math
@@ -45,14 +53,14 @@ end
 GaussianKE(M::T, W::S) where {T,S} = GaussianKE{T,S}(M, W)
 
 """
-    GaussianKE(M⁻¹::AbstractMatrix)
+$(SIGNATURES)
 
 Gaussian kinetic energy with the given inverse covariance matrix `M⁻¹`.
 """
 GaussianKE(Minv::AbstractMatrix) = GaussianKE(Minv, cholesky(inv(Minv)).L)
 
 """
-    GaussianKE(N::Int, [m⁻¹ = 1.0])
+$(SIGNATURES)
 
 Gaussian kinetic energy with a diagonal inverse covariance matrix `M⁻¹=m⁻¹*I`.
 """
@@ -62,7 +70,7 @@ show(io::IO, κ::GaussianKE) =
     print(io::IO, "Gaussian kinetic energy, √diag(M⁻¹): $(.√(diag(κ.Minv)))")
 
 """
-    neg_energy(κ, p, [q])
+$(SIGNATURES)
 
 Return the log density of kinetic energy `κ`, at momentum `p`. Some kinetic
 energies (eg Riemannian geometry) will need `q`, too.
@@ -70,12 +78,18 @@ energies (eg Riemannian geometry) will need `q`, too.
 neg_energy(κ::GaussianKE, p, q = nothing) = -dot(p, κ.Minv * p) / 2
 
 """
-    get_p♯(κ, p, [q])
+$(SIGNATURES)
 
 Return ``p♯``, used for turn diagnostics.
 """
 get_p♯(κ::GaussianKE, p, q = nothing) = κ.Minv * p
 
+"""
+$(SIGNATURES)
+
+Calculate the gradient of the logarithm of kinetic energy at momentum `p` and
+position `q`; the latter is ignored for Gaussian kinetic energies.
+"""
 loggradient(κ::GaussianKE, p, q = nothing) = -get_p♯(κ, p)
 
 rand(rng::AbstractRNG, κ::GaussianKE, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
@@ -97,6 +111,8 @@ end
 show(io::IO, H::Hamiltonian) = print(io, "Hamiltonian with $(H.κ)")
 
 """
+$(TYPEDEF)
+
 A point in phase space, consists of a position and a momentum.
 
 Log densities and gradients are saved for speed gains, so that the gradient of ℓ
@@ -120,13 +136,6 @@ struct PhasePoint{T,S <: ValueGradient}
 end
 
 """
-    get_ℓq(z)
-
-The value returned by `ℓ` when evaluated at position `q`.
-"""
-get_ℓq(z::PhasePoint) = z.ℓq
-
-"""
     phasepoint_in(H::Hamiltonian, q, p)
 
 The recommended interface for creating a phase point in a Hamiltonian. Computes
@@ -135,7 +144,7 @@ cached values.
 phasepoint_in(H::Hamiltonian, q, p) = PhasePoint(q, p, logdensity(ValueGradient, H.ℓ, q))
 
 """
-    rand_phasepoint(rng, H, q)
+$(SIGNATURES)
 
 Extend a position `q` to a phasepoint with a random momentum according to the
 kinetic energy of `H`.
@@ -150,7 +159,7 @@ Log density for Hamiltonian `H` at point `z`.
 If `ℓ(q) == -Inf` (rejected), ignores the kinetic energy.
 """
 function neg_energy(H::Hamiltonian, z::PhasePoint)
-    v = get_ℓq(z).value
+    v = z.ℓq.value
     v == -Inf ? v : (v + neg_energy(H.κ, z.p, z.q))
 end
 

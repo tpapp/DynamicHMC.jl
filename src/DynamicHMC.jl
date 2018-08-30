@@ -4,7 +4,7 @@ import Base: rand, length, show
 
 using ArgCheck: @argcheck
 using DataStructures: counter
-using DocStringExtensions: SIGNATURES, FIELDS
+using DocStringExtensions: FIELDS, SIGNATURES, TYPEDEF
 using LinearAlgebra
 using LinearAlgebra: checksquare
 using LogDensityProblems:
