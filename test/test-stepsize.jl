@@ -109,7 +109,7 @@ end
 
 @testset "error for non-finite initial density" begin
     p = InitialStepsizeSearch()
-    H = Hamiltonian((x)->DiffResults.DiffResult(-Inf, ([0.0], )), GaussianKE(1))
+    H = Hamiltonian(FunctionLogDensity(ValueGradient(-Inf, [0.0])), GaussianKE(1))
     z = DynamicHMC.phasepoint_in(H, [1.0], [1.0])
     @test_throws DomainError find_initial_stepsize(p, H, z)
 end

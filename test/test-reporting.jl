@@ -1,8 +1,8 @@
 @testset "reporting" begin
-    ℓ = MvNormal(zeros(3), ones(3))
+    ℓ = DistributionLogDensity(MvNormal, 3)
     @color_output false begin
         output = @capture_err begin
-            sample, nuts = NUTS_init_tune_mcmc(RNG, ℓ, length(ℓ), 1000;
+            sample, nuts = NUTS_init_tune_mcmc(RNG, ℓ, dimension(ℓ), 1000;
                                                report = ReportIO())
         end
     end

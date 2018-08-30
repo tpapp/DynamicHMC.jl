@@ -87,7 +87,7 @@ Construct a Hamiltonian from the log density `ℓ`, and the kinetic energy
 specification `κ`. Calls of `ℓ` with a vector are expected to return a value
 that supports `DiffResults.value` and `DiffResults.gradient`.
 """
-struct Hamiltonian{Tℓ, Tκ}
+struct Hamiltonian{Tℓ <: AbstractLogDensityProblem, Tκ}
     "The (log) density we are sampling from."
     ℓ::Tℓ
     "The kinetic energy."
@@ -95,24 +95,6 @@ struct Hamiltonian{Tℓ, Tκ}
 end
 
 show(io::IO, H::Hamiltonian) = print(io, "Hamiltonian with $(H.κ)")
-
-"""
-    is_valid_ℓq(ℓq)
-
-Test that a value returned by ℓ is *valid*, in the following sense:
-
-1. supports `DiffResults.value` and `DiffResults.gradient` (when not, a
-`MethodError` is thrown),
-
-2. the value is a float, either `-Inf` or finite,
-
-3. the gradient is finite when the value is; otherwise the gradient is ignored.
-"""
-function is_valid_ℓq(ℓq)
-    v = DiffResults.value(ℓq)
-    v isa AbstractFloat || return false
-    (v == -Inf) || (isfinite(v) && all(isfinite, DiffResults.gradient(ℓq)))
-end
 
 """
 A point in phase space, consists of a position and a momentum.
@@ -124,7 +106,7 @@ endpoints).
 Because of caching, a `PhasePoint` should only be used with a specific
 Hamiltonian.
 """
-struct PhasePoint{T,S}
+struct PhasePoint{T,S <: ValueGradient}
     "Position."
     q::T
     "Momentum."
@@ -132,8 +114,7 @@ struct PhasePoint{T,S}
     "ℓ(q). Cached for reuse in sampling."
     ℓq::S
     function PhasePoint(q::T, p::T, ℓq::S) where {T,S}
-        @argcheck is_valid_ℓq(ℓq) DomainError("Invalid value of ℓ.")
-        @argcheck length(p) == length(q)
+        @argcheck length(p) == length(q) == length(ℓq.gradient)
         new{T,S}(q, p, ℓq)
     end
 end
@@ -151,7 +132,7 @@ get_ℓq(z::PhasePoint) = z.ℓq
 The recommended interface for creating a phase point in a Hamiltonian. Computes
 cached values.
 """
-phasepoint_in(H::Hamiltonian, q, p) = PhasePoint(q, p, H.ℓ(q))
+phasepoint_in(H::Hamiltonian, q, p) = PhasePoint(q, p, logdensity(ValueGradient, H.ℓ, q))
 
 """
     rand_phasepoint(rng, H, q)
@@ -169,7 +150,7 @@ Log density for Hamiltonian `H` at point `z`.
 If `ℓ(q) == -Inf` (rejected), ignores the kinetic energy.
 """
 function neg_energy(H::Hamiltonian, z::PhasePoint)
-    v = DiffResults.value(get_ℓq(z))
+    v = get_ℓq(z).value
     v == -Inf ? v : (v + neg_energy(H.κ, z.p, z.q))
 end
 
@@ -190,9 +171,9 @@ divergent points anyway, and should not cause a problem.
 function leapfrog(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ) where {Tℓ, Tκ <: EuclideanKE}
     @unpack ℓ, κ = H
     @unpack p, q, ℓq = z
-    pₘ = p + ϵ/2 * DiffResults.gradient(ℓq)
+    pₘ = p + ϵ/2 * ℓq.gradient
     q′ = q - ϵ * loggradient(κ, pₘ)
-    ℓq′ = ℓ(q′)
-    p′ = pₘ + ϵ/2 * DiffResults.gradient(ℓq′)
+    ℓq′ = logdensity(ValueGradient, ℓ, q′)
+    p′ = pₘ + ϵ/2 * ℓq′.gradient
     PhasePoint(q′, p′, ℓq′)
 end

@@ -3,7 +3,7 @@ using DynamicHMC
 using DynamicHMC:
     # Hamiltonian
     GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
-    rand_phasepoint, leapfrog, move, is_valid_ℓq,
+    rand_phasepoint, leapfrog, move,
     # building blocks
     rand_bool, TurnStatistic, combine_turnstats, Proposal,
     combined_logprob_logweight, combine_proposals,
@@ -19,19 +19,19 @@ using Test
 
 using ArgCheck: @argcheck
 using DataStructures
-import DiffResults
-using DiffResults: MutableDiffResult
 using Distributions
 using DocStringExtensions: SIGNATURES
 import ForwardDiff
 using LinearAlgebra
+using LogDensityProblems:
+    logdensity, dimension, ValueGradient, AbstractLogDensityProblem, LogDensityProblems
 using MCMCDiagnostics: effective_sample_size, potential_scale_reduction
 using Parameters
 import Random
 using Random: randn, rand
 using StatsBase: mean_and_cov, mean_and_std
 using StatsFuns: logaddexp
-using Statistics: mean, quantile
+using Statistics: mean, quantile, Statistics
 using Suppressor
 
 
@@ -57,15 +57,56 @@ rand_Σ(::Type{Diagonal}, n) = Diagonal(randn(n).^2 .+ 0.01)
 
 rand_Σ(n::Int) = rand_Σ(Symmetric, n)
 
-## use MvNormal as a test distribution
-(ℓ::MvNormal)(p) = DiffResults.DiffResult(logpdf(ℓ, p), (gradlogpdf(ℓ, p), ))
+
+# use multivariate distributions as tests
+
+"""
+Obtain the log density from a distribution.
+"""
+struct DistributionLogDensity{D <: Distribution{Multivariate,Continuous}
+                              } <: AbstractLogDensityProblem
+    distribution::D
+end
+
+LogDensityProblems.dimension(ℓ::DistributionLogDensity) = length(ℓ.distribution)
+
+LogDensityProblems.logdensity(::Type{ValueGradient}, ℓ::DistributionLogDensity, x) =
+    ValueGradient(logpdf(ℓ.distribution, x), gradlogpdf(ℓ.distribution, x))
+
+DistributionLogDensity(::Type{MvNormal}, n::Int) = # canonical
+    DistributionLogDensity(MvNormal(zeros(n), ones(n)))
+
+Statistics.mean(ℓ::DistributionLogDensity) = mean(ℓ.distribution)
+Statistics.var(ℓ::DistributionLogDensity) = var(ℓ.distribution)
+Statistics.cov(ℓ::DistributionLogDensity) = cov(ℓ.distribution)
+Base.rand(ℓ::DistributionLogDensity) = rand(ℓ.distribution)
+
+"""
+A function returning a log density (as a `ValueGradient`).
+"""
+struct FunctionLogDensity{F} <: AbstractLogDensityProblem
+    dimension::Int
+    f::F
+end
+
+LogDensityProblems.dimension(ℓ::FunctionLogDensity) = length(ℓ.distribution)
+
+LogDensityProblems.logdensity(::Type{ValueGradient}, ℓ::FunctionLogDensity, x) =
+    ℓ.f(x)::ValueGradient
+
+"""
+$(SIGNATURES)
+
+A log density always returning a constant (for testing).
+"""
+FunctionLogDensity(v::ValueGradient) = FunctionLogDensity(length(v.gradient), _ -> v)
 
 "Random Hamiltonian `H` with phasepoint `z`, with dimension `K`."
 function rand_Hz(K)
     μ = randn(K)
     Σ = rand_Σ(K)
     κ = GaussianKE(inv(rand_Σ(Diagonal, K)))
-    H = Hamiltonian(MvNormal(μ, Matrix(Σ)), κ)
+    H = Hamiltonian(DistributionLogDensity(MvNormal(μ, Matrix(Σ))), κ)
     z = rand_phasepoint(RNG, H, μ)
     H, z
 end

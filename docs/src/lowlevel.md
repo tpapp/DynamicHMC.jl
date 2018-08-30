@@ -27,7 +27,7 @@ The following are used consistently for variables:
 
 # Low-level building blocks
 
-This is documented only for package developers. These are not part of the public API, if you are using them you should reconsider or file an issue.
+This is documented only for developers. These are not part of the public API, if you are using them you should reconsider or file an issue.
 
 ## Hamiltonian and leapfrog
 
@@ -40,7 +40,6 @@ rand_phasepoint
 neg_energy
 get_p♯
 leapfrog
-is_valid_ℓq
 ```
 
 ## Finding initial stepsize ``\epsilon``
