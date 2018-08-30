@@ -135,4 +135,5 @@ end
     chain, nuts = NUTS_init_tune_mcmc(DistributionLogDensity(MvNormal, 5), 1000;
                                       report = ReportSilent())
     @test EBFMI(chain) ≥ 0.3
+    @test repr(nuts) isa AbstractString # just test that it prints w/o error
 end
