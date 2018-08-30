@@ -18,7 +18,8 @@ matrix:
 #   - DOCUMENTER_DEBUG=true
 before_script:
   # install unregistered dependencies (FIXME remove when registered)
-  - julia -e 'using Pkg; pkg"add https://github.com/tpapp/TransformVariables.jl.git"; pkg"add https://github.com/tpapp/LogDensityProblems.jl"'
+  - julia -e 'using Pkg; pkg"add https://github.com/tpapp/TransformVariables.jl.git#master"'
+  - julia -e 'using Pkg; pkg"add https://github.com/tpapp/LogDensityProblems.jl#master"'
 # uncomment the following lines to override the default test script
 # script:
 #   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
