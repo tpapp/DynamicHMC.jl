@@ -65,8 +65,7 @@ end
 
 @testset "tuning building blocks" begin
     K = 4
-    ℓ = DistributionLogDensity(MvNormal(zeros(K), fill(2.0, K)))
-    sampler = NUTS_init(RNG, ℓ, K)
+    sampler = NUTS_init(RNG, DistributionLogDensity(MvNormal(zeros(K), fill(2.0, K))))
     tuner = StepsizeTuner(100)
     sampler2 = tune(sampler, tuner)
     tuner2 = StepsizeCovTuner(200, 10)

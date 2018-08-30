@@ -88,27 +88,27 @@ get_position_matrix(sample) = vcat(get_position.(sample)'...)
 
 # tuning and diagnostics
 
-
 """
-    sample_cov(sample)
+$(SIGNATURES)
 
 Covariance matrix of the sample.
 """
 sample_cov(sample) = cov(get_position_matrix(sample); dims = 1)
 
 """
-    NUTS_init(rng, ℓ, q; κ = GaussianKE(length(q)), p, max_depth, ϵ)
+$(SIGNATURES)
 
 Initialize a NUTS sampler for log density `ℓ` using local information.
 
-# Arguments
+# Mandatory arguments
 
 - `rng`: the random number generator
 
-- `ℓ`: the likelihood function, should return a type that supports
-  `DiffResults.value` and `DiffResults.gradient`
+- `ℓ`: the log density function specification
 
-- `q`: initial position.
+# Keyword arguments
+
+- `q`: initial position. *Default*: random (from IID standard normals).
 
 - `κ`: kinetic energy specification. *Default*: Gaussian with identity matrix.
 
@@ -119,8 +119,9 @@ Initialize a NUTS sampler for log density `ℓ` using local information.
 - `ϵ`: initial stepsize, or parameters for finding it (passed on to
   [`find_initial_stepsize`](@ref).
 """
-function NUTS_init(rng, ℓ, q;
-                   κ = GaussianKE(length(q)),
+function NUTS_init(rng::AbstractRNG, ℓ::AbstractLogDensityProblem;
+                   q = randn(rng, dimension(ℓ)),
+                   κ = GaussianKE(dimension(ℓ)),
                    p = rand(rng, κ),
                    max_depth = 5,
                    ϵ = InitialStepsizeSearch(),
@@ -133,18 +134,12 @@ function NUTS_init(rng, ℓ, q;
     NUTS(rng, H, q, ϵ, max_depth, report)
 end
 
-"""
-    NUTS_init(rng, ℓ, dim::Integer; args...)
-
-Random initialization with position `randn(dim)`, all other arguments are passed
-on the the other method of this function.
-"""
-NUTS_init(rng, ℓ, dim::Integer; args...) = NUTS_init(rng, ℓ, randn(dim); args...)
-
 
 # tuning: abstract interface
 
 """
+$(TYPEDEF)
+
 A tuner that adapts the sampler.
 
 All subtypes support `length` which returns the number of steps (*note*: if not
@@ -259,7 +254,7 @@ function tune(sampler, seq::TunerSequence)
 end
 
 """
-    $SIGNATURES
+$(SIGNATURES)
 
 Init, tune, and then draw `N` samples from `ℓ` using the NUTS algorithm.
 
@@ -268,28 +263,23 @@ sampler*.
 
 `rng` is the random number generator.
 
-`q_or_dim` is a starting position or the dimension (for random initialization).
-
 `args` are passed on to various methods, see [`NUTS_init`](@ref) and
 [`bracketed_doubling_tuner`](@ref).
-
-For parameters `q`, `ℓ(q)` should return an object that support the following
-methods: `DiffResults.value`, `DiffResults.gradient`.
 
 Most users would use this function, unless they are doing something that
 requires manual tuning.
 """
-function NUTS_init_tune_mcmc(rng, ℓ, q_or_dim, N::Int; args...)
-    sampler_init = NUTS_init(rng, ℓ, q_or_dim; args...)
+function NUTS_init_tune_mcmc(rng::AbstractRNG, ℓ::AbstractLogDensityProblem,
+                             N::Integer; args...)
+    sampler_init = NUTS_init(rng, ℓ; args...)
     sampler_tuned = tune(sampler_init, bracketed_doubling_tuner(; args...))
     mcmc(sampler_tuned, N), sampler_tuned
 end
 
 """
-    $SIGNATURES
+$SIGNATURES
 
-Same as the other method, but with random number generator
-`Base.Random.GLOBAL_RNG`.
+Same as the other method, but with random number generator `Random.GLOBAL_RNG`.
 """
-NUTS_init_tune_mcmc(ℓ, q_or_dim, N::Int; args...) =
-    NUTS_init_tune_mcmc(Base.Random.GLOBAL_RNG, ℓ, q_or_dim, N; args...)
+NUTS_init_tune_mcmc(ℓ::AbstractLogDensityProblem, N::Integer; args...) =
+    NUTS_init_tune_mcmc(Random.GLOBAL_RNG, ℓ, N; args...)
