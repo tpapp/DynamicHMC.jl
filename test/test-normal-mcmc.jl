@@ -107,11 +107,11 @@ end
                    5.57947 -0.0540131 1.78163 1.73862 -2.99741 3.6118 10.215 9.60671;
                    7.28634 1.79718 -0.0821483 2.55874 -1.95031 5.22626 9.60671 11.5554])
     for ℓ in [ℓ0, ℓ1, ℓ2, ℓ3]
-        sample, nuts = NUTS_init_tune_mcmc(RNG, DistributionLogDensity(ℓ), 1000;
+        chain, nuts = NUTS_init_tune_mcmc(RNG, DistributionLogDensity(ℓ), 1000;
                                            report = ReportSilent())
-        @test EBFMI(sample) ≥ 0.3
+        @test EBFMI(chain) ≥ 0.3
         @test maximum(R̂(nuts, 1000, 3)) ≤ 1.05
-        zs = zvalue.([sample], mean_cov_ztests(ℓ))
+        zs = zvalue.([chain], mean_cov_ztests(ℓ))
         zvalue_warn.(zs, 4)
         @test maximum(abs ∘ last, zs) ≤ zthreshold(length(zs), 0.001)
     end
@@ -121,12 +121,18 @@ end
     for _ in 1:100
         K = rand(2:10)
         ℓ = MvNormal(randn(K), Matrix(rand_Σ(K)))
-        sample, nuts = NUTS_init_tune_mcmc(RNG, DistributionLogDensity(ℓ), 1000;
+        chain, nuts = NUTS_init_tune_mcmc(RNG, DistributionLogDensity(ℓ), 1000;
                                            report = ReportSilent())
-        @test EBFMI(sample) ≥ 0.3
+        @test EBFMI(chain) ≥ 0.3
         @test maximum(R̂(nuts, 1000, 3)) ≤ 1.05
-        zs = zvalue.([sample], mean_cov_ztests(ℓ))
+        zs = zvalue.([chain], mean_cov_ztests(ℓ))
         zvalue_warn.(zs, 4)
         @test maximum(abs ∘ last, zs) ≤ zthreshold(length(zs), 0.001) + 0.9 + 0.5*RELAX
     end
+end
+
+@testset "default RNG interface" begin
+    chain, nuts = NUTS_init_tune_mcmc(DistributionLogDensity(MvNormal, 5), 1000;
+                                      report = ReportSilent())
+    @test EBFMI(chain) ≥ 0.3
 end

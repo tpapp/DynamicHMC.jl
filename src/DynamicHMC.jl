@@ -10,7 +10,7 @@ using LinearAlgebra: checksquare
 using LogDensityProblems:
     AbstractLogDensityProblem, dimension, logdensity, ValueGradient, logdensity
 using Parameters: @unpack
-using Random: AbstractRNG, randn
+using Random: AbstractRNG, randn, Random
 using Statistics: cov, mean, median, middle, quantile, var
 using StatsFuns: logaddexp
 
