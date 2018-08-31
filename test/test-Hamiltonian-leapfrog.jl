@@ -28,10 +28,8 @@ thus decorrelates the density perfectly.
 """
 find_stable_ϵ(κ::GaussianKE, Σ) = √eigmin(κ.W'*Σ*κ.W)
 
-function find_stable_ϵ(H::Hamiltonian{Tℓ, Tκ}) where
-    {Tℓ <: Distribution{Multivariate,Continuous}, Tκ}
-    find_stable_ϵ(H.κ, cov(H.ℓ))
-end
+find_stable_ϵ(H::Hamiltonian{<: DistributionLogDensity}) =
+    find_stable_ϵ(H.κ, cov(H.ℓ.distribution))
 
 """
     $SIGNATURES
@@ -91,7 +89,9 @@ end
     function test_consistency(H, z)
         @unpack q, ℓq = z
         @unpack ℓ = H
-        @test ℓ(q) == ℓq
+        ℓ2 = logdensity(ValueGradient, ℓ, q)
+        @test ℓ2.value == ℓq.value
+        @test ℓ2.gradient == ℓq.gradient
     end
     H, z = rand_Hz(rand(3:10))
     test_consistency(H, z)
@@ -108,9 +108,9 @@ end
     """
     function leapfrog_Gaussian(q, p, ℓ, ϵ, m = ones(length(p)))
         u = .√(1 ./ m)
-        pₕ = p + ϵ/2*DiffResults.gradient(ℓ(q))
+        pₕ = p + ϵ/2*logdensity(ValueGradient, ℓ, q).gradient
         q′ = q + ϵ * u .* (u .* pₕ) # mimic numerical calculation leapfrog performs
-        p′ = pₕ + ϵ/2*DiffResults.gradient(ℓ(q′))
+        p′ = pₕ + ϵ/2*logdensity(ValueGradient, ℓ, q′).gradient
         q′, p′
     end
 
@@ -121,10 +121,10 @@ end
     q = randn(n)
     p = randn(n)
     Σ = rand_Σ(n)
-    ℓ = MvNormal(randn(n), Matrix(Σ))
+    ℓ = DistributionLogDensity(MvNormal(randn(n), Matrix(Σ)))
     H = Hamiltonian(ℓ, κ)
     ϵ = find_stable_ϵ(H)
-    ℓq = ℓ(q)
+    ℓq = logdensity(ValueGradient, ℓ, q)
     q₂, p₂ = copy(q), copy(p)
     q′, p′ = leapfrog_Gaussian(q, p, ℓ, ϵ, m)
     z = PhasePoint(q, p, ℓq)
@@ -171,24 +171,19 @@ end
 end
 
 @testset "PhasePoint validation and infinite values" begin
-    @test PhasePoint([1.0], [1.0], MutableDiffResult(1.0, (1.0,))) isa PhasePoint
-    @test_throws ArgumentError PhasePoint([1.0], [1.0, 2.0],
-                                          MutableDiffResult(1.0, (1.0,)))
-    @test PhasePoint([1.0], [1.0], MutableDiffResult(-Inf, (1.0,))) isa PhasePoint
-    @test_throws DomainError PhasePoint([1.0], [1.0],
-                                        MutableDiffResult(1.0, (-Inf,)))
-    @test_throws DomainError PhasePoint([1.0], [1.0],
-                                        MutableDiffResult(NaN, (1.0,)))
-    @test_throws DomainError PhasePoint([1.0], [1.0],
-                                        MutableDiffResult(Inf, (1.0,)))
-    @test neg_energy(Hamiltonian(identity, GaussianKE(1)),
-                     PhasePoint([1.0], [1.0], MutableDiffResult(-Inf, (1.0,)))) == -Inf
+    @test_throws ArgumentError PhasePoint([1.0], [1.0, 2.0], # wrong p length
+                                          ValueGradient(1.0, [1.0, 2.0]))
+    @test_throws ArgumentError PhasePoint([1.0, 2.0], [1.0, 2.0], # wrong gradient length
+                                          ValueGradient(1.0, [1.0]))
+    @test PhasePoint([1.0], [1.0], ValueGradient(-Inf, [1.0])) isa PhasePoint
+    @test neg_energy(Hamiltonian(DistributionLogDensity(MvNormal, 1), GaussianKE(1)),
+                     PhasePoint([1.0], [1.0], ValueGradient(-Inf, [1.0]))) == -Inf
 end
 
 @testset "Hamiltonian and KE printing" begin
     κ = GaussianKE(Diagonal([1.0, 4.0]))
     @test repr(κ) == "Gaussian kinetic energy, √diag(M⁻¹): [1.0, 2.0]"
-    H = Hamiltonian(identity, κ)
+    H = Hamiltonian(DistributionLogDensity(MvNormal, 1), κ)
     @test repr(H) ==
         "Hamiltonian with Gaussian kinetic energy, √diag(M⁻¹): [1.0, 2.0]"
 end

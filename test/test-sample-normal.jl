@@ -32,7 +32,7 @@ end
 @testset "unit normal simple HMC" begin
     # just testing leapfrog
     K = 2
-    ℓ = MvNormal(zeros(K), ones(K))
+    ℓ = DistributionLogDensity(MvNormal, K)
     q = rand(ℓ)
     H = Hamiltonian(ℓ, GaussianKE(Diagonal(ones(K))))
     qs = sample_HMC(H, q, 10000)
@@ -47,7 +47,7 @@ end
         K = rand(2:8)
         N = 10000
         Σ = rand_Σ(K)
-        ℓ = MvNormal(randn(K), Matrix(Σ))
+        ℓ = DistributionLogDensity(MvNormal(randn(K), Matrix(Σ)))
         q = rand(ℓ)
         H = Hamiltonian(ℓ, GaussianKE(Σ))
         qs = Array{Float64}(undef, N, K)
@@ -65,8 +65,7 @@ end
 
 @testset "tuning building blocks" begin
     K = 4
-    ℓ = MvNormal(zeros(K), fill(2.0, K))
-    sampler = NUTS_init(RNG, ℓ, K)
+    sampler = NUTS_init(RNG, DistributionLogDensity(MvNormal(zeros(K), fill(2.0, K))))
     tuner = StepsizeTuner(100)
     sampler2 = tune(sampler, tuner)
     tuner2 = StepsizeCovTuner(200, 10)
@@ -77,7 +76,7 @@ end
 @testset "transition accessors and consistency checks" begin
     K = 2
     Σ = rand_Σ(K)
-    ℓ = MvNormal(randn(K), Matrix(Σ))
+    ℓ = DistributionLogDensity(MvNormal(randn(K), Matrix(Σ)))
     q = rand(ℓ)
     H = Hamiltonian(ℓ, GaussianKE(Σ))
     ϵ = 0.5

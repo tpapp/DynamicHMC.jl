@@ -1,0 +1,13 @@
+[[LogDensityProblems]]
+git-tree-sha1 = "d113f4346b5447e3686b20ac28cf50687fe702e1"
+repo-rev = "master"
+repo-url = "https://github.com/tpapp/LogDensityProblems.jl"
+uuid = "025064c8-8453-11e8-27bf-e54b7298189f"
+version = "0.1.0"
+
+[[TransformVariables]]
+git-tree-sha1 = "408ff541595c7c2ceaee46d09ce93bf648fd2506"
+repo-rev = "master"
+repo-url = "https://github.com/tpapp/TransformVariables.jl"
+uuid = "eb4f743c-8036-11e8-1c4c-19fb1cbfc623"
+version = "0.1.0"

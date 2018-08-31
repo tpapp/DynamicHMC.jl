@@ -1,6 +1,8 @@
 # stepsize heuristics and adaptation
 
 """
+$(TYPEDEF)
+
 Parameters for the search algorithm for the initial stepsize.
 
 The algorithm finds an initial stepsize ``ϵ`` so that the local acceptance ratio
@@ -46,9 +48,9 @@ struct InitialStepsizeSearch
 end
 
 """
-Find the stepsize for which the local acceptance rate `A(ϵ)` crosses `a`.
+$(SIGNATURES)
 
-    $SIGNATURES
+Find the stepsize for which the local acceptance rate `A(ϵ)` crosses `a`.
 
 Return `ϵ₀, A(ϵ₀), ϵ₁`, A(ϵ₁)`, where `ϵ₀` and `ϵ₁` are stepsizes before and
 after crossing `a` with `A(ϵ)`, respectively.
@@ -84,9 +86,9 @@ function find_crossing_stepsize(parameters, A, ϵ₀, Aϵ₀ = A(ϵ₀))
 end
 
 """
-Return the desired stepsize `ϵ` by bisection.
+$(SIGNATURES)
 
-    $SIGNATURES
+Return the desired stepsize `ϵ` by bisection.
 
 - `parameters`: algorithm parameters, see [`InitialStepsizeSearch`](@ref)
 
@@ -119,7 +121,7 @@ function bisect_stepsize(parameters, A, ϵ₀, ϵ₁, Aϵ₀ = A(ϵ₀), Aϵ₁ 
 end
 
 """
-    $SIGNATURES
+$(SIGNATURES)
 
 Find an initial stepsize that matches the conditions of `parameters` (see
 [`InitialStepsizeSearch`](@ref)).
@@ -148,7 +150,7 @@ find_initial_stepsize(parameters::InitialStepsizeSearch, H, z) =
     find_initial_stepsize(parameters, local_acceptance_ratio(H, z))
 
 """
-    $(SIGNATURES)
+$(SIGNATURES)
 
 Return a function of the stepsize (``ϵ``) that calculates the local acceptance
 ratio for a single leapfrog step around `z` along the Hamiltonian `H`. Formally,
@@ -169,7 +171,7 @@ function local_acceptance_ratio(H, z)
 end
 
 """
-    $(SIGNATURES)
+$(SIGNATURES)
 
 Return a matrix of [`local_acceptance_ratio`](@ref) values for stepsizes `ϵs`
 and the given momentums `ps`. The latter is calculated from random values when
@@ -229,7 +231,7 @@ struct DualAveragingAdaptation{T <: AbstractFloat}
 end
 
 """
-    get_ϵ(A, tuning = true)
+$(SIGNATURES)
 
 When `tuning`, return the stepsize `ϵ` for the next HMC step. Otherwise return
 the tuned `ϵ`.
@@ -240,7 +242,7 @@ DualAveragingAdaptation(logϵ₀) =
     DualAveragingAdaptation(0, zero(logϵ₀), logϵ₀, zero(logϵ₀))
 
 """
-    DA_params, A = adapting_ϵ(ϵ; args...)
+    DA_params, A = $(SIGNATURES)
 
 Constructor for both the adaptation parameters and the initial state.
 """
@@ -250,7 +252,7 @@ function adapting_ϵ(ϵ; args...)
 end
 
 """
-    A′ = adapt_stepsize(parameters, A, a)
+    A′ = $(SIGNATURES)
 
 Update the adaptation `A` of log stepsize `logϵ` with average Metropolis
 acceptance rate `a` over the whole visited trajectory, using the dual averaging

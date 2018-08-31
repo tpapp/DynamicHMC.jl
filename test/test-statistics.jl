@@ -14,4 +14,5 @@ import DynamicHMC:
     @test stats.termination_counts == counter(map(get_termination, sample))
     @test stats.depth_counts == counter(map(get_depth, sample))
     @test 1.8 ≤ EBFMI(sample) ≤ 2.2 # nonsensical value, just checking calculation
+    @test repr(stats) isa AbstractString # just test that it prints w/o error
 end

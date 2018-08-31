@@ -22,8 +22,16 @@ The package provides a framework to [tune](@ref tuning) the algorithm to find ne
 
 However, following a modular approach, it does *not* provide
 
-1. Domain transformations from subsets of ``\mathbb{R}^k``. For that, see [ContinuousTransformations.jl](https://github.com/tpapp/ContinuousTransformations.jl).
+1. Domain transformations from subsets of ``\mathbb{R}^k``. For that, see [TransformVariables.jl](https://github.com/tpapp/TransformVariables.jl).
 
-2. Automatic differentiation. Julia has a thriving [AD ecosystem](http://www.juliadiff.org/) which should allow you to implement this. [DiffWrappers.jl](https://github.com/tpapp/DiffWrappers.jl) should automate this in a single line.
+2. Automatic differentiation. Julia has a thriving [AD ecosystem](http://www.juliadiff.org/) which should allow you to implement this. This package uses [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) for defining (log) density functions, which already has some one-liner solutions for AD, and is easily extensible for other methods.
 
 3. Generic MCMC diagnostics not specific to NUTS. See [MCMCDiagnostics.jl](https://github.com/tpapp/MCMCDiagnostics.jl) for an implementation of ``\hat{R}`` and effective sample size calculations.
+
+## Examples
+
+Worked examples of using this package for Bayesian inference are available in the repository [DynamicHMCExamples.jl](https://github.com/tpapp/DynamicHMCExamples.jl). It is highly recommended that you skim through them first.
+
+## Support
+
+If you have questions, feature requests, or bug reports, please [open an issue](https://github.com/tpapp/DynamicHMC.jl/issues/new). I would like to emphasize that it is perfectly fine to open issues just to ask questions.

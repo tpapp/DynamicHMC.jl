@@ -51,9 +51,9 @@ end
 function show(io::IO, stats::NUTS_Statistics)
     @unpack N, a_mean, a_quantiles, termination_counts, depth_counts = stats
     println(io, "Hamiltonian Monte Carlo sample of length $(N)")
-    print(io, "  acceptance rate mean: $(round(a_mean,2)), min/25%/median/75%/max:")
+    print(io, "  acceptance rate mean: $(round(a_mean; digits = 2)), min/25%/median/75%/max:")
     for aq in a_quantiles
-        print(io, " ", round(aq, 2))
+        print(io, " ", round(aq; digits = 2))
     end
     println(io)
     function print_dict(dict)

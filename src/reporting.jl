@@ -1,6 +1,8 @@
 export ReportSilent, ReportIO
 
 """
+$(TYPEDEF)
+
 Subtypes implement [`report!`](@ref), [`start_progress!`](@ref), and
 [`end_progress!`](@ref).
 """
