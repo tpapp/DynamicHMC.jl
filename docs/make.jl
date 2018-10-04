@@ -16,4 +16,4 @@ deploydocs(repo = "github.com/tpapp/DynamicHMC.jl.git",
            target = "build",
            deps = nothing,
            make = nothing,
-           julia = "0.6")
+           julia = "1.0")
