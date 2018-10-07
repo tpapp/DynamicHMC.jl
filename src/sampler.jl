@@ -40,7 +40,7 @@ which has elements that conform to the sampler.
 function mcmc(sampler::NUTS{Tv,Tf}, N::Int) where {Tv,Tf}
     @unpack rng, H, q, ϵ, max_depth, report = sampler
     sample = Vector{NUTS_Transition{Tv,Tf}}(undef, N)
-    start_progress!(report, N, "MCMC")
+    start_progress!(report, "MCMC"; total_count = N)
     for i in 1:N
         trans = NUTS_transition(rng, H, q, ϵ, max_depth)
         q = trans.q
@@ -63,7 +63,7 @@ When the last two parameters are not specified, initialize using `adapting_ϵ`.
 function mcmc_adapting_ϵ(sampler::NUTS{Tv,Tf}, N::Int, A_params, A) where {Tv,Tf}
     @unpack rng, H, q, max_depth, report = sampler
     sample = Vector{NUTS_Transition{Tv,Tf}}(undef, N)
-    start_progress!(report, N, "MCMC, adapting ϵ")
+    start_progress!(report, "MCMC, adapting ϵ"; total_count = N)
     for i in 1:N
         trans = NUTS_transition(rng, H, q, get_ϵ(A), max_depth)
         A = adapt_stepsize(A_params, A, trans.a)
