@@ -111,14 +111,23 @@ function rand_Hz(K)
     H, z
 end
 
-include("test-Hamiltonian-leapfrog.jl")
-include("test-buildingblocks.jl")
-include("test-stepsize.jl")
-include("test-sample-dummy.jl")
-include("test-tuners.jl")
-include("test-sample-normal.jl")
-include("test-normal-mcmc.jl")
-include("test-statistics.jl")
-include("test-reporting.jl")
+macro include_testset(filename)
+    @assert filename isa AbstractString
+    quote
+        @testset $(filename) begin
+            include($(filename))
+        end
+    end
+end
+
+@include_testset("test-Hamiltonian-leapfrog.jl")
+@include_testset("test-buildingblocks.jl")
+@include_testset("test-stepsize.jl")
+@include_testset("test-sample-dummy.jl")
+@include_testset("test-tuners.jl")
+@include_testset("test-sample-normal.jl")
+@include_testset("test-normal-mcmc.jl")
+@include_testset("test-statistics.jl")
+@include_testset("test-reporting.jl")
 
 include("../docs/make.jl")

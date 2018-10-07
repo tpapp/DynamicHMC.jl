@@ -55,7 +55,6 @@ GaussianKE
 
 ```@docs
 NUTS
-AbstractTuner
 StepsizeTuner
 StepsizeCovTuner
 TunerSequence
