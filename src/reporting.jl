@@ -93,23 +93,6 @@ function _report_avg_msg(report::ReportIO, count, _time_ns)
 end
 
 """
-$(SIGNATURES)
-
-Report unconditionally and update tracking parameters. For internal use.
-"""
-function _report!(report::ReportIO, count, _time_ns = time_ns())
-    @unpack io, print_color, total_count, start_time_ns = report
-    msg = "step $(count)"
-    if total_count isa Int
-        msg *= " (of $(total_count))"
-    end
-    msg *= ", " * _report_avg_msg(report, count, _time_ns)
-    printstyled(io, msg, '\n'; color = print_color)
-    report.last_printed_time_ns = _time_ns
-    report.last_printed_count = count
-end
-
-"""
     $SIGNATURES
 
 Terminate a progress meter.
@@ -126,11 +109,21 @@ end
 Display `report` via the appropriate mechanism. `count` is the index of the current step.
 """
 function report!(report::ReportIO, count::Integer)
-    @unpack io, countΔ, time_nsΔ, start_time_ns, last_printed_count, last_printed_time_ns = report
+    @unpack io, countΔ, time_nsΔ, start_time_ns, last_printed_count, last_printed_time_ns,
+        total_count = report
     @argcheck start_time_ns ≠ nothing "start_progress! was not called."
     _time_ns = time_ns()
     ispastcount = countΔ ≤ count - last_printed_count
     ispasttime = time_nsΔ ≤ _time_ns - last_printed_time_ns
-    ispastcount && ispasttime && _report!(report, count, _time_ns)
+    if ispastcount && ispasttime
+        msg = "step $(count)"
+        if total_count isa Int
+            msg *= " (of $(total_count))"
+        end
+        msg *= ", " * _report_avg_msg(report, count, _time_ns)
+        printstyled(io, msg, '\n'; color = report.print_color)
+        report.last_printed_time_ns = _time_ns
+        report.last_printed_count = count
+    end
     nothing
 end

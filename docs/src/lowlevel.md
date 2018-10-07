@@ -10,7 +10,7 @@ Instead of energies, *negative* energies are used in the code.
 
 The following are used consistently for variables:
 
-- `ℓ`: log density we sample from, see [this explanation](@ref ell-tutorial)
+- `ℓ`: log density we sample from, supports the interface of [LogDensityProblems.AbstractLogDensityProblem](https://github.com/tpapp/LogDensityProblems.jl)
 - `κ`: distribution/density that corresponds to kinetic energy
 - `H`: Hamiltonian
 - `q`: position
@@ -110,6 +110,12 @@ Trajectory
 leaf
 move
 NUTS_transition
+```
+
+## Tuning
+
+```@docs
+DynamicHMC.AbstractTuner
 ```
 
 ## [Diagnostics](@id diagnostics_lowlevel)
