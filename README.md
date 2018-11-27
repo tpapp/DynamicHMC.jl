@@ -3,10 +3,10 @@
 Bare-bones implementation of robust dynamic Hamiltonian Monte Carlo methods.
 
 [![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
-[![Build Status](https://travis-ci.org/tpapp/DynamicHMC.jl.svg?branch=master)](https://travis-ci.org/tpapp/DynamicHMC.jl)
+[![Build Status](https://travis-ci.com/tpapp/DynamicHMC.jl.svg?branch=master)](https://travis-ci.com/tpapp/DynamicHMC.jl)
 [![Coverage Status](https://coveralls.io/repos/tpapp/DynamicHMC.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/tpapp/DynamicHMC.jl?branch=master)
 [![codecov.io](http://codecov.io/github/tpapp/DynamicHMC.jl/coverage.svg?branch=master)](http://codecov.io/github/tpapp/DynamicHMC.jl?branch=master)
-[![Documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://tpapp.github.io/DynamicHMC.jl/latest)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://tpapp.github.io/DynamicHMC.jl/dev)
 
 ## Overview
 

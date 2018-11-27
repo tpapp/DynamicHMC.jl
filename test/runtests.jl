@@ -129,5 +129,3 @@ end
 @include_testset("test-normal-mcmc.jl")
 @include_testset("test-statistics.jl")
 @include_testset("test-reporting.jl")
-
-include("../docs/make.jl")
