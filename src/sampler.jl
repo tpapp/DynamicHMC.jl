@@ -95,6 +95,9 @@ Covariance matrix of the sample.
 """
 sample_cov(sample) = cov(get_position_matrix(sample); dims = 1)
 
+"Default maximum depth for trees."
+const MAX_DEPTH = 10
+
 """
 $(SIGNATURES)
 
@@ -123,7 +126,7 @@ function NUTS_init(rng::AbstractRNG, ℓ::AbstractLogDensityProblem;
                    q = randn(rng, dimension(ℓ)),
                    κ = GaussianKE(dimension(ℓ)),
                    p = rand(rng, κ),
-                   max_depth = 5,
+                   max_depth = MAX_DEPTH,
                    ϵ = InitialStepsizeSearch(),
                    report = ReportIO())
     H = Hamiltonian(ℓ, κ)
