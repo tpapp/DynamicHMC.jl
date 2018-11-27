@@ -5,15 +5,11 @@ makedocs(modules = [DynamicHMC],
          clean = true,
          sitename = "DynamicHMC.jl",
          authors = "Tamás K. Papp",
-         html_prettyurls = haskey(ENV, "TRAVIS"), # clean URLs building on Travis
+         checkdocs = :exports,
          pages = [
              "Overview" => "index.md",
              "High-level API" => "api.md",
              "Low-level building blocks" => "lowlevel.md",
          ])
 
-deploydocs(repo = "github.com/tpapp/DynamicHMC.jl.git",
-           target = "build",
-           deps = nothing,
-           make = nothing,
-           julia = "1.0")
+deploydocs(repo = "github.com/tpapp/DynamicHMC.jl.git")
