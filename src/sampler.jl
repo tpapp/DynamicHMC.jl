@@ -117,7 +117,7 @@ Initialize a NUTS sampler for log density `ℓ` using local information.
 
 - `p`: initial momentum. *Default*: random from standard multivariate normal.
 
-- `max_depth`: maximum tree depth. *Default*: `5`.
+- `max_depth`: maximum tree depth. *Default*: `$(MAX_DEPTH)`.
 
 - `ϵ`: initial stepsize, or parameters for finding it (passed on to
   [`find_initial_stepsize`](@ref).
