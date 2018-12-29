@@ -7,8 +7,7 @@ using DataStructures: counter
 using DocStringExtensions: FIELDS, SIGNATURES, TYPEDEF
 using LinearAlgebra
 using LinearAlgebra: checksquare
-using LogDensityProblems:
-    AbstractLogDensityProblem, dimension, logdensity, ValueGradient, logdensity
+using LogDensityProblems: dimension, logdensity, ValueGradient, logdensity
 using Parameters: @unpack
 using Random: AbstractRNG, randn, Random
 using Statistics: cov, mean, median, middle, quantile, var

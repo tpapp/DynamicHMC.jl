@@ -122,7 +122,7 @@ Initialize a NUTS sampler for log density `ℓ` using local information.
 - `ϵ`: initial stepsize, or parameters for finding it (passed on to
   [`find_initial_stepsize`](@ref).
 """
-function NUTS_init(rng::AbstractRNG, ℓ::AbstractLogDensityProblem;
+function NUTS_init(rng::AbstractRNG, ℓ;
                    q = randn(rng, dimension(ℓ)),
                    κ = GaussianKE(dimension(ℓ)),
                    p = rand(rng, κ),
@@ -272,8 +272,7 @@ sampler*.
 Most users would use this function, unless they are doing something that
 requires manual tuning.
 """
-function NUTS_init_tune_mcmc(rng::AbstractRNG, ℓ::AbstractLogDensityProblem,
-                             N::Integer; args...)
+function NUTS_init_tune_mcmc(rng::AbstractRNG, ℓ, N::Integer; args...)
     sampler_init = NUTS_init(rng, ℓ; args...)
     sampler_tuned = tune(sampler_init, bracketed_doubling_tuner(; args...))
     mcmc(sampler_tuned, N), sampler_tuned
@@ -284,5 +283,5 @@ $SIGNATURES
 
 Same as the other method, but with random number generator `Random.GLOBAL_RNG`.
 """
-NUTS_init_tune_mcmc(ℓ::AbstractLogDensityProblem, N::Integer; args...) =
+NUTS_init_tune_mcmc(ℓ, N::Integer; args...) =
     NUTS_init_tune_mcmc(Random.GLOBAL_RNG, ℓ, N; args...)

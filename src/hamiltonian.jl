@@ -101,8 +101,11 @@ Construct a Hamiltonian from the log density `ℓ`, and the kinetic energy
 specification `κ`. Calls of `ℓ` with a vector are expected to return a value
 that supports `DiffResults.value` and `DiffResults.gradient`.
 """
-struct Hamiltonian{Tℓ <: AbstractLogDensityProblem, Tκ}
-    "The (log) density we are sampling from."
+struct Hamiltonian{Tℓ, Tκ}
+    """
+    The (log) density we are sampling from. Supports the `AbstractLogDensityProblem`
+    interface, but it does not have to be a subtype.
+    """
     ℓ::Tℓ
     "The kinetic energy."
     κ::Tκ
