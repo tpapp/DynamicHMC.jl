@@ -1,9 +1,15 @@
-export
-    NUTS_Transition, get_position, get_neg_energy, get_depth, get_termination,
+#####
+##### Building blocks for sampling.
+#####
+##### Only NUTS_Transition and the exported functions are part of the API.
+#####
+
+export NUTS_Transition, get_position, get_neg_energy, get_depth, get_termination,
     get_acceptance_rate, get_steps
 
-
-# utilities
+####
+#### utilities
+####
 
 """
 $(SIGNATURES)
@@ -15,8 +21,9 @@ Random boolean which is `true` with the given probability `prob`.
 rand_bool(rng::AbstractRNG, prob::T) where {T <: AbstractFloat} =
     rand(rng, T) ≤ prob
 
-
-# abstract trajectory interface
+####
+#### abstract trajectory interface
+####
 
 """
     ζ, τ, d, z = adjacent_tree(rng, trajectory, z, depth, fwd)
@@ -106,8 +113,9 @@ function sample_trajectory(rng, trajectory, z, max_depth)
     ζ, d, termination, depth
 end
 
-
-# proposals
+####
+#### proposals
+####
 
 """
 Proposal that is propagated through by sampling recursively when building the
@@ -147,8 +155,9 @@ function combine_proposals(rng, ζ₁::Proposal, ζ₂::Proposal, bias)
     Proposal(z, ω)
 end
 
-
-# divergence statistics
+####
+#### divergence statistics
+####
 
 """
 Divergence and acceptance statistics.
@@ -207,8 +216,9 @@ Return average Metropolis acceptance rate.
 """
 get_acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
 
-
-# turn analysis
+####
+#### turn analysis
+####
 
 """
 Statistics for the identification of turning points. See Betancourt (2017,
@@ -243,8 +253,9 @@ function isturning(τ::TurnStatistic)
     dot(p♯₋, ρ) < 0 || dot(p♯₊, ρ) < 0
 end
 
-
-# sampling
+####
+#### sampling
+####
 
 """
 Representation of a trajectory, ie a Hamiltonian with a discrete integrator that

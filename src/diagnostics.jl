@@ -1,4 +1,6 @@
-# statistics and diagnostics
+#####
+##### statistics and diagnostics
+#####
 
 export EBFMI, NUTS_statistics
 

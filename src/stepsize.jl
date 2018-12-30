@@ -1,4 +1,6 @@
-# stepsize heuristics and adaptation
+#####
+##### stepsize heuristics and adaptation
+#####
 
 """
 $(TYPEDEF)
