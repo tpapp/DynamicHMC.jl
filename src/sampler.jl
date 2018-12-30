@@ -1,8 +1,13 @@
-export
-    NUTS, mcmc, mcmc_adapting_ϵ, NUTS_init_tune_mcmc, sample_cov,
-    get_position_matrix
+#####
+##### Sampling: high-level interface and building blocks
+#####
 
-# high-level interface: sampler
+export NUTS, mcmc, mcmc_adapting_ϵ, NUTS_init_tune_mcmc, sample_cov, get_position_matrix
+
+####
+#### high-level interface: sampler
+####
+
 
 """
 Specification for the No-U-turn algorithm, including the random number
@@ -85,8 +90,9 @@ Return the samples of the parameter vector as rows of a matrix.
 """
 get_position_matrix(sample) = vcat(get_position.(sample)'...)
 
-
-# tuning and diagnostics
+####
+#### tuning and diagnostics
+####
 
 """
 $(SIGNATURES)
@@ -137,8 +143,9 @@ function NUTS_init(rng::AbstractRNG, ℓ;
     NUTS(rng, H, q, ϵ, max_depth, report)
 end
 
-
-# tuning: abstract interface
+####
+#### tuning: abstract interface
+####
 
 """
 $(TYPEDEF)
@@ -160,8 +167,9 @@ updated sampler state after tuning.
 """
 function tune end
 
-
-# tuning: tuner building blocks
+####
+#### tuning: tuner building blocks
+####
 
 "Adapt the integrator stepsize for `N` samples."
 struct StepsizeTuner <: AbstractTuner

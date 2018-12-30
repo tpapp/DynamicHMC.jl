@@ -1,5 +1,7 @@
-# This file contains building blocks for traversing a Hamiltonian
-# deterministically, using the leapfrog integrator.
+#####
+##### Building blocks for traversing a Hamiltonian deterministically, using the leapfrog
+##### integrator.
+#####
 
 export KineticEnergy, EuclideanKE, GaussianKE
 
