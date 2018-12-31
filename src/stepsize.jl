@@ -235,10 +235,16 @@ end
 """
 $(SIGNATURES)
 
-When `tuning`, return the stepsize `ϵ` for the next HMC step. Otherwise return
-the tuned `ϵ`.
+Return the stepsize `ϵ` for the next HMC step while adapting.
 """
-get_ϵ(A::DualAveragingAdaptation, tuning = true) = exp(tuning ? A.logϵ : A.logϵ̄)
+get_current_ϵ(A::DualAveragingAdaptation, tuning = true) = exp(A.logϵ)
+
+"""
+$(SIGNATURES)
+
+Return the final stepsize `ϵ` after adaptation.
+"""
+get_final_ϵ(A::DualAveragingAdaptation, tuning = true) = exp(A.logϵ̄)
 
 DualAveragingAdaptation(logϵ₀) =
     DualAveragingAdaptation(0, zero(logϵ₀), logϵ₀, zero(logϵ₀))

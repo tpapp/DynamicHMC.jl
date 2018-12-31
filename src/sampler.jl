@@ -70,7 +70,7 @@ function mcmc_adapting_ϵ(sampler::NUTS{Tv,Tf}, N::Int, A_params, A) where {Tv,T
     sample = Vector{NUTS_Transition{Tv,Tf}}(undef, N)
     start_progress!(report, "MCMC, adapting ϵ"; total_count = N)
     for i in 1:N
-        trans = NUTS_transition(rng, H, q, get_ϵ(A), max_depth)
+        trans = NUTS_transition(rng, H, q, get_current_ϵ(A), max_depth)
         A = adapt_stepsize(A_params, A, trans.a)
         q = trans.q
         sample[i] = trans
@@ -160,7 +160,7 @@ abstract type AbstractTuner end
 length(tuner::AbstractTuner) = tuner.N
 
 """
-    sampler′ = tune(sampler, tune)
+    sampler′ = tune(sampler, tuner)
 
 Given a `sampler` (or similar a parametrization) and a `tuner`, return the
 updated sampler state after tuning.
@@ -182,7 +182,7 @@ show(io::IO, tuner::StepsizeTuner) =
 function tune(sampler::NUTS, tuner::StepsizeTuner)
     @unpack rng, H, max_depth, report = sampler
     sample, A = mcmc_adapting_ϵ(sampler, tuner.N)
-    NUTS(rng, H, sample[end].q, get_ϵ(A, false), max_depth, report)
+    NUTS(rng, H, sample[end].q, get_final_ϵ(A), max_depth, report)
 end
 
 """
@@ -213,7 +213,7 @@ function tune(sampler::NUTS, tuner::StepsizeCovTuner)
     Σ += (UniformScaling(median(diag(Σ)))-Σ) * regularize/N
     # FIXME: Symmetric + Symmetric above does not preserve Symmetric
     κ = GaussianKE(Symmetric(Σ))
-    NUTS(rng, Hamiltonian(H.ℓ, κ), sample[end].q, get_ϵ(A), max_depth, report)
+    NUTS(rng, Hamiltonian(H.ℓ, κ), sample[end].q, get_final_ϵ(A), max_depth, report)
 end
 
 "Sequence of tuners, applied in the given order."
