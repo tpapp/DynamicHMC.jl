@@ -180,7 +180,7 @@ end
 
 Empty divergence statistic (for initial node).
 """
-divergence_statistic() = DivergenceStatistic(false, 0.0, 0)
+divergence_statistic() = DivergenceStatistic(false, 0.0, 1)
 
 """
     divergence_statistic(isdivergent, Δ)
