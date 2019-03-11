@@ -2,7 +2,7 @@ julia 0.7
 ArgCheck
 DataStructures
 DocStringExtensions
-LogDensityProblems
+LogDensityProblems 0.8
 Parameters
 StatsFuns
 TransformVariables
