@@ -70,8 +70,10 @@ end
 
 LogDensityProblems.dimension(ℓ::DistributionLogDensity) = length(ℓ.distribution)
 
-LogDensityProblems.logdensity(::Type{ValueGradient}, ℓ::DistributionLogDensity, x) =
+function LogDensityProblems.logdensity(::Type{ValueGradient}, ℓ::DistributionLogDensity,
+                                       x::AbstractVector)
     ValueGradient(logpdf(ℓ.distribution, x), gradlogpdf(ℓ.distribution, x))
+end
 
 DistributionLogDensity(::Type{MvNormal}, n::Int) = # canonical
     DistributionLogDensity(MvNormal(zeros(n), ones(n)))
@@ -91,8 +93,10 @@ end
 
 LogDensityProblems.dimension(ℓ::FunctionLogDensity) = length(ℓ.distribution)
 
-LogDensityProblems.logdensity(::Type{ValueGradient}, ℓ::FunctionLogDensity, x) =
+function LogDensityProblems.logdensity(::Type{ValueGradient}, ℓ::FunctionLogDensity,
+                                       x::AbstractVector)
     ℓ.f(x)::ValueGradient
+end
 
 """
 $(SIGNATURES)
