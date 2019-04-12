@@ -88,7 +88,7 @@ Combine `ρ` and `ρ′` into `ρ`, overwriting the latter.
 
 Buffers for `ρ` can be allocated with [`empty_ρ`](@ref).
 """
-add_ρ!(ρ, trajectory, ρ′) = ρ .= ρ′
+function add_ρ! end
 
 """
 $(FUNCTIONNAME)(trajectory)
@@ -272,19 +272,26 @@ function build_adjacent!(rng, trajectory, min_Δ, π₀, depth::Int, is_forward:
     end
 end
 
-function transition!(rng, trajectory, min_Δ, visited, max_depth, z, direction_flags, buffers)
+function transition!(rng, trajectory, min_Δ, max_depth, direction_flags, z, visited, buffers)
+    @unpack z₋, z₊, ẑ, ẑs, p♯₋, p♯₊, p♯s, ρ, ρs = buffers
+    # initialization
     depth = 0
-    initialize_visited!(visited, z)
+    initialize_visited!(visited)
+    initialize_buffers!(buffers, trajectory, z)
     w = 0.0
     π₀ = log_probability(trajectory, z)
+    # doubling
     while depth < max_depth
         is_forward = Bool(direction_flags & true)
-        w′ = build_adjacent!(rng, trajectory, min_Δ, visited, depth, is_forward, buffers, 1)
+        w′ = build_adjacent!(rng, trajectory, min_Δ, π₀, depth, is_forward,
+                             visited, buffers, 1)
         isfinite(w′) || break   # adjacent tree is divergent or turning
-        accept_Δ(rng, w′ - w) && copy!(ẑ, ẑs[1])
-        add_ρ!(trajectory, ρ, ρs[1])
+        accept_Δ(rng, w′ - w) && copy!(ẑ, ẑs[1]) # accelerated
+        add_ρ!(ρ, trajectory, ρs[1])
+        copy!(is_forward ? p♯₊ : p♯₋, p♯s[1])
         is_turning(trajectory, ρ, p♯₋, p♯₊) && break
         direction_flags >>= 1
+        depth += 1
     end
     depth
 end
