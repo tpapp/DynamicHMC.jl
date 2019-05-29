@@ -16,6 +16,8 @@ using DynamicHMC
 
 ## Output, expected outcome, comparison to other samplers
 
+Did the sampler fail to run, produce incorrect results, …?
+
 ## Contributing code for tests
 
-You can contribute to the development of this package by allowing that your example is used as a test. Please indicate whether your code can be used under the MIT "Expat" license, found in the root directory of this package.
+You can contribute to the development of this package by allowing that your example is used as a test. Please indicate whether your code can be incorporated into this package under the MIT "Expat" license, found in the root directory of this package.
