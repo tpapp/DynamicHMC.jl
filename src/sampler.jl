@@ -210,7 +210,7 @@ function tune(sampler::NUTS, tuner::StepsizeCovTuner)
     @unpack rng, H, max_depth, report = sampler
     sample, A = mcmc_adapting_ϵ(sampler, N)
     Σ = sample_cov(sample)
-    Σ += (UniformScaling(median(diag(Σ)))-Σ) * regularize/N
+    Σ += (UniformScaling(max(1e-3, median(diag(Σ))))-Σ) * regularize/N
     # FIXME: Symmetric + Symmetric above does not preserve Symmetric
     κ = GaussianKE(Symmetric(Σ))
     NUTS(rng, Hamiltonian(H.ℓ, κ), sample[end].q, get_final_ϵ(A), max_depth, report)

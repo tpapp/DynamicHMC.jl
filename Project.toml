@@ -1,6 +1,7 @@
 name = "DynamicHMC"
 uuid = "bbc10e6e-7c05-544b-b16e-64fede858acb"
 authors = ["Tamas K. Papp <tkpapp@gmail.com>"]
+version = "1.0.5"
 
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
@@ -25,3 +26,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Distributions", "Documenter", "ForwardDiff", "MCMCDiagnostics", "StatsBase", "Suppressor", "Test"]
+
+[compat]
+julia = "1"
+LogDensityProblems = "≥ 0.8.0"
