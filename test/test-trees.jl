@@ -11,6 +11,8 @@ end
 
 """
 Trajectory type that is easy to inspect and reason about, for unit testing.
+
+The field `visited` keeps track of visited nodes, can be reset with `empty!`.
 """
 struct DummyTrajectory{L,T,D}
     "Positions that trigger turning."
@@ -26,6 +28,8 @@ end
 function DummyTrajectory(ℓ; turning = Set(Int[]), divergent = Set(Int[]))
     DummyTrajectory(turning, divergent, ℓ, Int[])
 end
+
+Base.empty!(trajectory) = empty(trajectory.visited)
 
 move(::DummyTrajectory, z, is_forward) = z + (is_forward ? 1 : -1)
 
@@ -50,25 +54,31 @@ function combine_divergence_statistics(::DummyTrajectory, d₁, d₂)
     (f1 || f2, a1 + a2, s1 + s2)
 end
 
-function combine_proposals(_, ::DummyTrajectory, zeta1, zeta2, is_forward, is_doubling)
+function combine_proposals(_, ::DummyTrajectory, zeta1, zeta2, logprob1, is_forward)
     if !is_forward
         zeta2, zeta1 = zeta1, zeta2
     end
-    w1, z1 = zeta1
-    w2, z2 = zeta2
+    z1, p1 = zeta1
+    z2, p2 = zeta2
+    prob1 = exp(logprob1)
     @test last(z1) + 1 == first(z2) # adjacency and order
-    (logaddexp(w1, w2), first(z1):last(z2))
+    (first(z1):last(z2), vcat(p1 .* prob1, p2 .* (1 - prob1)))
+end
+
+function calculate_logprob1(::DummyTrajectory, is_doubling, ω₁, ω₂, ω)
+    biased_progressive_logprob1(is_doubling, ω₁, ω₂, ω)
 end
 
 function leaf(trajectory::DummyTrajectory, z, is_initial)
     @unpack turning, divergent, ℓ, visited = trajectory
-    w = ℓ(z)
+    Δ = ℓ(z)
     d = z ∈ divergent
     is_initial && @argcheck !d                              # don't start with divergent
     !is_initial && push!(visited, z)                        # save position
-    ((w, z:z),                                              # ζ
+    ((z:z, [1.0]),                                          # ζ = nodes, prob. within tree
+     Δ,                                                     # ω = Δ for leaf
      (z ∈ turning, z:z),                                    # τ
-     is_initial ? (false, 0.0, 0) : (d, min(exp(w), 1), 1)) # d
+     is_initial ? (false, 0.0, 0) : (d, min(exp(Δ), 1), 1)) # d
 end
 
 testℓ(z) = -abs2(z - 3) * 0.1
@@ -81,10 +91,10 @@ testA(trajectory::DummyTrajectory) = testA(trajectory.ℓ, trajectory.visited)
 
 @testset "dummy adjacent tree full" begin
     trajectory = DummyTrajectory(testℓ)
-    ζ, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 2, true)
+    ζ, ω, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 2, true)
+    @test first(ζ) == 1:4
+    @test sum(last(ζ)) ≈ 1
     @test trajectory.visited == 1:4
-    @test first(ζ) ≈ logsumexp(testℓ.(1:4))
-    @test last(ζ) == 1:4
     @test !is_turning(trajectory, τ)
     @test !is_divergent(trajectory, d)
     @test d[2] ≈ testA(trajectory)
@@ -94,7 +104,7 @@ end
 
 @testset "dummy adjacent tree turning" begin
     trajectory = DummyTrajectory(testℓ; turning = 5:7)
-    ζ, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, true)
+    ζ, ω, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, true)
     @test trajectory.visited == 1:6 # [5,6] is turning
     @test is_turning(trajectory, τ)
     @test !is_divergent(trajectory, d)
@@ -105,7 +115,7 @@ end
 
 @testset "dummy adjacent tree divergent" begin
     trajectory = DummyTrajectory(testℓ; divergent = 5:7)
-    ζ, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, true)
+    ζ, ω, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, true)
     @test trajectory.visited == 1:5 # 5 is divergent
     @test is_divergent(trajectory, d)
     @test d[2] ≈ testA(testℓ, 1:5)
@@ -115,7 +125,9 @@ end
 
 @testset "dummy adjacent tree full backward" begin
     trajectory = DummyTrajectory(testℓ)
-    ζ, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, false)
+    ζ, ω, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, false)
+    @test first(ζ) == -8:-1
+    @test sum(last(ζ)) ≈ 1
     @test trajectory.visited == -(1:8)
     @test !is_turning(trajectory, τ)
     @test !is_divergent(trajectory, d)
@@ -123,7 +135,6 @@ end
     @test d[3] == 8
     @test z′ == -8
 end
-
 
 ## a realized trajectory, with positions and their probabilities
 

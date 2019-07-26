@@ -43,43 +43,18 @@ end
 ###
 
 """
-Proposal that is propagated through by sampling recursively when building the
-trees.
-"""
-struct Proposal{Tz,Tf}
-    "Proposed point."
-    z::Tz
-    "Log weight (log(∑ exp(Δ)) of trajectory/subtree)."
-    ω::Tf
-end
-
-"""
-    logprob, ω = combined_logprob_logweight(ω₁, ω₂, bias)
-
-Given (relative) log probabilities `ω₁` and `ω₂`, return the log probabiliy of
-drawing a sampel from the second (`logprob`) and the combined (relative) log
-probability (`ω`).
-
-When `bias`, biases towards the second argument, introducing anti-correlations.
-"""
-function combined_logprob_logweight(ω₁, ω₂, bias)
-    ω = logaddexp(ω₁, ω₂)
-    ω₂ - (bias ? ω₁ : ω), ω
-end
-
-"""
 $(SIGNATURES)
 
 Random boolean which is `true` with the given probability `prob`.
 """
 rand_bool(rng::AbstractRNG, prob::T) where {T <: AbstractFloat} = rand(rng, T) ≤ prob
 
-function combine_proposals(rng, ::Trajectory, ζ₁::Proposal, ζ₂::Proposal,
-                           is_forward, is_doubling)
-    # when doubling, use biased progressive sampling
-    logprob, ω = combined_logprob_logweight(ζ₁.ω, ζ₂.ω, is_doubling)
-    z = (logprob ≥ 0 || rand_bool(rng, exp(logprob))) ? ζ₂.z : ζ₁.z
-    Proposal(z, ω)
+function calculate_logprob1(::Trajectory, is_doubling, ω₁, ω₂, ω)
+    biased_progressive_logprob1(is_doubling, ω₁, ω₂, ω)
+end
+
+function combine_proposals(rng, ::Trajectory, z₁, z₂, logprob1::Real, is_forward)
+    (logprob1 ≥ 0 || rand_bool(rng, exp(logprob1))) ? z₂ : z₁
 end
 
 ####
@@ -159,9 +134,9 @@ function leaf(trajectory::Trajectory, z, is_initial)
     Δ = is_initial ? zero(π₀) : neg_energy(H, z) - π₀
     isdiv = min_Δ > Δ
     d = is_initial ? divergence_statistic() : divergence_statistic(isdiv, Δ)
-    ζ = isdiv ? nothing : Proposal(z, Δ)
+    ζ = isdiv ? nothing : z
     τ = isdiv ? nothing : (p♯ = get_p♯(trajectory.H, z); TurnStatistic(p♯, p♯, z.p))
-    ζ, τ, d
+    ζ, Δ, τ, d
 end
 
 ####
@@ -225,6 +200,6 @@ function NUTS_transition(rng, H, q, ϵ, max_depth; args...)
     trajectory = Trajectory(H, neg_energy(H, z), ϵ; args...)
     directions = rand(rng, Directions)
     ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth, directions)
-    NUTS_Transition(ζ.z.q, neg_energy(H, ζ.z), depth, termination,
-                    get_acceptance_rate(d), d.steps)
+    NUTS_Transition(ζ.q, neg_energy(H, ζ), depth, termination, get_acceptance_rate(d),
+                    d.steps)
 end

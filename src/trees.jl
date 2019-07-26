@@ -77,20 +77,37 @@ invariant to the ordering of `d₁` and `d₂` (ie the operation is commutative)
 function combine_divergence_statistics end
 
 """
-    $(FUNCTIONNAME)(rng, trajectory, ζ₁, ζ₂, is_forward::Bool, is_doubling::Bool)
+    $(FUNCTIONNAME)(trajectory, is_doubling::Bool, ω₁, ω₂, ω)
 
-Combine two proposals `ζ₁, ζ₂` on `trajectory`. `ζ₁` is before `ζ₂` iff `is_forward`.
+Calculate the log probability if selecting the subtree corresponding to `ω₁`. When
+`is_doubling`, the tree corresponding to `ω₂` was obtained from a doubling step (this can be
+relevant eg for biased progressive sampling).
 
-When `is_doubling`, `ζ₂` was obtained from a doubling step (this can be relevant eg for
-biased progressive sampling).
+The value `ω = logaddexp(ω₁, ω₂)` is provided for avoiding redundant calculations.
+
+See [`biased_progressive_logprob1`](@ref) for an implementation.
+"""
+function calculate_logprob1 end
+
+"""
+    $(FUNCTIONNAME)(rng, trajectory, ζ₁, ζ₂, logprob1::Real, is_forward::Bool)
+
+Combine two proposals `ζ₁, ζ₂` on `trajectory`, with log probability `logprob1` for
+selecting `ζ1`. `ζ₁` is before `ζ₂` iff `is_forward`.
 """
 function combine_proposals end
 
 """
-    ζ, τ, d = $(FUNCTIONNAME)(trajectory, z, is_initial)
+    ζ, ω, τ, d = $(FUNCTIONNAME)(trajectory, z, is_initial)
 
-Proposal, turn statistics, and divergence statistics for a tree made of a single node. When
-`is_initial == true`, this is the first node.
+Return
+
+- the proposal `ζ`,
+- the log weight (probability) of node `ω`,
+- turn statistics `τ` (never tested as with `is_turning` for leafs), and
+- divergence statistics `d`
+
+for a tree made of a single node. When `is_initial == true`, this is the first node.
 """
 function leaf end
 
@@ -114,6 +131,26 @@ function combine_turn_statistics_in_direction(trajectory, τ₁, τ₂, is_forwa
     end
 end
 
+function combine_proposals_and_logweights(rng, trajectory, ζ₁, ζ₂, ω₁::Real, ω₂::Real,
+                                          is_forward::Bool, is_doubling::Bool)
+    ω = logaddexp(ω₁, ω₂)
+    logprob1 = calculate_logprob1(trajectory, is_doubling, ω₁, ω₂, ω)
+    ζ = combine_proposals(rng, trajectory, ζ₁, ζ₂, logprob1, is_forward)
+    ζ, ω
+end
+
+"""
+$(SIGNATURES)
+
+Given (relative) log probabilities `ω₁` and `ω₂`, return the log probabiliy of
+drawing a sample from the second (`logprob1`).
+
+When `bias`, biases towards the second argument, introducing anti-correlations.
+"""
+function biased_progressive_logprob1(bias::Bool, ω₁::Real, ω₂::Real, ω = logaddexp(ω₁, ω₂))
+    ω₂ - (bias ? ω₁ : ω)
+end
+
 ####
 #### abstract trajectory interface
 ####
@@ -131,6 +168,8 @@ Return:
 - `ζ`: the proposal from the tree. Only valid when `!isdivergent(d) && !isturning(τ)`,
 otherwise the value should not be used.
 
+- `ω`: the log weight of the subtree that corresponds to the proposal; valid if `ζ` is.
+
 - `τ`: turn statistics. Only valid when `!isdivergent(d)`.
 
 - `d`: divergence statistics, always valid.
@@ -140,20 +179,20 @@ otherwise the value should not be used.
 function adjacent_tree(rng, trajectory, z, depth, is_forward)
     if depth == 0
         z = move(trajectory, z, is_forward)
-        ζ, τ, d = leaf(trajectory, z, false)
-        ζ, τ, d, z
+        ζ, ω, τ, d = leaf(trajectory, z, false)
+        ζ, ω, τ, d, z
     else
-        ζ₋, τ₋, d₋, z = adjacent_tree(rng, trajectory, z, depth - 1, is_forward)
+        ζ₋, ω₋, τ₋, d₋, z = adjacent_tree(rng, trajectory, z, depth - 1, is_forward)
         (is_divergent(trajectory, d₋) || (depth > 1 && is_turning(trajectory, τ₋))) &&
-            return ζ₋, τ₋, d₋, z
-        ζ₊, τ₊, d₊, z = adjacent_tree(rng, trajectory, z, depth - 1, is_forward)
+            return ζ₋, ω₋, τ₋, d₋, z
+        ζ₊, ω₊, τ₊, d₊, z = adjacent_tree(rng, trajectory, z, depth - 1, is_forward)
         d = combine_divergence_statistics(trajectory, d₋, d₊)
         (is_divergent(trajectory, d) || (depth > 1 && is_turning(trajectory, τ₊))) &&
-            return ζ₊, τ₊, d, z
+            return ζ₊, ω₋, τ₊, d, z
         τ = combine_turn_statistics_in_direction(trajectory, τ₋, τ₊, is_forward)
-        ζ = is_turning(trajectory, τ) ? nothing :
-            combine_proposals(rng, trajectory, ζ₋, ζ₊, is_forward, false)
-        ζ, τ, d, z
+        ζ, ω = is_turning(trajectory, τ) ? (ζ₋, ω₋) :
+            combine_proposals_and_logweights(rng, trajectory, ζ₋, ζ₊, ω₋, ω₊, is_forward, false)
+        ζ, ω, τ, d, z
     end
 end
 
@@ -178,18 +217,19 @@ Return:
 """
 function sample_trajectory(rng, trajectory, z, max_depth::Integer, directions::Directions)
     @argcheck max_depth ≤ MAX_DIRECTIONS_DEPTH
-    ζ, τ, d = leaf(trajectory, z, true)
+    ζ, ω, τ, d = leaf(trajectory, z, true)
     z₋ = z₊ = z
     depth = 0
     termination = MaxDepth
     while depth < max_depth
         is_forward, directions = next_direction(directions)
-        ζ′, τ′, d′, z = adjacent_tree(rng, trajectory, is_forward ? z₊ : z₋,
-                                      depth, is_forward)
+        ζ′, ω′, τ′, d′, z = adjacent_tree(rng, trajectory, is_forward ? z₊ : z₋,
+                                          depth, is_forward)
         d = combine_divergence_statistics(trajectory, d, d′)
         is_divergent(trajectory, d) && (termination = AdjacentDivergent; break)
         (depth > 0 && is_turning(trajectory, τ′)) && (termination = AdjacentTurn; break)
-        ζ = combine_proposals(rng, trajectory, ζ, ζ′, is_forward, true)
+        ζ, ω = combine_proposals_and_logweights(rng, trajectory, ζ, ζ′, ω, ω′,
+                                                is_forward, true)
         τ = combine_turn_statistics_in_direction(trajectory, τ, τ′, is_forward)
         is_forward ? z₊ = z : z₋ = z
         depth += 1

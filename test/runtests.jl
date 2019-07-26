@@ -2,13 +2,13 @@ using DynamicHMC
 
 using DynamicHMC:
     # trees
-    Directions, next_direction, adjacent_tree, sample_trajectory,
+    Directions, next_direction, biased_progressive_logprob1, adjacent_tree, sample_trajectory,
     # Hamiltonian
     GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
     rand_phasepoint, leapfrog, move,
     # building blocks
-    rand_bool, TurnStatistic, Proposal, combined_logprob_logweight, DivergenceStatistic,
-    divergence_statistic, get_acceptance_rate,  Trajectory,
+    rand_bool, TurnStatistic, DivergenceStatistic, divergence_statistic,
+    get_acceptance_rate, Trajectory,
     # stepsize
     InitialStepsizeSearch, find_initial_stepsize,
     # transitions and tuning
@@ -18,7 +18,7 @@ using DynamicHMC:
 import DynamicHMC:
     # trees
     move, is_turning, combine_turn_statistics, is_divergent,
-    combine_divergence_statistics, combine_proposals, leaf
+    combine_divergence_statistics, calculate_logprob1, combine_proposals, leaf
 
 using Test
 
