@@ -49,12 +49,12 @@ Random boolean which is `true` with the given probability `prob`.
 """
 rand_bool(rng::AbstractRNG, prob::T) where {T <: AbstractFloat} = rand(rng, T) ≤ prob
 
-function calculate_logprob1(::Trajectory, is_doubling, ω₁, ω₂, ω)
-    biased_progressive_logprob1(is_doubling, ω₁, ω₂, ω)
+function calculate_logprob2(::Trajectory, is_doubling, ω₁, ω₂, ω)
+    biased_progressive_logprob2(is_doubling, ω₁, ω₂, ω)
 end
 
-function combine_proposals(rng, ::Trajectory, z₁, z₂, logprob1::Real, is_forward)
-    (logprob1 ≥ 0 || rand_bool(rng, exp(logprob1))) ? z₂ : z₁
+function combine_proposals(rng, ::Trajectory, z₁, z₂, logprob2::Real, is_forward)
+    (logprob2 ≥ 0 || rand_bool(rng, exp(logprob2))) ? z₂ : z₁
 end
 
 ####

@@ -54,19 +54,22 @@ function combine_divergence_statistics(::DummyTrajectory, d₁, d₂)
     (f1 || f2, a1 + a2, s1 + s2)
 end
 
-function combine_proposals(_, ::DummyTrajectory, zeta1, zeta2, logprob1, is_forward)
+function combine_proposals(_, ::DummyTrajectory, zeta1, zeta2, logprob2, is_forward)
+    lp2 = logprob2 > 0 ? 1.0 : logprob2
+    lp1 = logprob2 > 0 ? zero(lp2) : log1mexp(lp2)
     if !is_forward
-        zeta2, zeta1 = zeta1, zeta2
+        # exchange so that we can test for adjacency, and join as a UnitRange
+        zeta1, zeta2 = zeta2, zeta1
+        lp1, lp2 = lp2, lp1
     end
     z1, p1 = zeta1
     z2, p2 = zeta2
-    prob1 = exp(logprob1)
     @test last(z1) + 1 == first(z2) # adjacency and order
-    (first(z1):last(z2), vcat(p1 .* prob1, p2 .* (1 - prob1)))
+    (first(z1):last(z2), vcat(p1 .+ lp1, p2 .+ lp2))
 end
 
-function calculate_logprob1(::DummyTrajectory, is_doubling, ω₁, ω₂, ω)
-    biased_progressive_logprob1(is_doubling, ω₁, ω₂, ω)
+function calculate_logprob2(::DummyTrajectory, is_doubling, ω₁, ω₂, ω)
+    biased_progressive_logprob2(false #=is_doubling =#, ω₁, ω₂, ω)
 end
 
 function leaf(trajectory::DummyTrajectory, z, is_initial)
@@ -75,7 +78,7 @@ function leaf(trajectory::DummyTrajectory, z, is_initial)
     d = z ∈ divergent
     is_initial && @argcheck !d                              # don't start with divergent
     !is_initial && push!(visited, z)                        # save position
-    ((z:z, [1.0]),                                          # ζ = nodes, prob. within tree
+    ((z:z, [0.0]),                                          # ζ = nodes, log prob. within tree
      Δ,                                                     # ω = Δ for leaf
      (z ∈ turning, z:z),                                    # τ
      is_initial ? (false, 0.0, 0) : (d, min(exp(Δ), 1), 1)) # d
@@ -93,7 +96,7 @@ testA(trajectory::DummyTrajectory) = testA(trajectory.ℓ, trajectory.visited)
     trajectory = DummyTrajectory(testℓ)
     ζ, ω, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 2, true)
     @test first(ζ) == 1:4
-    @test sum(last(ζ)) ≈ 1
+    @test sum(exp, last(ζ)) ≈ 1
     @test trajectory.visited == 1:4
     @test !is_turning(trajectory, τ)
     @test !is_divergent(trajectory, d)
@@ -127,7 +130,7 @@ end
     trajectory = DummyTrajectory(testℓ)
     ζ, ω, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, false)
     @test first(ζ) == -8:-1
-    @test sum(last(ζ)) ≈ 1
+    @test sum(exp, last(ζ)) ≈ 1
     @test trajectory.visited == -(1:8)
     @test !is_turning(trajectory, τ)
     @test !is_divergent(trajectory, d)
@@ -136,147 +139,88 @@ end
     @test z′ == -8
 end
 
-## a realized trajectory, with positions and their probabilities
+####
+#### Detailed balance tests
+####
 
-# struct TrajectoryDistribution{Tz, Tf}
-#     "ordered positions"
-#     positions::Vector{Tz}
-#     "probabilities"
-#     probabilities::Vector{Tf}
-# end
+empty_accumulator() = Dict{Int,Float64}()
 
-# function TrajectoryDistribution(positions, probabilities)
-#     pos = collect(positions)
-#     probs = collect(probabilities)
-#     @argcheck length(pos) == length(probs)
-#     @argcheck sum(probs) ≈ 1
-#     p = sortperm(pos)
-#     TrajectoryDistribution(pos[p], probs[p])
-# end
+function add_log_probabilities!(accumulator, zs, πs)
+    for (z, π) in zip(zs, πs)
+        accumulator[z] = haskey(accumulator, z) ? logaddexp(accumulator[z], π) : π
+    end
+    accumulator
+end
 
-# """
-# Combine two `TrajectoryDistributions` such that the second one has the given
-# probability.
-# """
-# function mix(x::TrajectoryDistribution, y::TrajectoryDistribution, y_prob)
-#     @argcheck isempty(x.positions ∩ y.positions)
-#     @argcheck 0 ≤ y_prob ≤ 1
-#     positions = vcat(x.positions, y.positions)
-#     probabilities = vcat((1-y_prob) * x.probabilities, y_prob * y.probabilities)
-#     p = sortperm(positions)
-#     TrajectoryDistribution(positions[p], probabilities[p])
-# end
+function normalize_accumulator(accumulator, depth)
+    D = log(0.5) * depth
+    Dict((k => v + D) for (k, v) in pairs(accumulator))
+end
 
-# @testset "trajectory distributions" begin
-#     x = TrajectoryDistribution(0:1, [0.2, 0.8])
-#     y = TrajectoryDistribution(2:3, [0.3, 0.7])
-#     z = mix(x, y, 0.8)
-#     @test z.positions == collect(0:3)
-#     @test z.probabilities ≈ vcat(0.2*[0.2, 0.8], 0.8*[0.3, 0.7])
-# end
+function visited_log_probabilities(trajectory, z, depth)
+    accumulator = empty_accumulator()
+    for flags in 0:(2^depth - 1)
+        ζ = first(sample_trajectory(nothing, trajectory, z, depth, Directions(UInt32(flags))))
+        add_log_probabilities!(accumulator, ζ...)
+    end
+    normalize_accumulator(accumulator, depth)
+end
 
-# "Keep track of all probabilities."
-# struct ProposalDistribution{Tz, Tf}
-#     dist::TrajectoryDistribution{Tz, Tf}
-#     ω::Tf
-# end
+function transition_log_probability(trajectory, z, z′, depth)
+    p = -Inf
+    for flags in 0:(2^depth - 1)
+        zs, πs = first(sample_trajectory(nothing, trajectory, z, depth,
+                                         Directions(UInt32(flags))))
+        ix = findfirst(isequal(z′), zs)
+        if ix ≠ nothing
+            p = logaddexp(p, πs[ix])
+        end
+    end
+    p + depth * log(0.5)
+end
 
-# support(pd::ProposalDistribution) = pd.dist.positions
+@testset "transition calculations consistency check" begin
+    trajectory = DummyTrajectory(testℓ)
+    depth = 5
+    z = 9
+    for (z′, π) in pairs(visited_log_probabilities(trajectory, z, depth))
+        @test π ≈ transition_log_probability(trajectory, z, z′, depth)
+    end
+end
 
-# function DynamicHMC.combine_proposals(rng, x::ProposalDistribution,
-#                                       y::ProposalDistribution, bias_y)
-#     logprob_y, ω = combined_logprob_logweight(x.ω, y.ω, bias_y)
-#     prob_y = logprob_y ≥ 0 ? one(logprob_y) : exp(logprob_y)
-#     dist = mix(x.dist, y.dist, prob_y)
-#     ProposalDistribution(dist, ω)
-# end
+"""
+$(SIGNATURES)
 
-# function DynamicHMC.leaf(trajectory::DummyTrajectory, z, isinitial)
-#     @unpack z₀, collecting, positions, turning, divergent, ℓ = trajectory
-#     Δ = isinitial ? 0.0 : ℓ(z) - ℓ(z₀)
-#     collecting && push!(positions, z)
-#     d = isinitial ? divergence_statistic() : divergence_statistic(z ∈ divergent, Δ)
-#     τ = DummyTurnStatistic(z ∈ turning)
-#     ζ = d.divergent ? nothing : ProposalDistribution(TrajectoryDistribution([z],[1.0]), Δ)
-#     ζ, τ, d
-# end
+For all transitions from `z`, test the detailed balance condition, ie
 
-# DynamicHMC.move(trajectory::DummyTrajectory, z, fwd) = z + (fwd ? one(z) : -(one(z)))
+``ℙ(z) ℙ(j ∣ z) = ℙ(j) ℙ(z ∣ j)``
 
-# """
-#     sample_dists(trajectory, z::T, max_depth)
+where ``ℙ(z) = exp(ℓ(z))`` and the transition probabilities ``ℙ(⋅∣⋅)`` are
+calculated using `visited_log_probabilities` and `transition_log_probability`.
 
-# Return a vector of sampled `TrajectoryDistribution`s along `trajectory`,
-# starting from `z`.
+(We use logs for more accurate calculation.)
+"""
+function test_detailed_balance(trajectory, z, depth; atol = √eps())
+    @unpack ℓ = trajectory
+    ℓz = ℓ(z)
+    for (z′, π) in pairs(visited_log_probabilities(trajectory, z, depth))
+        π′ = transition_log_probability(trajectory, z′, z, depth)
+        @test (π + ℓz) ≈ (π′ + ℓ(z′)) atol = atol
+    end
+end
 
-# They have uniform probability `0.5^max_depth`.
-# """
-# function sample_dists(trajectory, z::T, max_depth) where T
-#     N = (2^max_depth)
-#     function distribution(rng_state)
-#         rng = DummyRNG(rng_state, 0)
-#         ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth)
-#         @test depth ≤ rng.count ≤ depth+1
-#         ζ.dist
-#     end
-#     [distribution(rng_state) for rng_state in 0:(N-1)]
-# end
-
-# """
-#     transprob(dists, j)
-
-# Transition probability to `j` according to `dists`.
-# """
-# function transprob(dists, j)
-#     p = 0.0
-#     for d in dists
-#         ix = findfirst(isequal(d.positions), j)
-#         ix ≠ nothing && (p += d.probabilities[ix])
-#     end
-#     p / length(dists)
-# end
-
-# """
-#     test_detailed_balance(ℓ, z::T, max_depth; args...)
-
-# For all transitions from `z`, test the detailed balance condition, ie
-
-# ``ℙ(z) ℙ(j ∣ z) = ℙ(j) ℙ(z ∣ j)``
-
-# where ``ℙ(z) = exp(ℓ(z))`` and the transition probabilities ``ℙ(⋅∣⋅)`` are
-# calculated using `sample_dist` and `transprob`.
-
-# `z` is the starting point, and all `j`s are checked such that ``|z-j| <
-# 2^max_depth``.
-
-# `args` can be used to specify extra keyword arguments (turning, divergence) to
-# the `DummyTrajectory` constructor.
-# """
-# function test_detailed_balance(ℓ, z::T, max_depth; args...) where T
-#     DT(z) = DummyTrajectory(z; ℓ = ℓ, collecting = false, args...)
-#     K = (max_depth)-1
-#     dists = sample_dists(DT(z), z, max_depth)
-#     for j in (z-K):(z+K)
-#         p1 = exp(ℓ(z)) * transprob(dists, j)
-#         p2 = exp(ℓ(j)) * transprob(sample_dists(DT(j), j, max_depth), z)
-#         @test p1 ≈ p2
-#     end
-# end
-
-# @testset "detailed balance flat" begin
-#     for max_depth in 1:5
-#         test_detailed_balance(_->0.0, 0, max_depth)
-#     end
-# end
-
-# @testset "detailed balance non-flat" begin
-#     for max_depth in 1:5
-#         test_detailed_balance(x->x*0.02, 0, max_depth)
-#     end
-# end
-
-# @testset "detailed balance non-flat turning" begin
-#     for max_depth in 1:5
-#         test_detailed_balance(x->x*0.02, 0, max_depth; turning = 2:3)
-#     end
-# end
+@testset "detailed balance" begin
+    for max_depth in 1:5
+        test_detailed_balance(DummyTrajectory(testℓ), 0, max_depth)
+    end
+    for max_depth in 1:5
+        test_detailed_balance(DummyTrajectory(testℓ; turning = 1:2), 3, max_depth)
+    end
+    for max_depth in 1:6
+        test_detailed_balance(DummyTrajectory(testℓ; divergent = 10:11), 3, max_depth)
+    end
+    for max_depth in 1:6
+        test_detailed_balance(DummyTrajectory(testℓ; divergent = 10:12, turning = -3:-2), 3,
+                              max_depth)
+    end
+end

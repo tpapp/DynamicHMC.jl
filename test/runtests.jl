@@ -2,7 +2,7 @@ using DynamicHMC
 
 using DynamicHMC:
     # trees
-    Directions, next_direction, biased_progressive_logprob1, adjacent_tree, sample_trajectory,
+    Directions, next_direction, biased_progressive_logprob2, adjacent_tree, sample_trajectory,
     # Hamiltonian
     GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
     rand_phasepoint, leapfrog, move,
@@ -18,7 +18,7 @@ using DynamicHMC:
 import DynamicHMC:
     # trees
     move, is_turning, combine_turn_statistics, is_divergent,
-    combine_divergence_statistics, calculate_logprob1, combine_proposals, leaf
+    combine_divergence_statistics, calculate_logprob2, combine_proposals, leaf
 
 using Test
 
@@ -35,7 +35,7 @@ using Parameters
 import Random
 using Random: randn, rand
 using StatsBase: mean_and_cov, mean_and_std
-using StatsFuns: logaddexp, logsumexp
+using StatsFuns: logaddexp, logsumexp, log1mexp
 using Statistics: mean, quantile, Statistics
 using Suppressor
 

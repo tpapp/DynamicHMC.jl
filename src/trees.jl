@@ -79,21 +79,23 @@ function combine_divergence_statistics end
 """
     $(FUNCTIONNAME)(trajectory, is_doubling::Bool, ω₁, ω₂, ω)
 
-Calculate the log probability if selecting the subtree corresponding to `ω₁`. When
+Calculate the log probability if selecting the subtree corresponding to `ω₂`. When
 `is_doubling`, the tree corresponding to `ω₂` was obtained from a doubling step (this can be
 relevant eg for biased progressive sampling).
 
 The value `ω = logaddexp(ω₁, ω₂)` is provided for avoiding redundant calculations.
 
-See [`biased_progressive_logprob1`](@ref) for an implementation.
+See [`biased_progressive_logprob2`](@ref) for an implementation.
 """
-function calculate_logprob1 end
+function calculate_logprob2 end
 
 """
-    $(FUNCTIONNAME)(rng, trajectory, ζ₁, ζ₂, logprob1::Real, is_forward::Bool)
+    $(FUNCTIONNAME)(rng, trajectory, ζ₁, ζ₂, logprob2::Real, is_forward::Bool)
 
-Combine two proposals `ζ₁, ζ₂` on `trajectory`, with log probability `logprob1` for
-selecting `ζ1`. `ζ₁` is before `ζ₂` iff `is_forward`.
+Combine two proposals `ζ₁, ζ₂` on `trajectory`, with log probability `logprob2` for
+selecting `ζ₂`.
+
+ `ζ₁` is before `ζ₂` iff `is_forward`.
 """
 function combine_proposals end
 
@@ -134,8 +136,8 @@ end
 function combine_proposals_and_logweights(rng, trajectory, ζ₁, ζ₂, ω₁::Real, ω₂::Real,
                                           is_forward::Bool, is_doubling::Bool)
     ω = logaddexp(ω₁, ω₂)
-    logprob1 = calculate_logprob1(trajectory, is_doubling, ω₁, ω₂, ω)
-    ζ = combine_proposals(rng, trajectory, ζ₁, ζ₂, logprob1, is_forward)
+    logprob2 = calculate_logprob2(trajectory, is_doubling, ω₁, ω₂, ω)
+    ζ = combine_proposals(rng, trajectory, ζ₁, ζ₂, logprob2, is_forward)
     ζ, ω
 end
 
@@ -143,11 +145,11 @@ end
 $(SIGNATURES)
 
 Given (relative) log probabilities `ω₁` and `ω₂`, return the log probabiliy of
-drawing a sample from the second (`logprob1`).
+drawing a sample from the second (`logprob2`).
 
 When `bias`, biases towards the second argument, introducing anti-correlations.
 """
-function biased_progressive_logprob1(bias::Bool, ω₁::Real, ω₂::Real, ω = logaddexp(ω₁, ω₂))
+function biased_progressive_logprob2(bias::Bool, ω₁::Real, ω₂::Real, ω = logaddexp(ω₁, ω₂))
     ω₂ - (bias ? ω₁ : ω)
 end
 
