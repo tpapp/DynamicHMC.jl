@@ -101,16 +101,6 @@ function leaf end
 """
 $(SIGNATURES)
 
-Random boolean which is `true` with the given probability `prob`.
-
-**All random numbers in this library are obtained from this function.**
-"""
-rand_bool(rng::AbstractRNG, prob::T) where {T <: AbstractFloat} =
-    rand(rng, T) ≤ prob
-
-"""
-    $(SIGNATURES)
-
 Combine turn statistics with the given direction. When `is_forward`, `τ₁` is before `τ₂`,
 otherwise after.
 

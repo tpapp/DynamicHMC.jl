@@ -67,6 +67,13 @@ function combined_logprob_logweight(ω₁, ω₂, bias)
     ω₂ - (bias ? ω₁ : ω), ω
 end
 
+"""
+$(SIGNATURES)
+
+Random boolean which is `true` with the given probability `prob`.
+"""
+rand_bool(rng::AbstractRNG, prob::T) where {T <: AbstractFloat} = rand(rng, T) ≤ prob
+
 function combine_proposals(rng, ::Trajectory, ζ₁::Proposal, ζ₂::Proposal,
                            is_forward, is_doubling)
     # when doubling, use biased progressive sampling
@@ -139,6 +146,7 @@ end
 function is_turning(::Trajectory, τ::TurnStatistic)
     # Uses the generalized NUTS criterion from Betancourt (2017).
     @unpack p♯₋, p♯₊, ρ = τ
+    @argcheck p♯₋ ≢ p♯₊ "internal error: is_turning called on a leaf"
     dot(p♯₋, ρ) < 0 || dot(p♯₊, ρ) < 0
 end
 

@@ -56,10 +56,10 @@ end
     τ₁ = TurnStatistic(p₁, p₁, ρ₁)
     τ₂ = TurnStatistic(p₂, p₂, ρ₂)
     @test combine_turn_statistics(trajectory, τ₁, τ₂) ≂ TurnStatistic(p₁, p₂, ρ₁+ρ₂)
-    @test !is_turning(trajectory, TurnStatistic(p₁, p₁, ρ₁))
+    @test !is_turning(trajectory, TurnStatistic(p₁, copy(p₁), ρ₁))
     @test is_turning(trajectory, TurnStatistic(p₁, p₂, ρ₁))
-    @test is_turning(trajectory, TurnStatistic(p₂, p₂, ρ₁))
-    @test is_turning(trajectory, TurnStatistic(p₂, p₂, ρ₁))
+    @test is_turning(trajectory, TurnStatistic(p₂, copy(p₂), ρ₁))
+    @test is_turning(trajectory, TurnStatistic(p₂, copy(p₂), ρ₁))
 end
 
 @testset "low-level divergence statistics" begin
