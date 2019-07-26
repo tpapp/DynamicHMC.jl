@@ -5,10 +5,10 @@ using DynamicHMC:
     GaussianKE, Hamiltonian, PhasePoint, neg_energy, phasepoint_in,
     rand_phasepoint, leapfrog, move,
     # building blocks
-    rand_bool, TurnStatistic, combine_turnstats, Proposal,
+    rand_bool, TurnStatistic, combine_turn_statistics, Proposal,
     combined_logprob_logweight, combine_proposals,
-    DivergenceStatistic, combine_divstats, divergence_statistic, isdivergent,
-    get_acceptance_rate, isturning, adjacent_tree, sample_trajectory,
+    DivergenceStatistic, combine_divergence_statistics, divergence_statistic, is_divergent,
+    get_acceptance_rate, is_turning, adjacent_tree, sample_trajectory, Trajectory,
     # stepsize
     InitialStepsizeSearch, find_initial_stepsize,
     # transitions and tuning
@@ -48,7 +48,7 @@ end
 @include_testset("test-Hamiltonian-leapfrog.jl")
 @include_testset("test-buildingblocks.jl")
 @include_testset("test-stepsize.jl")
-@include_testset("test-sample-dummy.jl")
+# @include_testset("test-sample-dummy.jl")
 @include_testset("test-tuners.jl")
 @include_testset("test-sample-normal.jl")
 @include_testset("test-normal-mcmc.jl")

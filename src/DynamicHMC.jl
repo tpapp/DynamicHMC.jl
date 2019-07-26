@@ -4,7 +4,7 @@ import Base: rand, length, show
 
 using ArgCheck: @argcheck
 using DataStructures: counter
-using DocStringExtensions: FIELDS, SIGNATURES, TYPEDEF
+using DocStringExtensions: FIELDS, FUNCTIONNAME, SIGNATURES, TYPEDEF
 using LinearAlgebra
 using LinearAlgebra: checksquare
 using LogDensityProblems: dimension, logdensity, ValueGradient, logdensity
@@ -13,6 +13,7 @@ using Random: AbstractRNG, randn, Random
 using Statistics: cov, mean, median, middle, quantile, var
 using StatsFuns: logaddexp
 
+include("trees.jl")
 include("hamiltonian.jl")
 include("stepsize.jl")
 include("buildingblocks.jl")

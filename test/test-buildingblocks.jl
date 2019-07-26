@@ -1,5 +1,6 @@
-
-# utilities
+####
+#### utilities
+####
 
 """
     $SIGNATURES
@@ -32,17 +33,21 @@ end
     @test !(Foo{Any}(1,2) ≂ Foo(1,2))
 end
 
-
-# random booleans
+
+###
+### random booleans
+###
 
 @testset "random booleans" begin
     @test abs(mean(rand_bool(RNG, 0.3) for _ in 1:10000) - 0.3) ≤ 0.01
 end
 
-
-# test turn statistics
+###
+### test turn statistics
+###
 
 @testset "low-level turn statistics" begin
+    trajectory = Trajectory(nothing, 0, 1, -1000)
     n = 3
     ρ₁ = ones(n)
     ρ₂ = 2*ρ₁
@@ -50,31 +55,38 @@ end
     p₂ = -ρ₁
     τ₁ = TurnStatistic(p₁, p₁, ρ₁)
     τ₂ = TurnStatistic(p₂, p₂, ρ₂)
-    @test combine_turnstats(τ₁, τ₂) ≂ TurnStatistic(p₁, p₂, ρ₁+ρ₂)
-    @test !isturning(TurnStatistic(p₁, p₁, ρ₁))
-    @test isturning(TurnStatistic(p₁, p₂, ρ₁))
-    @test isturning(TurnStatistic(p₂, p₂, ρ₁))
-    @test isturning(TurnStatistic(p₂, p₂, ρ₁))
+    @test combine_turn_statistics(trajectory, τ₁, τ₂) ≂ TurnStatistic(p₁, p₂, ρ₁+ρ₂)
+    @test !is_turning(trajectory, TurnStatistic(p₁, p₁, ρ₁))
+    @test is_turning(trajectory, TurnStatistic(p₁, p₂, ρ₁))
+    @test is_turning(trajectory, TurnStatistic(p₂, p₂, ρ₁))
+    @test is_turning(trajectory, TurnStatistic(p₂, p₂, ρ₁))
 end
 
 @testset "low-level divergence statistics" begin
+    trajectory = Trajectory(nothing, 0, 1, -1000)
     a(p, divergent = false) = DivergenceStatistic(divergent, p, 1)
     x = a(0.3)
     @test get_acceptance_rate(x) ≈ 0.3
     y = a(0.6)
     @test get_acceptance_rate(y) ≈ 0.6
-    z = reduce(combine_divstats, [x, x, y])
+    z = reduce((x, y) -> combine_divergence_statistics(trajectory, x, y), [x, x, y])
     @test get_acceptance_rate(z) ≈ 0.4
 end
 
-
-# test proposals
+###
+### test proposals
+###
 
 @testset "proposal" begin
-    function test_sample(rng, prop1, prop2, bias2, prob_prob2; atol = 0.02, N = 10000)
+    trajectory = Trajectory(nothing, 0, 1, -1000)
+    function test_sample(rng, prop1, prop2, bias, prob_prob2; atol = 0.02, N = 10000)
         count = 0
         for _ in 1:N
-            prop = combine_proposals(rng, prop1, prop2, bias2)
+            prop = combine_proposals(rng, trajectory, prop1, prop2,
+                                     # direction irrelevant for thie method
+                                     rand(Bool),
+                                     # test with given bias
+                                     bias)
             if prop.z ≂ prop2.z
                 count += 1
             else
