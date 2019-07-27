@@ -86,8 +86,7 @@ end
 
 testℓ(z) = -abs2(z - 3) * 0.1
 
-# implicitly, visited region has to be contiguous
-testA(ℓ, z) = sum(min.(exp.(ℓ.(UnitRange(extrema(z)...)))))
+testA(ℓ, z) = sum(min.(exp.(ℓ.(z))))
 
 "sum of acceptance rates for trajectory."
 testA(trajectory::DummyTrajectory) = testA(trajectory.ℓ, trajectory.visited)
@@ -137,6 +136,18 @@ end
     @test d[2] ≈ testA(testℓ, -(1:8))
     @test d[3] == 8
     @test z′ == -8
+end
+
+@testset "dummy sampled tree" begin
+    trajectory = DummyTrajectory(testℓ)
+    ζ, d, termination, depth = sample_trajectory(nothing, trajectory, 0, 3, Directions(0b101))
+    @test trajectory.visited == [1, -1, -2, 2, 3, 4, 5]
+    @test first(ζ) == -2:5
+    @test sum(exp, last(ζ)) ≈ 1
+    @test termination == DynamicHMC.MaxDepth
+    @test !is_divergent(trajectory, d)
+    @test d[2] ≈ testA(trajectory)
+    @test d[3] == 7             # initial node does not participate in acceptance rate
 end
 
 ####

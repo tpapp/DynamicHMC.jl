@@ -202,11 +202,12 @@ end
 @enum Termination MaxDepth AdjacentDivergent AdjacentTurn DoubledTurn
 
 """
-    ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth)
+$(SIGNATURES)
 
-Sample a `trajectory` starting at `z`.
+Sample a `trajectory` starting at `z`, up to `max_depth`. `directions` determines the tree
+expansion directions.
 
-Return:
+Return the following values
 
 - `ζ`: proposal from the tree
 
@@ -214,8 +215,8 @@ Return:
 
 - `termination`: reason for termination (see [`Termination`](@ref))
 
-- `depth`: the depth of the tree that was sampled from. Doubling steps that lead
-  to an invalid adjacent tree do not contribute to `depth`.
+- `depth`: the depth of the tree that was sampled from. Doubling steps that lead to an
+  invalid adjacent tree do not contribute to `depth`.
 """
 function sample_trajectory(rng, trajectory, z, max_depth::Integer, directions::Directions)
     @argcheck max_depth ≤ MAX_DIRECTIONS_DEPTH
