@@ -1,5 +1,11 @@
 # Unreleased
 
+# v2.0.0
+
+- Use the LogDensityProblems v0.9.0 API
+
+- abstract out the tree traversal code, stricter and more exact unit tests
+
 # v1.0.6
 
 - fix LogDensityProblems version bounds
