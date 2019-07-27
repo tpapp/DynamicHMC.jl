@@ -3,7 +3,7 @@
 ##### integrator.
 #####
 
-export KineticEnergy, EuclideanKE, GaussianKE
+export GaussianKineticEnergy
 
 """
 $(TYPEDEF)
@@ -11,10 +11,10 @@ $(TYPEDEF)
 Kinetic energy specifications.
 
 For all subtypes, it is implicitly assumed that kinetic energy is symmetric in
-the momentum `p`, ie.
+the momentum `p`,
 
 ```julia
-neg_energy(::KineticEnergy, p, q) == neg_energy(::KineticEnergy, -p, q)
+kinetic_energy(κ, p, q) == kinetic_energy(κ, .-p, q)
 ```
 
 When the above is violated, the consequences are undefined.
@@ -26,91 +26,104 @@ $(TYPEDEF)
 
 Euclidean kinetic energies (position independent).
 """
-abstract type EuclideanKE <: KineticEnergy end
+abstract type EuclideanKineticEnergy <: KineticEnergy end
 
 """
 $(TYPEDEF)
 
-Gaussian kinetic energy.
-
-```math
-p ∣ q ∼ N(0, M)
-```
-
-**independently** of ``q``.
+Gaussian kinetic energy, with ``K(q,p) = p ∣ q ∼ 1/2 pᵀ⋅M⁻¹⋅p + log|M| + const``,
+which is independently of ``q``.
 
 The inverse covariance ``M⁻¹`` is stored.
 """
-struct GaussianKE{T <: AbstractMatrix, S <: AbstractMatrix} <: EuclideanKE
+struct GaussianKineticEnergy{T <: AbstractMatrix,
+                             S <: AbstractMatrix} <: EuclideanKineticEnergy
     "M⁻¹"
-    Minv::T
+    M⁻¹::T
     "W such that W*W'=M. Used for generating random draws."
     W::S
-    function GaussianKE{T, S}(Minv, W) where {T, S}
-        @argcheck checksquare(Minv) == checksquare(W)
-        new(Minv, W)
+    function GaussianKineticEnergy(M⁻¹::T, W::S) where {T, S}
+        @argcheck checksquare(M⁻¹) == checksquare(W)
+        new{T,S}(M⁻¹, W)
     end
 end
-
-GaussianKE(M::T, W::S) where {T,S} = GaussianKE{T,S}(M, W)
 
 """
 $(SIGNATURES)
 
 Gaussian kinetic energy with the given inverse covariance matrix `M⁻¹`.
 """
-GaussianKE(Minv::AbstractMatrix) = GaussianKE(Minv, cholesky(inv(Minv)).L)
+GaussianKineticEnergy(M⁻¹::AbstractMatrix) = GaussianKineticEnergy(M⁻¹, cholesky(inv(M⁻¹)).L)
+
+"""
+$(SIGNATURES)
+
+Gaussian kinetic energy with the given inverse covariance matrix `M⁻¹`.
+"""
+GaussianKineticEnergy(M⁻¹::Diagonal) = GaussianKineticEnergy(M⁻¹, Diagonal(.√inv.(diag(M⁻¹))))
 
 """
 $(SIGNATURES)
 
 Gaussian kinetic energy with a diagonal inverse covariance matrix `M⁻¹=m⁻¹*I`.
 """
-GaussianKE(N::Int, m⁻¹ = 1.0) = GaussianKE(Diagonal(fill(m⁻¹, N)))
+GaussianKineticEnergy(N::Integer, m⁻¹ = 1.0) = GaussianKineticEnergy(Diagonal(fill(m⁻¹, N)))
 
-show(io::IO, κ::GaussianKE) =
-    print(io::IO, "Gaussian kinetic energy, √diag(M⁻¹): $(.√(diag(κ.Minv)))")
+function Base.show(io::IO, κ::GaussianKineticEnergy)
+    print(io::IO, "Gaussian kinetic energy, √diag(M⁻¹): $(.√(diag(κ.M⁻¹)))")
+end
 
-"""
-$(SIGNATURES)
-
-Return the log density of kinetic energy `κ`, at momentum `p`. Some kinetic
-energies (eg Riemannian geometry) will need `q`, too.
-"""
-neg_energy(κ::GaussianKE, p, q = nothing) = -dot(p, κ.Minv * p) / 2
+## NOTE about implementation: the 3 methods are callable without a third argument (`q`)
+## because they are defined for Gaussian (Euclidean) kinetic energies.
 
 """
 $(SIGNATURES)
 
-Return ``p♯``, used for turn diagnostics.
+Return kinetic energy `κ`, at momentum `p`.
 """
-get_p♯(κ::GaussianKE, p, q = nothing) = κ.Minv * p
+kinetic_energy(κ::GaussianKineticEnergy, p, q = nothing) = dot(p, κ.M⁻¹ * p) / 2
 
 """
 $(SIGNATURES)
 
-Calculate the gradient of the logarithm of kinetic energy at momentum `p` and
-position `q`; the latter is ignored for Gaussian kinetic energies.
+Return ``p♯ = M⁻¹⋅p``, used for turn diagnostics.
 """
-loggradient(κ::GaussianKE, p, q = nothing) = -get_p♯(κ, p)
-
-rand(rng::AbstractRNG, κ::GaussianKE, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
+calculate_p♯(κ::GaussianKineticEnergy, p, q = nothing) = κ.M⁻¹ * p
 
 """
-    Hamiltonian(ℓ, κ)
+$(SIGNATURES)
 
-Construct a Hamiltonian from the log density `ℓ`, and the kinetic energy
-specification `κ`. Calls of `ℓ` with a vector are expected to return a value
-that supports `DiffResults.value` and `DiffResults.gradient`.
+Calculate the gradient of the logarithm of kinetic energy in momentum `p`.
 """
-struct Hamiltonian{Tℓ, Tκ}
-    """
-    The (log) density we are sampling from. Supports the `AbstractLogDensityProblem`
-    interface, but it does not have to be a subtype.
-    """
-    ℓ::Tℓ
+∇kinetic_energy(κ::GaussianKineticEnergy, p, q = nothing) = calculate_p♯(κ, p)
+
+"""
+$(SIGNATURES)
+
+Generate a random momentum from a kinetic energy at position `q`.
+"""
+rand_p(rng::AbstractRNG, κ::GaussianKineticEnergy, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
+
+struct Hamiltonian{K,L}
     "The kinetic energy."
-    κ::Tκ
+    κ::K
+    """
+    The (log) density we are sampling from. Supports the `LogDensityProblem` API.
+    Technically, it is the negative of the potential energy.
+    """
+    ℓ::L
+    """
+    $(SIGNATURES)
+
+    Construct a Hamiltonian from the log density `ℓ`, and the kinetic energy specification
+    `κ`. `ℓ` with a vector are expected to support the `LogDensityProblems` API, with
+    gradients.
+    """
+    function Hamiltonian(κ::K, ℓ::L) where {K <: KineticEnergy,L}
+        @argcheck capabilities(ℓ) ≥ LogDensityOrder(1)
+        # FIXME argcheck size compatibility
+        new{K,L}(κ, ℓ)
+    end
 end
 
 show(io::IO, H::Hamiltonian) = print(io, "Hamiltonian with $(H.κ)")
@@ -120,12 +133,11 @@ $(TYPEDEF)
 
 A point in phase space, consists of a position and a momentum.
 
-Log densities and gradients are saved for speed gains, so that the gradient of ℓ
-at q is not calculated twice for every leapfrog step (both as start- and
-endpoints).
+Log densities and gradients are saved, so that the gradient of ℓ at q is not calculated
+twice for every leapfrog step (both as start- and endpoints).
 
-Because of caching, a `PhasePoint` should only be used with a specific
-Hamiltonian.
+Because of caching, a `PhasePoint` should only be used with a specific Hamiltonian,
+preferably constructed with the `phasepoint` constructor.
 """
 struct PhasePoint{T,S}
     "Position."
@@ -143,12 +155,12 @@ struct PhasePoint{T,S}
 end
 
 """
-    phasepoint_in(H::Hamiltonian, q, p)
+$(SIGNATURES)
 
 The recommended interface for creating a phase point in a Hamiltonian. Computes
 cached values.
 """
-phasepoint_in(H::Hamiltonian, q, p) = PhasePoint(q, p, logdensity_and_gradient(H.ℓ, q)...)
+phasepoint(H::Hamiltonian, q, p) = PhasePoint(q, p, logdensity_and_gradient(H.ℓ, q)...)
 
 """
 $(SIGNATURES)
@@ -156,21 +168,33 @@ $(SIGNATURES)
 Extend a position `q` to a phasepoint with a random momentum according to the
 kinetic energy of `H`.
 """
-rand_phasepoint(rng::AbstractRNG, H, q) = phasepoint_in(H, q, rand(rng, H.κ))
+rand_phasepoint(rng::AbstractRNG, H, q) = phasepoint(H, q, rand_p(rng, H.κ))
 
 """
-    $SIGNATURES
+$(SIGNATURES)
 
 Log density for Hamiltonian `H` at point `z`.
 
-If `ℓ(q) == -Inf` (rejected), ignores the kinetic energy.
+If `ℓ(q) == -Inf` (rejected), skips the kinetic energy calculation.
+
+Non-finite values (incl `NaN`, `Inf`) are automatically converted to `-Inf`. This can happen
+if
+
+1. the log density is not a finite value,
+
+2. the kinetic energy is not a finite value (which usually happens when `NaN` or `Inf` got
+mixed in the leapfrog step, leading to an invalid position).
 """
-function neg_energy(H::Hamiltonian, z::PhasePoint)
-    v = z.ℓq
-    v == -Inf ? v : (v + neg_energy(H.κ, z.p, z.q))
+function logdensity(H::Hamiltonian{<:EuclideanKineticEnergy}, z::PhasePoint)
+    @unpack ℓq = z
+    isfinite(ℓq) || return oftype(ℓq, -Inf)
+    K = kinetic_energy(H.κ, z.p)
+    ℓq - (isfinite(K) ? K : oftype(K, -Inf))
 end
 
-get_p♯(H::Hamiltonian, z::PhasePoint) = get_p♯(H.κ, z.p, z.q)
+function calculate_p♯(H::Hamiltonian{<:EuclideanKineticEnergy}, z::PhasePoint)
+    calculate_p♯(H.κ, z.p)
+end
 
 """
     leapfrog(H, z, ϵ)
@@ -184,11 +208,11 @@ momentum. If this is not finite, the momentum won't be either. Since the
 constructor `PhasePoint` validates its arguments, this can only happen for
 divergent points anyway, and should not cause a problem.
 """
-function leapfrog(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ) where {Tℓ, Tκ <: EuclideanKE}
+function leapfrog(H::Hamiltonian{<: EuclideanKineticEnergy}, z::PhasePoint, ϵ)
     @unpack ℓ, κ = H
     @unpack p, q, ℓq, ∇ℓq = z
     pₘ = p + ϵ/2 * ∇ℓq
-    q′ = q - ϵ * loggradient(κ, pₘ)
+    q′ = q + ϵ * ∇kinetic_energy(κ, pₘ)
     # FIXME here the gradient would be enough, in practice it saves nothing though
     ℓq′, ∇ℓq′ = logdensity_and_gradient(ℓ, q′)
     p′ = pₘ + ϵ/2 * ∇ℓq′

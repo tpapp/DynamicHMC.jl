@@ -4,8 +4,8 @@
 ##### Only NUTS_Transition and the exported functions are part of the API.
 #####
 
-export NUTS_Transition, get_position, get_neg_energy, get_depth, get_termination,
-    get_acceptance_rate, get_steps
+export NUTS_Transition, get_position, get_π, get_depth, get_termination, get_acceptance_rate,
+    get_steps
 
 ####
 #### Trajectory and implementation
@@ -131,11 +131,11 @@ end
 
 function leaf(trajectory::Trajectory, z, is_initial)
     @unpack H, π₀, min_Δ = trajectory
-    Δ = is_initial ? zero(π₀) : neg_energy(H, z) - π₀
+    Δ = is_initial ? zero(π₀) : logdensity(H, z) - π₀
     isdiv = min_Δ > Δ
     d = is_initial ? divergence_statistic() : divergence_statistic(isdiv, Δ)
     ζ = isdiv ? nothing : z
-    τ = isdiv ? nothing : (p♯ = get_p♯(trajectory.H, z); TurnStatistic(p♯, p♯, z.p))
+    τ = isdiv ? nothing : (p♯ = calculate_p♯(trajectory.H, z); TurnStatistic(p♯, p♯, z.p))
     ζ, Δ, τ, d
 end
 
@@ -173,7 +173,7 @@ end
 get_position(x::NUTS_Transition) = x.q
 
 "Negative energy of the Hamiltonian at the position."
-get_neg_energy(x::NUTS_Transition) = x.π
+get_π(x::NUTS_Transition) = x.π
 
 "Tree depth."
 get_depth(x::NUTS_Transition) = x.depth
@@ -197,9 +197,9 @@ the random number generator used.
 """
 function NUTS_transition(rng, H, q, ϵ, max_depth; args...)
     z = rand_phasepoint(rng, H, q)
-    trajectory = Trajectory(H, neg_energy(H, z), ϵ; args...)
+    trajectory = Trajectory(H, logdensity(H, z), ϵ; args...)
     directions = rand(rng, Directions)
     ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth, directions)
-    NUTS_Transition(ζ.q, neg_energy(H, ζ), depth, termination, get_acceptance_rate(d),
+    NUTS_Transition(ζ.q, logdensity(H, ζ), depth, termination, get_acceptance_rate(d),
                     d.steps)
 end

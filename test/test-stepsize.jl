@@ -102,14 +102,14 @@ end
     for _ in 1:100
         H, z = rand_Hz(rand(3:5))
         ϵ = find_initial_stepsize(p, H, z)
-        logA = neg_energy(H, leapfrog(H, z, ϵ)) - neg_energy(H, z)
+        logA = logdensity(H, leapfrog(H, z, ϵ)) - logdensity(H, z)
         @test p.a_min ≤ exp(logA) ≤ p.a_max
     end
 end
 
 @testset "error for non-finite initial density" begin
     p = InitialStepsizeSearch()
-    H = Hamiltonian(FunctionLogDensity(-Inf, [0.0]), GaussianKE(1))
-    z = DynamicHMC.phasepoint_in(H, [1.0], [1.0])
+    H, z = rand_Hz(2)
+    z = DynamicHMC.phasepoint(H, [1.0, 2.0], [NaN, NaN])
     @test_throws DomainError find_initial_stepsize(p, H, z)
 end

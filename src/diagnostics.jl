@@ -12,7 +12,7 @@ chosen kinetic energies.
 
 Low values (`≤ 0.3`) are considered problematic. See Betancourt (2016).
 """
-EBFMI(sample) = (πs = get_neg_energy.(sample); mean(abs2, diff(πs)) / var(πs))
+EBFMI(sample) = (πs = get_π.(sample); mean(abs2, diff(πs)) / var(πs))
 
 
 "Acceptance quantiles for [`NUTS_Statistics`](@ref) diagnostic summary."

@@ -130,13 +130,13 @@ Initialize a NUTS sampler for log density `ℓ` using local information.
 """
 function NUTS_init(rng::AbstractRNG, ℓ;
                    q = randn(rng, dimension(ℓ)),
-                   κ = GaussianKE(dimension(ℓ)),
-                   p = rand(rng, κ),
+                   κ = GaussianKineticEnergy(dimension(ℓ)),
+                   p = rand_p(rng, κ),
                    max_depth = MAX_DEPTH,
                    ϵ = InitialStepsizeSearch(),
                    report = ReportIO())
-    H = Hamiltonian(ℓ, κ)
-    z = phasepoint_in(H, q, p)
+    H = Hamiltonian(κ, ℓ)
+    z = phasepoint(H, q, p)
     if !(ϵ isa Float64)
         ϵ = find_initial_stepsize(ϵ, H, z)
     end
@@ -212,8 +212,8 @@ function tune(sampler::NUTS, tuner::StepsizeCovTuner)
     Σ = sample_cov(sample)
     Σ += (UniformScaling(max(1e-3, median(diag(Σ))))-Σ) * regularize/N
     # FIXME: Symmetric + Symmetric above does not preserve Symmetric
-    κ = GaussianKE(Symmetric(Σ))
-    NUTS(rng, Hamiltonian(H.ℓ, κ), sample[end].q, get_final_ϵ(A), max_depth, report)
+    κ = GaussianKineticEnergy(Symmetric(Σ))
+    NUTS(rng, Hamiltonian(κ, H.ℓ), sample[end].q, get_final_ϵ(A), max_depth, report)
 end
 
 "Sequence of tuners, applied in the given order."

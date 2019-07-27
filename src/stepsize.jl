@@ -166,10 +166,10 @@ Note that the ratio is not capped by `1`, so it is not a valid probability
 *per se*.
 """
 function local_acceptance_ratio(H, z)
-    target = neg_energy(H, z)
+    target = logdensity(H, z)
     isfinite(target) ||
         throw(DomainError(z.p, "Starting point has non-finite density."))
-    ϵ -> exp(neg_energy(H, leapfrog(H, z, ϵ)) - target)
+    ϵ -> exp(logdensity(H, leapfrog(H, z, ϵ)) - target)
 end
 
 """
