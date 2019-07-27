@@ -1,4 +1,8 @@
-using DynamicHMC
+using DynamicHMC, Test, ArgCheck, DataStructures, Distributions, DocStringExtensions,
+    LinearAlgebra, MCMCDiagnostics, Parameters, Random, StatsBase, StatsFuns, Statistics,
+    Suppressor
+
+import ForwardDiff, Random
 
 using DynamicHMC:
     # trees
@@ -20,24 +24,7 @@ import DynamicHMC:
     move, is_turning, combine_turn_statistics, is_divergent,
     combine_divergence_statistics, calculate_logprob2, combine_proposals, leaf
 
-using Test
-
-using ArgCheck: @argcheck
-using DataStructures
-using Distributions
-using DocStringExtensions: SIGNATURES
-import ForwardDiff
-using LinearAlgebra
-using LogDensityProblems:
-    logdensity, dimension, ValueGradient, AbstractLogDensityProblem, LogDensityProblems
-using MCMCDiagnostics: effective_sample_size, potential_scale_reduction
-using Parameters
-import Random
-using Random: randn, rand
-using StatsBase: mean_and_cov, mean_and_std
-using StatsFuns: logaddexp, logsumexp, log1mexp
-using Statistics: mean, quantile, Statistics
-using Suppressor
+import LogDensityProblems: logdensity_and_gradient, dimension
 
 include("utilities.jl")
 

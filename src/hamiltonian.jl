@@ -127,16 +127,18 @@ endpoints).
 Because of caching, a `PhasePoint` should only be used with a specific
 Hamiltonian.
 """
-struct PhasePoint{T,S <: ValueGradient}
+struct PhasePoint{T,S}
     "Position."
     q::T
     "Momentum."
     p::T
     "ℓ(q). Cached for reuse in sampling."
     ℓq::S
-    function PhasePoint(q::T, p::T, ℓq::S) where {T,S}
-        @argcheck length(p) == length(q) == length(ℓq.gradient)
-        new{T,S}(q, p, ℓq)
+    "∇ℓ(q). Cached for reuse in sampling."
+    ∇ℓq::T
+    function PhasePoint(q::T, p::T, ℓq::S, ∇ℓq::T) where {T,S}
+        @argcheck length(p) == length(q) == length(∇ℓq)
+        new{T,S}(q, p, ℓq, ∇ℓq)
     end
 end
 
@@ -146,7 +148,7 @@ end
 The recommended interface for creating a phase point in a Hamiltonian. Computes
 cached values.
 """
-phasepoint_in(H::Hamiltonian, q, p) = PhasePoint(q, p, logdensity(ValueGradient, H.ℓ, q))
+phasepoint_in(H::Hamiltonian, q, p) = PhasePoint(q, p, logdensity_and_gradient(H.ℓ, q)...)
 
 """
 $(SIGNATURES)
@@ -164,7 +166,7 @@ Log density for Hamiltonian `H` at point `z`.
 If `ℓ(q) == -Inf` (rejected), ignores the kinetic energy.
 """
 function neg_energy(H::Hamiltonian, z::PhasePoint)
-    v = z.ℓq.value
+    v = z.ℓq
     v == -Inf ? v : (v + neg_energy(H.κ, z.p, z.q))
 end
 
@@ -184,10 +186,11 @@ divergent points anyway, and should not cause a problem.
 """
 function leapfrog(H::Hamiltonian{Tℓ,Tκ}, z::PhasePoint, ϵ) where {Tℓ, Tκ <: EuclideanKE}
     @unpack ℓ, κ = H
-    @unpack p, q, ℓq = z
-    pₘ = p + ϵ/2 * ℓq.gradient
+    @unpack p, q, ℓq, ∇ℓq = z
+    pₘ = p + ϵ/2 * ∇ℓq
     q′ = q - ϵ * loggradient(κ, pₘ)
-    ℓq′ = logdensity(ValueGradient, ℓ, q′)
-    p′ = pₘ + ϵ/2 * ℓq′.gradient
-    PhasePoint(q′, p′, ℓq′)
+    # FIXME here the gradient would be enough, in practice it saves nothing though
+    ℓq′, ∇ℓq′ = logdensity_and_gradient(ℓ, q′)
+    p′ = pₘ + ϵ/2 * ∇ℓq′
+    PhasePoint(q′, p′, ℓq′, ∇ℓq′)
 end

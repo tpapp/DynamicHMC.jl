@@ -1,5 +1,6 @@
-
-# utility functions
+####
+#### utility functions
+####
 
 "Test `loggradient` vs autodiff `neg_energy`."
 function test_loggradient(ℓ, x)
@@ -54,8 +55,9 @@ end
     @test C ≈ cov(d) atol = 0.05 rtol = 0.1
 end
 
-
-# testsets
+####
+#### testsets
+####
 
 @testset "Gaussian KE full" begin
     for _ in 1:100
@@ -84,14 +86,14 @@ end
 
 @testset "phasepoint internal consistency" begin
     # when this breaks, interface was modified, rewrite tests
-    @test fieldnames(PhasePoint) == (:q, :p, :ℓq)
+    @test fieldnames(PhasePoint) == (:q, :p, :ℓq, :∇ℓq)
     "Test the consistency of cached values."
     function test_consistency(H, z)
-        @unpack q, ℓq = z
+        @unpack q, ℓq, ∇ℓq = z
         @unpack ℓ = H
-        ℓ2 = logdensity(ValueGradient, ℓ, q)
-        @test ℓ2.value == ℓq.value
-        @test ℓ2.gradient == ℓq.gradient
+        ℓ2, ∇ℓ2 = logdensity_and_gradient(ℓ, q)
+        @test ℓ2 == ℓq
+        @test ∇ℓ2 == ∇ℓq
     end
     H, z = rand_Hz(rand(3:10))
     test_consistency(H, z)
@@ -104,13 +106,14 @@ end
 
 @testset "leapfrog" begin
     """
-    Simple leapfrog implementation. `q`: position, `p`: momentum, `ℓ`: neg_energy, `ϵ`: stepsize. `m` is the diagonal of the kinetic energy ``K(p)=p'M⁻¹p``, defaults to `1`.
+    Simple leapfrog implementation. `q`: position, `p`: momentum, `ℓ`: neg_energy, `ϵ`:
+    stepsize. `m` is the diagonal of the kinetic energy ``K(p)=p'M⁻¹p``, defaults to `1`.
     """
     function leapfrog_Gaussian(q, p, ℓ, ϵ, m = ones(length(p)))
         u = .√(1 ./ m)
-        pₕ = p + ϵ/2*logdensity(ValueGradient, ℓ, q).gradient
-        q′ = q + ϵ * u .* (u .* pₕ) # mimic numerical calculation leapfrog performs
-        p′ = pₕ + ϵ/2*logdensity(ValueGradient, ℓ, q′).gradient
+        pₕ = p .+ ϵ/2 .* last(logdensity_and_gradient(ℓ, q))
+        q′ = q .+ ϵ * u .* (u .* pₕ) # mimic numerical calculation leapfrog performs
+        p′ = pₕ .+ ϵ/2 .* last(logdensity_and_gradient(ℓ, q′))
         q′, p′
     end
 
@@ -124,10 +127,9 @@ end
     ℓ = DistributionLogDensity(MvNormal(randn(n), Matrix(Σ)))
     H = Hamiltonian(ℓ, κ)
     ϵ = find_stable_ϵ(H)
-    ℓq = logdensity(ValueGradient, ℓ, q)
     q₂, p₂ = copy(q), copy(p)
     q′, p′ = leapfrog_Gaussian(q, p, ℓ, ϵ, m)
-    z = PhasePoint(q, p, ℓq)
+    z = PhasePoint(q, p, logdensity_and_gradient(ℓ, q)...)
     z′ = leapfrog(H, z, ϵ)
 
     ⩳(x, y) = isapprox(x, y, rtol = √eps(), atol = √eps())
@@ -171,13 +173,13 @@ end
 end
 
 @testset "PhasePoint validation and infinite values" begin
-    @test_throws ArgumentError PhasePoint([1.0], [1.0, 2.0], # wrong p length
-                                          ValueGradient(1.0, [1.0, 2.0]))
-    @test_throws ArgumentError PhasePoint([1.0, 2.0], [1.0, 2.0], # wrong gradient length
-                                          ValueGradient(1.0, [1.0]))
-    @test PhasePoint([1.0], [1.0], ValueGradient(-Inf, [1.0])) isa PhasePoint
+    # wrong p length
+    @test_throws ArgumentError PhasePoint([1.0], [1.0, 2.0], 1.0, [1.0, 2.0])
+    # wrong gradient length
+    @test_throws ArgumentError PhasePoint([1.0, 2.0], [1.0, 2.0], 1.0, [1.0])
+    @test PhasePoint([1.0], [1.0], -Inf, [1.0]) isa PhasePoint
     @test neg_energy(Hamiltonian(DistributionLogDensity(MvNormal, 1), GaussianKE(1)),
-                     PhasePoint([1.0], [1.0], ValueGradient(-Inf, [1.0]))) == -Inf
+                     PhasePoint([1.0], [1.0], -Inf, [1.0])) == -Inf
 end
 
 @testset "Hamiltonian and KE printing" begin

@@ -29,16 +29,14 @@ rand_Σ(n::Int) = rand_Σ(Symmetric, n)
 """
 Obtain the log density from a distribution.
 """
-struct DistributionLogDensity{D <: Distribution{Multivariate,Continuous}
-                              } <: AbstractLogDensityProblem
+struct DistributionLogDensity{D <: Distribution{Multivariate,Continuous}}
     distribution::D
 end
 
-LogDensityProblems.dimension(ℓ::DistributionLogDensity) = length(ℓ.distribution)
+dimension(ℓ::DistributionLogDensity) = length(ℓ.distribution)
 
-function LogDensityProblems.logdensity(::Type{ValueGradient}, ℓ::DistributionLogDensity,
-                                       x::AbstractVector)
-    ValueGradient(logpdf(ℓ.distribution, x), gradlogpdf(ℓ.distribution, x))
+function logdensity_and_gradient(ℓ::DistributionLogDensity, x::AbstractVector)
+    logpdf(ℓ.distribution, x), gradlogpdf(ℓ.distribution, x)
 end
 
 DistributionLogDensity(::Type{MvNormal}, n::Int) = # canonical
@@ -50,18 +48,17 @@ Statistics.cov(ℓ::DistributionLogDensity) = cov(ℓ.distribution)
 Base.rand(ℓ::DistributionLogDensity) = rand(ℓ.distribution)
 
 """
-A function returning a log density (as a `ValueGradient`).
+A function returning a log density and a gradient.
 """
-struct FunctionLogDensity{F} <: AbstractLogDensityProblem
+struct FunctionLogDensity{F}
     dimension::Int
     f::F
 end
 
-LogDensityProblems.dimension(ℓ::FunctionLogDensity) = length(ℓ.distribution)
+dimension(ℓ::FunctionLogDensity) = length(ℓ.distribution)
 
-function LogDensityProblems.logdensity(::Type{ValueGradient}, ℓ::FunctionLogDensity,
-                                       x::AbstractVector)
-    ℓ.f(x)::ValueGradient
+function logdensity_and_gradient(ℓ::FunctionLogDensity, x::AbstractVector)
+    ℓ.f(x)
 end
 
 """
@@ -69,7 +66,9 @@ $(SIGNATURES)
 
 A log density always returning a constant (for testing).
 """
-FunctionLogDensity(v::ValueGradient) = FunctionLogDensity(length(v.gradient), _ -> v)
+function FunctionLogDensity(logdensity, gradient)
+    FunctionLogDensity(length(gradient), _ -> (logdensity, gradient))
+end
 
 "Random Hamiltonian `H` with phasepoint `z`, with dimension `K`."
 function rand_Hz(K)
