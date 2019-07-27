@@ -1,5 +1,9 @@
 # Unreleased
 
+# v1.0.6
+
+- fix LogDensityProblems version bounds
+
 # v1.0.5
 
 - fix tuning with singular covariance matrices
