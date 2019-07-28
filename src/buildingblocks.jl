@@ -1,10 +1,10 @@
 #####
 ##### Building blocks for sampling.
 #####
-##### Only NUTS_Transition and the exported functions are part of the API.
+##### Only TransitionNUTS and the exported functions are part of the API.
 #####
 
-export NUTS_Transition, get_position, get_π, get_depth, get_termination, get_acceptance_rate,
+export TransitionNUTS, get_position, get_π, get_depth, get_termination, get_acceptance_rate,
     get_steps
 
 ####
@@ -25,13 +25,6 @@ struct Trajectory{TH,Tf}
     "Smallest decrease allowed in the log density."
     min_Δ::Tf
 end
-
-"""
-    $(SIGNATURES)
-
-Convenience constructor for trajectory.
-"""
-Trajectory(H, π₀, ϵ; min_Δ = -1000.0) = Trajectory(H, π₀, ϵ, min_Δ)
 
 function move(trajectory::Trajectory, z, fwd)
     @unpack H, ϵ = trajectory
@@ -154,7 +147,7 @@ get_acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
 Single transition by the No-U-turn sampler. Contains new position and
 diagnostic information.
 """
-struct NUTS_Transition{Tv,Tf}
+struct TransitionNUTS{Tv,Tf}
     "New position."
     q::Tv
     "Log density (negative energy)."
@@ -167,39 +160,41 @@ struct NUTS_Transition{Tv,Tf}
     a::Tf
     "Number of leapfrog steps evaluated."
     steps::Int
+    "Directions for tree doubling (useful for debugging)."
+    directions::Directions
 end
 
 "Position after transition."
-get_position(x::NUTS_Transition) = x.q
+get_position(x::TransitionNUTS) = x.q
 
 "Negative energy of the Hamiltonian at the position."
-get_π(x::NUTS_Transition) = x.π
+get_π(x::TransitionNUTS) = x.π
 
 "Tree depth."
-get_depth(x::NUTS_Transition) = x.depth
+get_depth(x::TransitionNUTS) = x.depth
 
 "Reason for termination, see [`Termination`](@ref)."
-get_termination(x::NUTS_Transition) = x.termination
+get_termination(x::TransitionNUTS) = x.termination
 
 "Average acceptance rate over trajectory."
-get_acceptance_rate(x::NUTS_Transition) = x.a
+get_acceptance_rate(x::TransitionNUTS) = x.a
 
 "Number of integrator steps."
-get_steps(x::NUTS_Transition) = x.steps
+get_steps(x::TransitionNUTS) = x.steps
 
 """
-    NUTS_transition(rng, H, q, ϵ, max_depth; args...)
+$(SIGNATURES)
 
 No-U-turn Hamiltonian Monte Carlo transition, using Hamiltonian `H`, starting at
 position `q`, using stepsize `ϵ`. Builds a doubling dynamic tree of maximum
 depth `max_depth`. `args` are passed to the `Trajectory` constructor. `rng` is
 the random number generator used.
 """
-function NUTS_transition(rng, H, q, ϵ, max_depth; args...)
+function transition_NUTS(rng, H, q, ϵ, max_depth; args...)
     z = rand_phasepoint(rng, H, q)
-    trajectory = Trajectory(H, logdensity(H, z), ϵ; args...)
+    trajectory = Trajectory(H, logdensity(H, z), ϵ, -1000.0)
     directions = rand(rng, Directions)
     ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth, directions)
-    NUTS_Transition(ζ.q, logdensity(H, ζ), depth, termination, get_acceptance_rate(d),
-                    d.steps)
+    TransitionNUTS(ζ.Q.q, logdensity(H, ζ), depth, termination, get_acceptance_rate(d),
+                    d.steps, directions)
 end

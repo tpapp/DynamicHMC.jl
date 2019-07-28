@@ -44,10 +44,10 @@ end
 
 @testset "phasepoint internal consistency" begin
     # when this breaks, interface was modified, rewrite tests
-    @test fieldnames(PhasePoint) == (:q, :p, :ℓq, :∇ℓq)
+    @test fieldnames(PhasePoint) == (:Q, :p)
     "Test the consistency of cached values."
     function test_consistency(H, z)
-        @unpack q, ℓq, ∇ℓq = z
+        @unpack q, ℓq, ∇ℓq = z.Q
         @unpack ℓ = H
         ℓ2, ∇ℓ2 = logdensity_and_gradient(ℓ, q)
         @test ℓ2 == ℓq
@@ -83,7 +83,7 @@ end
     ℓ = DistributionLogDensity(MvNormal(randn(n), Matrix(Σ)))
     H = Hamiltonian(κ, ℓ)
     ϵ = find_stable_ϵ(H)
-    z = PhasePoint(q, p, logdensity_and_gradient(ℓ, q)...)
+    z = phasepoint(H, q, p)
 
     @testset "arguments not modified" begin
         q₂, p₂ = copy(q), copy(p)
@@ -91,7 +91,7 @@ end
         z′ = leapfrog(H, z, ϵ)
         @test p == p₂               # arguments not modified
         @test q == q₂
-        @test z′.q ≈ q′
+        @test z′.Q.q ≈ q′
         @test z′.p ≈ p′
     end
 
@@ -99,7 +99,7 @@ end
         for i in 1:100
             q, p = leapfrog_Gaussian(q, p, ℓ, ϵ, m)
             z = leapfrog(H, z, ϵ)
-            @test z.q ≈ q
+            @test z.Q.q ≈ q
             @test z.p ≈ p
         end
     end
@@ -131,14 +131,17 @@ end
 end
 
 @testset "PhasePoint validation and infinite values" begin
-    # wrong p length
-    @test_throws ArgumentError PhasePoint([1.0], [1.0, 2.0], 1.0, [1.0, 2.0])
     # wrong gradient length
-    @test_throws ArgumentError PhasePoint([1.0, 2.0], [1.0, 2.0], 1.0, [1.0])
-    @test PhasePoint([1.0], [1.0], -Inf, [1.0]) isa PhasePoint
-    @test logdensity(Hamiltonian(GaussianKineticEnergy(1),
-                                 DistributionLogDensity(MvNormal, 1)),
-                     PhasePoint([1.0], [1.0], -Inf, [1.0])) == -Inf
+    @test_throws ArgumentError EvaluatedLogDensity([1.0, 2.0], 1.0, [1.0])
+    # wrong p length
+    Q = EvaluatedLogDensity([1.0, 2.0], 1.0, [1.0, 2.0])
+    @test_throws ArgumentError PhasePoint(Q, [1.0])
+    @test PhasePoint(Q, [1.0, 2.0]) isa PhasePoint
+    # infinity fallbacks
+    h = Hamiltonian(GaussianKineticEnergy(1), DistributionLogDensity(MvNormal, 1))
+    @test logdensity(h, PhasePoint(EvaluatedLogDensity([1.0], -Inf, [1.0]), [1.0])) == -Inf
+    @test logdensity(h, PhasePoint(EvaluatedLogDensity([1.0], NaN, [1.0]), [1.0])) == -Inf
+    @test logdensity(h, PhasePoint(EvaluatedLogDensity([1.0], 9.0, [1.0]), [NaN])) == -Inf
 end
 
 @testset "Hamiltonian and KE printing" begin

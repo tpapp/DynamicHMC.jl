@@ -44,10 +44,10 @@ which has elements that conform to the sampler.
 """
 function mcmc(sampler::NUTS{Tv,Tf}, N::Int) where {Tv,Tf}
     @unpack rng, H, q, ϵ, max_depth, report = sampler
-    sample = Vector{NUTS_Transition{Tv,Tf}}(undef, N)
+    sample = Vector{TransitionNUTS{Tv,Tf}}(undef, N)
     start_progress!(report, "MCMC"; total_count = N)
     for i in 1:N
-        trans = NUTS_transition(rng, H, q, ϵ, max_depth)
+        trans = transition_NUTS(rng, H, q, ϵ, max_depth)
         q = trans.q
         sample[i] = trans
         report!(report, i)
@@ -67,10 +67,10 @@ When the last two parameters are not specified, initialize using `adapting_ϵ`.
 """
 function mcmc_adapting_ϵ(sampler::NUTS{Tv,Tf}, N::Int, A_params, A) where {Tv,Tf}
     @unpack rng, H, q, max_depth, report = sampler
-    sample = Vector{NUTS_Transition{Tv,Tf}}(undef, N)
+    sample = Vector{TransitionNUTS{Tv,Tf}}(undef, N)
     start_progress!(report, "MCMC, adapting ϵ"; total_count = N)
     for i in 1:N
-        trans = NUTS_transition(rng, H, q, get_current_ϵ(A), max_depth)
+        trans = transition_NUTS(rng, H, q, get_current_ϵ(A), max_depth)
         A = adapt_stepsize(A_params, A, trans.a)
         q = trans.q
         sample[i] = trans
@@ -269,16 +269,15 @@ $(SIGNATURES)
 
 Init, tune, and then draw `N` samples from `ℓ` using the NUTS algorithm.
 
-Return the *sample* (a vector of [`NUTS_transition`](@ref)s) and the *tuned
-sampler*.
+Return the *sample* (a vector of [`TransitionNUTS`](@ref)s) and the *tuned sampler*.
 
 `rng` is the random number generator.
 
 `args` are passed on to various methods, see [`NUTS_init`](@ref) and
 [`bracketed_doubling_tuner`](@ref).
 
-Most users would use this function, unless they are doing something that
-requires manual tuning.
+Most users would use this function, unless they are doing something that requires manual
+tuning.
 """
 function NUTS_init_tune_mcmc(rng::AbstractRNG, ℓ, N::Integer; args...)
     sampler_init = NUTS_init(rng, ℓ; args...)

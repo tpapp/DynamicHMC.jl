@@ -1,5 +1,5 @@
 """
-    $SIGNATURES
+$(SIGNATURES)
 
 Simple Hamiltonian Monte Carlo transition, for testing.
 """
@@ -15,7 +15,7 @@ function simple_HMC(H, z::PhasePoint, ϵ, L)
 end
 
 """
-    $SIGNATURES
+$(SIGNATURES)
 
 Simple Hamiltonian Monte Carlo sample, for testing.
 """
@@ -23,7 +23,7 @@ function sample_HMC(H, q, N; ϵ = find_stable_ϵ(H), L = 10)
     qs = similar(q, N, length(q))
     for i in 1:N
         z = rand_phasepoint(RNG, H, q)
-        q = simple_HMC( H, z, ϵ, L).q
+        q = simple_HMC( H, z, ϵ, L).Q.q
         qs[i, :] = q
     end
     qs
@@ -53,7 +53,7 @@ end
         qs = Array{Float64}(undef, N, K)
         ϵ = 0.5
         for i in 1:N
-            trans = NUTS_transition(RNG, H, q, ϵ, 5)
+            trans = transition_NUTS(RNG, H, q, ϵ, 5)
             q = trans.q
             qs[i, :] = q
         end
@@ -85,7 +85,7 @@ end
                           DynamicHMC.AdjacentTurn,
                           DynamicHMC.DoubledTurn]
     for _ in 1:1000
-        trans = NUTS_transition(RNG, H, q, ϵ, 5)
+        trans = transition_NUTS(RNG, H, q, ϵ, 5)
         q′ = get_position(trans)
         @test q′ isa Vector{Float64}
         @test length(q′) == length(q)

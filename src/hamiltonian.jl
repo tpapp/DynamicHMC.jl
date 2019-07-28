@@ -131,26 +131,49 @@ show(io::IO, H::Hamiltonian) = print(io, "Hamiltonian with $(H.κ)")
 """
 $(TYPEDEF)
 
-A point in phase space, consists of a position and a momentum.
+A log density evaluated at position `q`. The log densities and gradient are saved, so that
+they are not calculated twice for every leapfrog step (both as start- and endpoints).
 
-Log densities and gradients are saved, so that the gradient of ℓ at q is not calculated
-twice for every leapfrog step (both as start- and endpoints).
+Because of caching, a `EvaluatedLogDensity` should only be used with a specific Hamiltonian,
+preferably constructed with the `evaluate_ℓ` constructor.
 
-Because of caching, a `PhasePoint` should only be used with a specific Hamiltonian,
-preferably constructed with the `phasepoint` constructor.
+In composite types and arguments, `Q` is usually used for this type.
 """
-struct PhasePoint{T,S}
+struct EvaluatedLogDensity{T,S}
     "Position."
     q::T
-    "Momentum."
-    p::T
-    "ℓ(q). Cached for reuse in sampling."
+    "ℓ(q). Saved for reuse in sampling."
     ℓq::S
     "∇ℓ(q). Cached for reuse in sampling."
     ∇ℓq::T
-    function PhasePoint(q::T, p::T, ℓq::S, ∇ℓq::T) where {T,S}
-        @argcheck length(p) == length(q) == length(∇ℓq)
-        new{T,S}(q, p, ℓq, ∇ℓq)
+    function EvaluatedLogDensity(q::T, ℓq::S, ∇ℓq::T) where {T <: AbstractVector,S <: Real}
+        @argcheck length(q) == length(∇ℓq)
+        new{T,S}(q, ℓq, ∇ℓq)
+    end
+end
+
+"""
+$(SIGNATURES)
+
+Evaluate log density and gradient and save with the position. Preferred interface for
+creating `EvaluatedLogDensity` instances.
+"""
+evaluate_ℓ(H::Hamiltonian, q) = EvaluatedLogDensity(q, logdensity_and_gradient(H.ℓ, q)...)
+
+"""
+$(TYPEDEF)
+
+A point in phase space, consists of a position (in the form of an evaluated log density `ℓ`
+at `q`) and a momentum.
+"""
+struct PhasePoint{T <: EvaluatedLogDensity,S}
+    "Evaluated log density."
+    Q::T
+    "Momentum."
+    p::S
+    function PhasePoint(Q::T, p::S) where {T,S}
+        @argcheck length(p) == length(Q.q)
+        new{T,S}(Q, p)
     end
 end
 
@@ -160,7 +183,7 @@ $(SIGNATURES)
 The recommended interface for creating a phase point in a Hamiltonian. Computes
 cached values.
 """
-phasepoint(H::Hamiltonian, q, p) = PhasePoint(q, p, logdensity_and_gradient(H.ℓ, q)...)
+phasepoint(H::Hamiltonian, q, p) = PhasePoint(evaluate_ℓ(H, q), p)
 
 """
 $(SIGNATURES)
@@ -186,10 +209,10 @@ if
 mixed in the leapfrog step, leading to an invalid position).
 """
 function logdensity(H::Hamiltonian{<:EuclideanKineticEnergy}, z::PhasePoint)
-    @unpack ℓq = z
+    @unpack ℓq = z.Q
     isfinite(ℓq) || return oftype(ℓq, -Inf)
     K = kinetic_energy(H.κ, z.p)
-    ℓq - (isfinite(K) ? K : oftype(K, -Inf))
+    ℓq - (isfinite(K) ? K : oftype(K, Inf))
 end
 
 function calculate_p♯(H::Hamiltonian{<:EuclideanKineticEnergy}, z::PhasePoint)
@@ -201,20 +224,18 @@ end
 
 Take a leapfrog step of length `ϵ` from `z` along the Hamiltonian `H`.
 
-Return the new position.
+Return the new phase point.
 
-The leapfrog algorithm uses the gradient of the next position to evolve the
-momentum. If this is not finite, the momentum won't be either. Since the
-constructor `PhasePoint` validates its arguments, this can only happen for
-divergent points anyway, and should not cause a problem.
+The leapfrog algorithm uses the gradient of the next position to evolve the momentum. If
+this is not finite, the momentum won't be either, `logdensity` above will catch this and
+return an `-Inf`, making the point divergent.
 """
 function leapfrog(H::Hamiltonian{<: EuclideanKineticEnergy}, z::PhasePoint, ϵ)
     @unpack ℓ, κ = H
-    @unpack p, q, ℓq, ∇ℓq = z
-    pₘ = p + ϵ/2 * ∇ℓq
-    q′ = q + ϵ * ∇kinetic_energy(κ, pₘ)
-    # FIXME here the gradient would be enough, in practice it saves nothing though
-    ℓq′, ∇ℓq′ = logdensity_and_gradient(ℓ, q′)
-    p′ = pₘ + ϵ/2 * ∇ℓq′
-    PhasePoint(q′, p′, ℓq′, ∇ℓq′)
+    @unpack p, Q = z
+    pₘ = p + ϵ/2 * Q.∇ℓq
+    q′ = Q.q + ϵ * ∇kinetic_energy(κ, pₘ)
+    Q′ = evaluate_ℓ(H, q′)
+    p′ = pₘ + ϵ/2 * Q′.∇ℓq
+    PhasePoint(Q′, p′)
 end

@@ -9,15 +9,16 @@ using DynamicHMC:
     Directions, next_direction, biased_progressive_logprob2, adjacent_tree,
     sample_trajectory,
     # Hamiltonian
-    GaussianKineticEnergy, kinetic_energy, ∇kinetic_energy, rand_p, Hamiltonian, PhasePoint,
-    logdensity, phasepoint, rand_phasepoint, leapfrog, logdensity,
+    GaussianKineticEnergy, kinetic_energy, ∇kinetic_energy, rand_p, Hamiltonian,
+    EvaluatedLogDensity, PhasePoint, logdensity, phasepoint, rand_phasepoint, leapfrog,
+    logdensity,
     # building blocks
     rand_bool, TurnStatistic, DivergenceStatistic, divergence_statistic,
     get_acceptance_rate, Trajectory,
     # stepsize
     InitialStepsizeSearch, find_initial_stepsize,
     # transitions and tuning
-    NUTS_transition, NUTS_init, StepsizeTuner, StepsizeCovTuner, tune,
+    transition_NUTS, NUTS_init, StepsizeTuner, StepsizeCovTuner, tune,
     TunerSequence, bracketed_doubling_tuner
 
 import DynamicHMC:
