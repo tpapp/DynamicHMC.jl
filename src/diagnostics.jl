@@ -2,7 +2,7 @@
 ##### statistics and diagnostics
 #####
 
-export EBFMI, NUTS_statistics
+export EBFMI, NUTS_statistics, explore_local_acceptance_ratios
 
 """
     EBFMI(sample)
@@ -69,4 +69,27 @@ function show(io::IO, stats::NUTS_Statistics)
     print(io, "  depth:")
     print_dict(depth_counts)
     println(io)
+end
+
+####
+#### Acceptance ratio diagnostics
+####
+
+"""
+$(SIGNATURES)
+
+Return a matrix of [`local_acceptance_ratio`](@ref) values for stepsizes `ϵs`
+and the given momentums `ps`. The latter is calculated from random values when
+an integer is given.
+
+To facilitate plotting, ``-∞`` values are replaced by `NaN`.
+"""
+function explore_local_acceptance_ratios(H, q, ϵs, ps)
+    R = hcat([local_acceptance_ratio(H, q, p).(ϵs) for p in ps]...)
+    R[isinfinite.(R)] .= NaN
+    R
+end
+
+function explore_local_acceptance_ratios(H, q, ϵs, N::Integer; rng = RNG)
+    explore_local_acceptance_ratios(H, q, ϵs, [rand_p(rng, H.κ) for _ in 1:N])
 end

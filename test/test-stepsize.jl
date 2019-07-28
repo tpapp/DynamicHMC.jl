@@ -1,7 +1,6 @@
 using DynamicHMC:
     find_crossing_stepsize, bisect_stepsize, find_initial_stepsize,
-    InitialStepsizeSearch,
-    adapt_stepsize, DualAveragingParameters, DualAveragingAdaptation
+    InitialStepsizeSearch, adapt_stepsize, DualAveragingParameters, DualAveragingAdaptation
 
 @testset "stepsize general rootfinding" begin
     Δ = 3.0                   # shift exponential so that ϵ=1 is not in interval
@@ -77,7 +76,7 @@ end
     δ = 0.65
     params = DualAveragingParameters(logϵ₀; δ = δ)
     A = DualAveragingAdaptation(logϵ₀)
-    @test A.logϵ̄ == 0           # ϵ₀ = 0 in Gelman and Hoffman (2014)
+    @test A.logϵ̄ == 0           # ϵ₀ = 1 in Gelman and Hoffman (2014)
     @test A.m == 0
     @test A.H̄ == 0
     for _ in 1:5000
