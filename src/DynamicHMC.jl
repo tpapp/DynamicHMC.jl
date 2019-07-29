@@ -16,7 +16,7 @@ using StatsFuns: logaddexp
 include("trees.jl")
 include("hamiltonian.jl")
 include("stepsize.jl")
-include("buildingblocks.jl")
+include("NUTS.jl")
 include("reporting.jl")
 include("sampler.jl")
 include("diagnostics.jl")

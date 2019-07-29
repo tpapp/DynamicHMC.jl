@@ -41,7 +41,7 @@ end
 
 @include_testset("test-trees.jl")
 @include_testset("test-hamiltonian.jl")
-@include_testset("test-buildingblocks.jl")
+@include_testset("test-NUTS.jl")
 @include_testset("test-stepsize.jl")
 @include_testset("test-tuners.jl")
 @include_testset("test-sample-normal.jl")
