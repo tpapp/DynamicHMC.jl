@@ -14,7 +14,7 @@ using DynamicHMC:
     logdensity,
     # building blocks
     rand_bool, TurnStatistic, DivergenceStatistic, divergence_statistic,
-    get_acceptance_rate, Trajectory,
+    get_acceptance_rate, TrajectoryNUTS,
     # stepsize
     InitialStepsizeSearch, find_initial_stepsize,
     # transitions and tuning

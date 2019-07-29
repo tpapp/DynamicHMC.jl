@@ -47,7 +47,7 @@ end
 ###
 
 @testset "low-level turn statistics" begin
-    trajectory = Trajectory(nothing, 0, 1, -1000)
+    trajectory = TrajectoryNUTS(nothing, 0, 1, -1000)
     n = 3
     ρ₁ = ones(n)
     ρ₂ = 2*ρ₁
@@ -63,7 +63,7 @@ end
 end
 
 @testset "low-level divergence statistics" begin
-    trajectory = Trajectory(nothing, 0, 1, -1000)
+    trajectory = TrajectoryNUTS(nothing, 0, 1, -1000)
     a(p, divergent = false) = DivergenceStatistic(divergent, p, 1)
     x = a(0.3)
     @test get_acceptance_rate(x) ≈ 0.3
@@ -79,7 +79,7 @@ end
 
 # NOTE superseded by separating ω and ζ
 # @testset "proposal" begin
-#     trajectory = Trajectory(nothing, 0, 1, -1000)
+#     trajectory = TrajectoryNUTS(nothing, 0, 1, -1000)
 #     function test_sample(rng, prop1, prop2, bias, prob_prob2; atol = 0.02, N = 10000)
 #         count = 0
 #         for _ in 1:N

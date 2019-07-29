@@ -15,7 +15,7 @@ export TransitionNUTS, get_position, get_π, get_depth, get_termination, get_acc
 Representation of a trajectory, ie a Hamiltonian with a discrete integrator that
 also checks for divergence.
 """
-struct Trajectory{TH,Tf}
+struct TrajectoryNUTS{TH,Tf}
     "Hamiltonian."
     H::TH
     "Log density of z (negative log energy) at initial point."
@@ -26,7 +26,7 @@ struct Trajectory{TH,Tf}
     min_Δ::Tf
 end
 
-function move(trajectory::Trajectory, z, fwd)
+function move(trajectory::TrajectoryNUTS, z, fwd)
     @unpack H, ϵ = trajectory
     leapfrog(H, z, fwd ? ϵ : -ϵ)
 end
@@ -42,11 +42,11 @@ Random boolean which is `true` with the given probability `prob`.
 """
 rand_bool(rng::AbstractRNG, prob::T) where {T <: AbstractFloat} = rand(rng, T) ≤ prob
 
-function calculate_logprob2(::Trajectory, is_doubling, ω₁, ω₂, ω)
+function calculate_logprob2(::TrajectoryNUTS, is_doubling, ω₁, ω₂, ω)
     biased_progressive_logprob2(is_doubling, ω₁, ω₂, ω)
 end
 
-function combine_proposals(rng, ::Trajectory, z₁, z₂, logprob2::Real, is_forward)
+function combine_proposals(rng, ::TrajectoryNUTS, z₁, z₂, logprob2::Real, is_forward)
     (logprob2 ≥ 0 || rand_bool(rng, exp(logprob2))) ? z₂ : z₁
 end
 
@@ -88,9 +88,9 @@ function divergence_statistic(is_divergent, Δ)
     DivergenceStatistic(is_divergent, Δ ≥ 0 ? one(Δ) : exp(Δ), 1)
 end
 
-is_divergent(::Trajectory, x::DivergenceStatistic) = x.divergent
+is_divergent(::TrajectoryNUTS, x::DivergenceStatistic) = x.divergent
 
-function combine_divergence_statistics(::Trajectory,
+function combine_divergence_statistics(::TrajectoryNUTS,
                                        x::DivergenceStatistic, y::DivergenceStatistic)
     # A divergent subtree make a tree divergent, but acceptance information is kept.
     DivergenceStatistic(x.divergent || y.divergent, x.∑a + y.∑a, x.steps + y.steps)
@@ -107,11 +107,11 @@ struct TurnStatistic{T}
     ρ::T
 end
 
-function combine_turn_statistics(::Trajectory, x::TurnStatistic, y::TurnStatistic)
+function combine_turn_statistics(::TrajectoryNUTS, x::TurnStatistic, y::TurnStatistic)
     TurnStatistic(x.p♯₋, y.p♯₊, x.ρ + y.ρ)
 end
 
-function is_turning(::Trajectory, τ::TurnStatistic)
+function is_turning(::TrajectoryNUTS, τ::TurnStatistic)
     # Uses the generalized NUTS criterion from Betancourt (2017).
     @unpack p♯₋, p♯₊, ρ = τ
     @argcheck p♯₋ ≢ p♯₊ "internal error: is_turning called on a leaf"
@@ -122,7 +122,7 @@ end
 ### leafs
 ###
 
-function leaf(trajectory::Trajectory, z, is_initial)
+function leaf(trajectory::TrajectoryNUTS, z, is_initial)
     @unpack H, π₀, min_Δ = trajectory
     Δ = is_initial ? zero(π₀) : logdensity(H, z) - π₀
     isdiv = min_Δ > Δ
@@ -187,12 +187,12 @@ $(SIGNATURES)
 
 No-U-turn Hamiltonian Monte Carlo transition, using Hamiltonian `H`, starting at
 position `q`, using stepsize `ϵ`. Builds a doubling dynamic tree of maximum
-depth `max_depth`. `args` are passed to the `Trajectory` constructor. `rng` is
+depth `max_depth`. `args` are passed to the `TrajectoryNUTS` constructor. `rng` is
 the random number generator used.
 """
-function transition_NUTS(rng, H, q, ϵ, max_depth; args...)
+function transition_NUTS(rng, H::Hamiltonian, q, ϵ, max_depth; args...)
     z = rand_phasepoint(rng, H, q)
-    trajectory = Trajectory(H, logdensity(H, z), ϵ, -1000.0)
+    trajectory = TrajectoryNUTS(H, logdensity(H, z), ϵ, -1000.0)
     directions = rand(rng, Directions)
     ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth, directions)
     TransitionNUTS(ζ.Q.q, logdensity(H, ζ), depth, termination, get_acceptance_rate(d),
