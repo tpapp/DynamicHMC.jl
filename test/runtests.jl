@@ -10,16 +10,16 @@ using DynamicHMC:
     sample_trajectory,
     # Hamiltonian
     GaussianKineticEnergy, kinetic_energy, ∇kinetic_energy, rand_p, Hamiltonian,
-    EvaluatedLogDensity, PhasePoint, logdensity, phasepoint, rand_phasepoint, leapfrog,
+    EvaluatedLogDensity, evaluate_ℓ, PhasePoint, logdensity, leapfrog,
     logdensity,
-    # building blocks
-    rand_bool, TurnStatistic, DivergenceStatistic, divergence_statistic,
-    get_acceptance_rate, TrajectoryNUTS,
+    # NUTS
+    TrajectoryNUTS, rand_bool, TurnStatistic, DivergenceStatistic, divergence_statistic,
+    acceptance_rate, TreeStatisticsNUTS, Termination,
     # stepsize
     InitialStepsizeSearch, find_initial_stepsize,
-    # transitions and tuning
-    transition_NUTS, NUTS_init, StepsizeTuner, StepsizeCovTuner, tune,
-    TunerSequence, bracketed_doubling_tuner
+    # mcmc
+    # diagnostics
+    ACCEPTANCE_QUANTILES
 
 import DynamicHMC:
     # trees
@@ -43,8 +43,8 @@ end
 @include_testset("test-hamiltonian.jl")
 @include_testset("test-NUTS.jl")
 @include_testset("test-stepsize.jl")
-@include_testset("test-tuners.jl")
-@include_testset("test-sample-normal.jl")
-@include_testset("test-normal-mcmc.jl")
-@include_testset("test-statistics.jl")
-@include_testset("test-reporting.jl")
+@include_testset("test-mcmc.jl")
+# @include_testset("test-sample-normal.jl")
+# @include_testset("test-normal-mcmc.jl")
+@include_testset("test-diagnostics.jl")
+# @include_testset("test-reporting.jl") FIXME being rewritten

@@ -12,7 +12,7 @@ using DynamicHMC:
     constantA(ϵ) = params.a_max + 0.1
     # parameters and defaults
     @test params.a_min == 0.25
-    @test params.a_max == 0.75
+    @test params.a_max ≤ 1.0
     @test params.ϵ₀ == 1.0
     @test params.C == 2.0
     @test params.maxiter_crossing == 400
@@ -74,7 +74,7 @@ end
 @testset "dual averaging far" begin
     logϵ₀ = 10.0                # way off
     δ = 0.65
-    params = DualAveragingParameters(logϵ₀; δ = δ)
+    params = DualAveragingParameters(; δ = δ)
     A = DualAveragingAdaptation(logϵ₀)
     @test A.logϵ̄ == 0           # ϵ₀ = 1 in Gelman and Hoffman (2014)
     @test A.m == 0
@@ -88,7 +88,7 @@ end
 @testset "dual averaging close" begin
     logϵ₀ = 1.0                 # closer
     δ = 0.65
-    params = DualAveragingParameters(logϵ₀; δ = δ)
+    params = DualAveragingParameters(; δ = δ)
     A = DualAveragingAdaptation(logϵ₀)
     for _ in 1:2000
         A = adapt_stepsize(params, A, min(dummy_acceptance_rate(A.logϵ), 1))
@@ -109,6 +109,6 @@ end
 @testset "error for non-finite initial density" begin
     p = InitialStepsizeSearch()
     H, z = rand_Hz(2)
-    z = DynamicHMC.phasepoint(H, [1.0, 2.0], [NaN, NaN])
+    z = DynamicHMC.PhasePoint(z.Q, [NaN, NaN])
     @test_throws DomainError find_initial_stepsize(p, H, z)
 end

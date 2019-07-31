@@ -1,11 +1,11 @@
 """
-    $SIGNATURES
+$(SIGNATURES)
 
-Return the normalized value (x̂-x̄)/MCMCSE(x). If the sampler is correct, follows
-a Normal(0,1) distribution.
+Return the normalized value (x̂-x̄)/MCMCSE(x). If the sampler is correct, it follows a
+Normal(0,1) distribution.
 
-MCMCSE(x) is the MCMC standard error, corrected by the effective sample size
-instead of the sample size.
+MCMCSE(x) is the MCMC standard error, corrected by the effective sample size instead of the
+sample size.
 """
 function zvalue(xs, x̄)
     ess = effective_sample_size(xs)
@@ -24,7 +24,7 @@ struct ZTest{Ta, Tf}
 end
 
 """
-    $SIGNATURES
+$(SIGNATURES)
 
 Calculate a `zvalue` from a `sample`.
 """
@@ -34,7 +34,7 @@ function zvalue(sample, test::ZTest)
 end
 
 """
-    zvalue_warn(name => z, threshold)
+$(SIGNATURES)
 
 Print a warning when `|z| ≥ threshold`.
 """
@@ -46,7 +46,7 @@ function zvalue_warn(name_and_z::Pair, threshold)
 end
 
 """
-    $SIGNATURES
+$(SIGNATURES)
 
 z threshold at which the maximum `|z|` out of `M` variables has cdf `1-p`,
 assuming normality.
@@ -54,7 +54,7 @@ assuming normality.
 zthreshold(M, p) = √quantile(Chisq(1), (1-p)^(1/M))
 
 """
-    $SIGNATURES
+$(SIGNATURES)
 
 Return mean and covariance tests for multivariate distributions.
 """
@@ -107,8 +107,7 @@ end
                    5.57947 -0.0540131 1.78163 1.73862 -2.99741 3.6118 10.215 9.60671;
                    7.28634 1.79718 -0.0821483 2.55874 -1.95031 5.22626 9.60671 11.5554])
     for ℓ in [ℓ0, ℓ1, ℓ2, ℓ3]
-        chain, nuts = NUTS_init_tune_mcmc(RNG, DistributionLogDensity(ℓ), 1000;
-                                           report = ReportSilent())
+        chain, nuts = NUTS_init_tune_mcmc(RNG, DistributionLogDensity(ℓ), 1000)
         @test EBFMI(chain) ≥ 0.3
         @test maximum(R̂(nuts, 1000, 3)) ≤ 1.05
         zs = zvalue.([chain], mean_cov_ztests(ℓ))

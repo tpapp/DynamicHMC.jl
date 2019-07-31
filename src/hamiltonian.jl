@@ -5,6 +5,10 @@
 
 export GaussianKineticEnergy
 
+####
+#### kinetic energy
+####
+
 """
 $(TYPEDEF)
 
@@ -104,8 +108,12 @@ Generate a random momentum from a kinetic energy at position `q`.
 """
 rand_p(rng::AbstractRNG, κ::GaussianKineticEnergy, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
 
+####
+#### Hamiltonian
+####
+
 struct Hamiltonian{K,L}
-    "The kinetic energy."
+    "The kinetic energy specification."
     κ::K
     """
     The (log) density we are sampling from. Supports the `LogDensityProblem` API.
@@ -158,7 +166,7 @@ $(SIGNATURES)
 Evaluate log density and gradient and save with the position. Preferred interface for
 creating `EvaluatedLogDensity` instances.
 """
-evaluate_ℓ(H::Hamiltonian, q) = EvaluatedLogDensity(q, logdensity_and_gradient(H.ℓ, q)...)
+evaluate_ℓ(ℓ, q) = EvaluatedLogDensity(q, logdensity_and_gradient(ℓ, q)...)
 
 """
 $(TYPEDEF)
@@ -176,22 +184,6 @@ struct PhasePoint{T <: EvaluatedLogDensity,S}
         new{T,S}(Q, p)
     end
 end
-
-"""
-$(SIGNATURES)
-
-The recommended interface for creating a phase point in a Hamiltonian. Computes
-cached values.
-"""
-phasepoint(H::Hamiltonian, q, p) = PhasePoint(evaluate_ℓ(H, q), p)
-
-"""
-$(SIGNATURES)
-
-Extend a position `q` to a phasepoint with a random momentum according to the
-kinetic energy of `H`.
-"""
-rand_phasepoint(rng::AbstractRNG, H, q) = phasepoint(H, q, rand_p(rng, H.κ))
 
 """
 $(SIGNATURES)
@@ -235,7 +227,7 @@ function leapfrog(H::Hamiltonian{<: EuclideanKineticEnergy}, z::PhasePoint, ϵ)
     @unpack p, Q = z
     pₘ = p + ϵ/2 * Q.∇ℓq
     q′ = Q.q + ϵ * ∇kinetic_energy(κ, pₘ)
-    Q′ = evaluate_ℓ(H, q′)
+    Q′ = evaluate_ℓ(H.ℓ, q′)
     p′ = pₘ + ϵ/2 * Q′.∇ℓq
     PhasePoint(Q′, p′)
 end

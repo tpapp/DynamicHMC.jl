@@ -12,7 +12,7 @@ chosen kinetic energies.
 
 Low values (`≤ 0.3`) are considered problematic. See Betancourt (2016).
 """
-EBFMI(sample) = (πs = get_π.(sample); mean(abs2, diff(πs)) / var(πs))
+EBFMI(sample) = (πs = map(x -> x.π, sample); mean(abs2, diff(πs)) / var(πs))
 
 
 "Acceptance quantiles for [`NUTS_Statistics`](@ref) diagnostic summary."
@@ -44,10 +44,11 @@ Return statistics about the sample (ie not the variables). Mostly useful for
 NUTS diagnostics.
 """
 function NUTS_statistics(sample)
-    as = get_acceptance_rate.(sample)
+    as = map(x -> x.acceptance_statistic, sample)
     NUTS_Statistics(length(sample),
                     mean(as), quantile(as, ACCEPTANCE_QUANTILES),
-                    counter(get_termination.(sample)), counter(get_depth.(sample)))
+                    counter(map(x -> x.termination, sample)),
+                    counter(map(x -> x.depth, sample)))
 end
 
 function show(io::IO, stats::NUTS_Statistics)

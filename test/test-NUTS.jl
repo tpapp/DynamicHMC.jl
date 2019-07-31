@@ -66,11 +66,11 @@ end
     trajectory = TrajectoryNUTS(nothing, 0, 1, -1000)
     a(p, divergent = false) = DivergenceStatistic(divergent, p, 1)
     x = a(0.3)
-    @test get_acceptance_rate(x) ≈ 0.3
+    @test acceptance_rate(x) ≈ 0.3
     y = a(0.6)
-    @test get_acceptance_rate(y) ≈ 0.6
+    @test acceptance_rate(y) ≈ 0.6
     z = reduce((x, y) -> combine_divergence_statistics(trajectory, x, y), [x, x, y])
-    @test get_acceptance_rate(z) ≈ 0.4
+    @test acceptance_rate(z) ≈ 0.4
 end
 
 ###

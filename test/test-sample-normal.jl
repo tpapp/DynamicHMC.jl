@@ -22,7 +22,7 @@ Simple Hamiltonian Monte Carlo sample, for testing.
 function sample_HMC(H, q, N; ϵ = find_stable_ϵ(H), L = 10)
     qs = similar(q, N, length(q))
     for i in 1:N
-        z = rand_phasepoint(RNG, H, q)
+        z = PhasePoint(evaluate_ℓ(H, q), rand_p(RNG, H.κ))
         q = simple_HMC( H, z, ϵ, L).Q.q
         qs[i, :] = q
     end

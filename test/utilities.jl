@@ -137,6 +137,6 @@ function rand_Hz(K)
     κ = GaussianKineticEnergy(inv(rand_Σ(Diagonal, K)))
     dist = MvNormal(μ, Matrix(Σ))
     H = Hamiltonian(κ, DistributionLogDensity(dist))
-    z = rand_phasepoint(RNG, H, rand(RNG, dist))
+    z = PhasePoint(evaluate_ℓ(H.ℓ, rand(RNG, dist)), rand_p(RNG, κ))
     H, z
 end

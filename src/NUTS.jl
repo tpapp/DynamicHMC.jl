@@ -1,11 +1,10 @@
 #####
-##### Building blocks for sampling.
+##### NUTS tree sampler implementation.
 #####
 ##### Only TransitionNUTS and the exported functions are part of the API.
 #####
 
-export TransitionNUTS, get_position, get_π, get_depth, get_termination, get_acceptance_rate,
-    get_steps
+export TreeStatisticsNUTS
 
 ####
 #### Trajectory and implementation
@@ -50,9 +49,9 @@ function combine_proposals(rng, ::TrajectoryNUTS, z₁, z₂, logprob2::Real, is
     (logprob2 ≥ 0 || rand_bool(rng, exp(logprob2))) ? z₂ : z₁
 end
 
-####
-#### divergence statistics
-####
+###
+### divergence statistics
+###
 
 """
 Divergence and acceptance statistics.
@@ -72,14 +71,14 @@ struct DivergenceStatistic{Tf}
 end
 
 """
-    $(SIGNATURES)
+$(SIGNATURES)
 
 Empty divergence statistic (for initial node).
 """
 divergence_statistic() = DivergenceStatistic(false, 0.0, 0)
 
 """
-    $(SIGNATURES)
+$(SIGNATURES)
 
 Divergence statistic for leaves. `Δ` is the log density relative to the initial
 point.
@@ -96,9 +95,16 @@ function combine_divergence_statistics(::TrajectoryNUTS,
     DivergenceStatistic(x.divergent || y.divergent, x.∑a + y.∑a, x.steps + y.steps)
 end
 
-####
-#### turn analysis
-####
+"""
+$(SIGNATURES)
+
+Return the acceptance rate (a `Real` between `0` and `1`).
+"""
+acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
+
+###
+### turn analysis
+###
 
 "Statistics for the identification of turning points. See Betancourt (2017, appendix)."
 struct TurnStatistic{T}
@@ -125,7 +131,7 @@ end
 function leaf(trajectory::TrajectoryNUTS, z, is_initial)
     @unpack H, π₀, min_Δ = trajectory
     Δ = is_initial ? zero(π₀) : logdensity(H, z) - π₀
-    isdiv = min_Δ > Δ
+    isdiv = Δ < min_Δ
     d = is_initial ? divergence_statistic() : divergence_statistic(isdiv, Δ)
     ζ = isdiv ? nothing : z
     τ = isdiv ? nothing : (p♯ = calculate_p♯(trajectory.H, z); TurnStatistic(p♯, p♯, z.p))
@@ -136,65 +142,64 @@ end
 #### NUTS interface
 ####
 
-"""
-    get_acceptance_rate(x)
-
-Return average Metropolis acceptance rate.
-"""
-get_acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
+"Default maximum depth for trees."
+const MAX_DEPTH = 10
 
 """
-Single transition by the No-U-turn sampler. Contains new position and
-diagnostic information.
+$(TYPEDEF)
+
+Options for building NUTS trees. These are the parameters that are expected to remain stable
+during adaptation and sampling.
 """
-struct TransitionNUTS{Tv,Tf}
-    "New position."
-    q::Tv
+struct TreeOptionsNUTS
+    max_depth::Int
+    min_Δ::Float64
+    function TreeOptionsNUTS(; max_depth = MAX_DEPTH, min_Δ = -1000.0)
+        @argcheck 0 < max_depth ≤ MAX_DIRECTIONS_DEPTH
+        @argcheck min_Δ < 0
+        new(Int(max_depth), Float64(min_Δ))
+    end
+end
+
+"""
+$(TYPEDEF)
+
+Diagnostic information for a single tree built with the No-U-turn sampler.
+
+Accessing fields directly is part of the API.
+"""
+struct TreeStatisticsNUTS
     "Log density (negative energy)."
-    π::Tf
+    π::Float64
     "Depth of the tree."
     depth::Int
     "Reason for termination."
     termination::Termination
     "Average acceptance probability."
-    a::Tf
+    acceptance_statistic::Float64
     "Number of leapfrog steps evaluated."
     steps::Int
     "Directions for tree doubling (useful for debugging)."
     directions::Directions
 end
 
-"Position after transition."
-get_position(x::TransitionNUTS) = x.q
-
-"Negative energy of the Hamiltonian at the position."
-get_π(x::TransitionNUTS) = x.π
-
-"Tree depth."
-get_depth(x::TransitionNUTS) = x.depth
-
-"Reason for termination, see [`Termination`](@ref)."
-get_termination(x::TransitionNUTS) = x.termination
-
-"Average acceptance rate over trajectory."
-get_acceptance_rate(x::TransitionNUTS) = x.a
-
-"Number of integrator steps."
-get_steps(x::TransitionNUTS) = x.steps
-
 """
 $(SIGNATURES)
 
-No-U-turn Hamiltonian Monte Carlo transition, using Hamiltonian `H`, starting at
-position `q`, using stepsize `ϵ`. Builds a doubling dynamic tree of maximum
-depth `max_depth`. `args` are passed to the `TrajectoryNUTS` constructor. `rng` is
-the random number generator used.
+No-U-turn Hamiltonian Monte Carlo transition, using Hamiltonian `H`, starting at evaluated
+log density position `Q`, using stepsize `ϵ`. `options` govern the details of tree
+construction.
+
+Return two values, the new evaluated log density position, and tree statistics.
 """
-function transition_NUTS(rng, H::Hamiltonian, q, ϵ, max_depth; args...)
-    z = rand_phasepoint(rng, H, q)
-    trajectory = TrajectoryNUTS(H, logdensity(H, z), ϵ, -1000.0)
+function NUTS_sample_tree(rng, options::TreeOptionsNUTS, H::Hamiltonian,
+                          Q::EvaluatedLogDensity, ϵ)
+    z = PhasePoint(Q, rand_p(rng, H.κ))
+    trajectory = TrajectoryNUTS(H, logdensity(H, z), ϵ, options.min_Δ)
     directions = rand(rng, Directions)
-    ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, max_depth, directions)
-    TransitionNUTS(ζ.Q.q, logdensity(H, ζ), depth, termination, get_acceptance_rate(d),
-                    d.steps, directions)
+    ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, options.max_depth,
+                                                 directions)
+    statistics = TreeStatisticsNUTS(logdensity(H, ζ), depth, termination,
+                                    acceptance_rate(d), d.steps, directions)
+    ζ.Q, statistics
 end

@@ -83,7 +83,7 @@ end
     ℓ = DistributionLogDensity(MvNormal(randn(n), Matrix(Σ)))
     H = Hamiltonian(κ, ℓ)
     ϵ = find_stable_ϵ(H)
-    z = phasepoint(H, q, p)
+    z = PhasePoint(evaluate_ℓ(ℓ, q), p)
 
     @testset "arguments not modified" begin
         q₂, p₂ = copy(q), copy(p)
