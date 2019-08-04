@@ -48,3 +48,4 @@ end
 # @include_testset("test-normal-mcmc.jl")
 @include_testset("test-diagnostics.jl")
 # @include_testset("test-reporting.jl") FIXME being rewritten
+@include_testset("sample-correctness.jl")

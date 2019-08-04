@@ -26,9 +26,10 @@ Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 MCMCDiagnostics = "6e857e4b-079a-58c4-aeab-bc2670384359"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Suppressor = "fd094767-a336-5f1f-9728-57cf17d0bbfb"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Distributions", "Documenter", "ForwardDiff", "MCMCDiagnostics", "StatsBase", "Suppressor", "Test"]
+test = ["Distributions", "Documenter", "ForwardDiff", "MCMCDiagnostics", "StatsBase", "Suppressor", "Test", "Pkg"]
