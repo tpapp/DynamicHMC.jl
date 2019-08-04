@@ -1,10 +1,6 @@
 #####
 ##### NUTS tree sampler implementation.
 #####
-##### Only TransitionNUTS and the exported functions are part of the API.
-#####
-
-export TreeStatisticsNUTS
 
 ####
 #### Trajectory and implementation

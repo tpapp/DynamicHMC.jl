@@ -2,8 +2,6 @@
 ##### Sampling: high-level interface and building blocks
 #####
 
-export WarmupState, FindLocalOptimum, TuningNUTS, mcmc_with_warmup
-
 ####
 #### parts unaffected by warmup
 ####

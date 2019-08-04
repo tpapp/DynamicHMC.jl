@@ -2,8 +2,6 @@
 ##### statistics and diagnostics
 #####
 
-export EBFMI, NUTS_statistics, explore_local_acceptance_ratios
-
 """
     EBFMI(sample)
 

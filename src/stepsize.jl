@@ -2,8 +2,6 @@
 ##### stepsize heuristics and adaptation
 #####
 
-export InitialStepsizeSearch, DualAveragingAdaptation
-
 ####
 #### initial stepsize
 ####

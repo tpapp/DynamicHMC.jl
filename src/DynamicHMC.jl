@@ -1,5 +1,16 @@
 module DynamicHMC
 
+export
+    # kinetic energy
+    GaussianKineticEnergy,
+    # NUTS
+    TreeStatisticsNUTS,
+    # mcmc
+    InitialStepsizeSearch, DualAveragingAdaptation, WarmupState, FindLocalOptimum,
+    TuningNUTS, mcmc_with_warmup,
+    # diagnostics
+    EBFMI, NUTS_statistics, explore_local_acceptance_ratios
+
 using ArgCheck: @argcheck
 using DataStructures: counter
 using DocStringExtensions: FIELDS, FUNCTIONNAME, SIGNATURES, TYPEDEF
