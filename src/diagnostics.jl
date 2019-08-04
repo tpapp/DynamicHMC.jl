@@ -51,7 +51,7 @@ function NUTS_statistics(sample)
                     counter(map(x -> x.depth, sample)))
 end
 
-function show(io::IO, stats::NUTS_Statistics)
+function Base.show(io::IO, stats::NUTS_Statistics)
     @unpack N, a_mean, a_quantiles, termination_counts, depth_counts = stats
     println(io, "Hamiltonian Monte Carlo sample of length $(N)")
     print(io, "  acceptance rate mean: $(round(a_mean; digits = 2)), min/25%/median/75%/max:")

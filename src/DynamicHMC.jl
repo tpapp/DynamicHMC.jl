@@ -1,7 +1,5 @@
 module DynamicHMC
 
-import Base: rand, length, show
-
 using ArgCheck: @argcheck
 using DataStructures: counter
 using DocStringExtensions: FIELDS, FUNCTIONNAME, SIGNATURES, TYPEDEF

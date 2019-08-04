@@ -134,7 +134,7 @@ struct Hamiltonian{K,L}
     end
 end
 
-show(io::IO, H::Hamiltonian) = print(io, "Hamiltonian with $(H.κ)")
+Base.show(io::IO, H::Hamiltonian) = print(io, "Hamiltonian with $(H.κ)")
 
 """
 $(TYPEDEF)
