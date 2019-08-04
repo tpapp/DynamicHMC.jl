@@ -2,48 +2,62 @@
 ##### Sampling: high-level interface and building blocks
 #####
 
-export AdaptationState, mcmc_stage, FindLocalOptimum, TuningNUTS, SamplingNUTS,
-    mcmc_NUTS_adaptation, mcmc_NUTS
-
+export WarmupState, FindLocalOptimum, TuningNUTS, mcmc_with_warmup
 
 ####
-#### adaptation building blocks
+#### parts unaffected by warmup
+####
+
+"""
+$(TYPEDEF)
+
+A log density bundled with an RNG and options for sampling. Contains the parts of the
+problem which are not changed during warmup.
+
+# Fields
+
+$(FIELDS)
+"""
+struct SamplingLogDensity{R,L,O}
+    "Random number generator."
+    rng::R
+    "Log density."
+    ℓ::L
+    "Sampler options."
+    sampler_options::O
+end
+
+####
+#### warmup building blocks
 ####
 
 ###
-### adaptation state
+### warmup state
 ###
 
-struct AdaptationState{TQ <: EvaluatedLogDensity,Tκ <: KineticEnergy, Tϵ <: Union{Real,Nothing}}
+struct WarmupState{TQ <: EvaluatedLogDensity,Tκ <: KineticEnergy, Tϵ <: Union{Real,Nothing}}
     Q::TQ
     κ::Tκ
     ϵ::Tϵ
 end
 
-function Base.show(io::IO, adaptation_state::AdaptationState)
-    @unpack κ, ϵ = adaptation_state
+function Base.show(io::IO, warmup_state::WarmupState)
+    @unpack κ, ϵ = warmup_state
     print(io, "adapted sampling parameters: stepsize (ϵ) ≈ $(round(ϵ; sigdigits = 3))\n",
           "  $(κ)")
 end
 
 ###
-### adaptation interface and stages
+### warmup interface and stages
 ###
 
 """
-```julia
-samples, statistics, adaptation_state′ =
-    mcmc_stage(rng, ℓ, sampler_options, adaptation_state, stage)
-```
-"""
-function mcmc_stage end
+    $(FUNCTIONNAME)(sampling_logdensity::SamplingLogDensity, warmup_stage, warmup_state)
 
+Return the *results* and the *next warmup state* after warming up/adapting according to
+`warmup_stage`, starting from `warmup_state`.
 """
-$(SIGNATURES)
-
-Empty vectors for the first two values returned by [`mcmc_stage`](@ref).
-"""
-_empty_samples_and_statistics() = Vector{Vector}(), Vector{TreeStatisticsNUTS}()
+function warmup end
 
 """
 $(SIGNATURES)
@@ -52,7 +66,8 @@ Helper function to create random starting positions in the `[-2,2]ⁿ` box.
 """
 random_position(rng, N) = rand(rng, N) .* 4 .- 2
 
-const INITIAL_ADAPTATION_ARGS =
+"Docstring for initial warmup arguments."
+const DOC_INITIAL_WARMUP_ARGS =
 """
 - `q`: initial position. *Default*: random (uniform [-2,2] for each coordinate).
 
@@ -64,28 +79,30 @@ const INITIAL_ADAPTATION_ARGS =
 """
 $(SIGNATURES)
 
-Create an initial adaptation state from a random position.
+Create an initial warmup state from a random position.
 
 # Keyword arguments
 
-$(INITIAL_ADAPTATION_ARGS)
+$(DOC_INITIAL_WARMUP_ARGS)
 """
-function initial_adaptation_state(rng, ℓ;
-                                  q = random_position(rng, dimension(ℓ)),
-                                  κ = GaussianKineticEnergy(dimension(ℓ)),
-                                  ϵ = nothing)
-    AdaptationState(evaluate_ℓ(ℓ, q), κ, ϵ)
+function initial_warmup_state(rng, ℓ; q = random_position(rng, dimension(ℓ)),
+                              κ = GaussianKineticEnergy(dimension(ℓ)), ϵ = nothing)
+    WarmupState(evaluate_ℓ(ℓ, q), κ, ϵ)
 end
 
 """
 $(TYPEDEF)
 
-The a local optimum (using quasi-Newton methods).
+Find a local optimum (using quasi-Newton methods).
+
+It is recommended that this stage is applied so that the initial stepsize selection happens
+in a region which is at least plausible.
 """
 struct FindLocalOptimum end     # FIXME allow custom algorithm, tolerance, etc
 
-function mcmc_stage(_, ℓ, _, adaptation_state, local_optimization::FindLocalOptimum)
-    @unpack Q, κ, ϵ = adaptation_state
+function warmup(sampling_logdensity, local_optimization::FindLocalOptimum, warmup_state)
+    @unpack ℓ = sampling_logdensity
+    @unpack Q, κ, ϵ = warmup_state
     @unpack q = Q
     fg! = function(F, G, q)
         ℓq, ∇ℓq = logdensity_and_gradient(ℓ, q)
@@ -98,21 +115,43 @@ function mcmc_stage(_, ℓ, _, adaptation_state, local_optimization::FindLocalOp
     opt = Optim.optimize(objective, q, Optim.LBFGS())
     Optim.converged(opt) || error("could not find local optimum of log density")
     q = Optim.minimizer(opt)
-    _empty_samples_and_statistics()..., AdaptationState(evaluate_ℓ(ℓ, q), κ, ϵ)
+    nothing, WarmupState(evaluate_ℓ(ℓ, q), κ, ϵ)
 end
 
-function mcmc_stage(rng, ℓ, _, adaptation_state, stepsize_search::InitialStepsizeSearch)
-    @unpack Q, κ, ϵ = adaptation_state
+function warmup(sampling_logdensity, stepsize_search::InitialStepsizeSearch, warmup_state)
+    @unpack rng, ℓ = sampling_logdensity
+    @unpack Q, κ, ϵ = warmup_state
     @argcheck ϵ ≡ nothing "stepsize ϵ manually specified, won't perform initial search"
     z = PhasePoint(Q, rand_p(rng, κ))
     ϵ = find_initial_stepsize(stepsize_search, local_acceptance_ratio(Hamiltonian(κ, ℓ), z))
-    _empty_samples_and_statistics()..., AdaptationState(Q, κ, ϵ)
+    nothing, WarmupState(Q, κ, ϵ)
 end
 
 """
 $(TYPEDEF)
 
+Tune the step size `ϵ` during sampling, and the metric of the kinetic energy at the end of
+the block. The method for the latter is determined by the type parameter `M`, which can be
 
+1. `Diagonal` for diagonal metric (the default),
+
+2. `Symmetric` for a dense metric,
+
+3. `Nothing` for an unchanged metric.
+
+# Results
+
+A `NamedTuple` with the following fields:
+
+- `chain`, a vector of position vectors
+
+- `tree_statistics`, a vector of tree statistics for each sample
+
+- `ϵs`, a vector of step sizes for each sample
+
+# Fields
+
+$(FIELDS)
 """
 struct TuningNUTS{M,D <: DualAveragingParameters}
     "Number of samples."
@@ -143,58 +182,93 @@ $(SIGNATURES)
 
 Form a matrix from positions (`q`), with each column containing a position.
 """
-position_matrix(sample) = reduce(hcat, sample)
+position_matrix(chain) = reduce(hcat, chain)
 
-sample_M⁻¹(::Type{Diagonal}, sample) = Diagonal(vec(var(position_matrix(sample); dims = 2)))
+"""
+$(SIGNATURES)
 
-sample_M⁻¹(::Type{Symmetric}, sample) = Symmetric(cov(position_matrix(sample); dims = 2))
+Estimate the inverse metric from the chain.
 
-function regularize_matrix(Σ::Union{Diagonal,Symmetric}, λ::Real)
+In most cases, this should be regularized, see [`regularize_M⁻¹`](@ref).
+"""
+sample_M⁻¹(::Type{Diagonal}, chain) = Diagonal(vec(var(position_matrix(chain); dims = 2)))
+
+sample_M⁻¹(::Type{Symmetric}, chain) = Symmetric(cov(position_matrix(chain); dims = 2))
+
+"""
+$(SIGNATURES)
+
+Adjust the inverse metric estimated from the sample, using an *ad-hoc* shrinkage method.
+"""
+function regularize_M⁻¹(Σ::Union{Diagonal,Symmetric}, λ::Real)
     # ad-hoc “shrinkage estimator”
     (1 - λ) * Σ + λ * UniformScaling(max(1e-3, median(diag(Σ))))
 end
 
-function mcmc_stage(rng, ℓ, sampler_options, adaptation_state, tuning::TuningNUTS{M}) where {M}
-    @unpack Q, κ, ϵ = adaptation_state
+function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where {M}
+    @unpack rng, ℓ, sampler_options = sampling_logdensity
+    @unpack Q, κ, ϵ = warmup_state
     @unpack N, dual_averaging, λ = tuning
-    sample = Vector{typeof(Q.q)}(undef, N)
-    statistics = Vector{TreeStatisticsNUTS}(undef, N)
+    chain = Vector{typeof(Q.q)}(undef, N)
+    tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
     H = Hamiltonian(κ, ℓ)
     logϵ_adaptation = DualAveragingAdaptation(log(ϵ))
+    ϵs = Vector{Float64}(undef, N)
     for i in 1:N
-        Q, stats = NUTS_sample_tree(rng, sampler_options, H, Q, current_ϵ(logϵ_adaptation))
-        sample[i] = Q.q
-        statistics[i] = stats
+        ϵ = current_ϵ(logϵ_adaptation)
+        ϵs[i] = ϵ
+        Q, stats = NUTS_sample_tree(rng, sampler_options, H, Q, ϵ)
+        chain[i] = Q.q
+        tree_statistics[i] = stats
         logϵ_adaptation = adapt_stepsize(dual_averaging, logϵ_adaptation,
                                          stats.acceptance_statistic)
     end
     if M ≢ Nothing
-        κ = GaussianKineticEnergy(regularize_matrix(sample_M⁻¹(M, sample), λ))
+        κ = GaussianKineticEnergy(regularize_M⁻¹(sample_M⁻¹(M, chain), λ))
     end
-    sample, statistics, AdaptationState(Q, κ, final_ϵ(logϵ_adaptation))
-end
-
-struct SamplingNUTS
-    N::Int
-end
-
-function mcmc_stage(rng, ℓ, sampler_options, adaptation_state, sampling::SamplingNUTS)
-    @unpack Q, κ, ϵ = adaptation_state
-    @unpack N = sampling
-    sample = Vector{typeof(Q.q)}(undef, N)
-    statistics = Vector{TreeStatisticsNUTS}(undef, N)
-    H = Hamiltonian(κ, ℓ)
-    for i in 1:N
-        Q, statistics[i] = NUTS_sample_tree(rng, sampler_options, H, Q, ϵ)
-        sample[i] = Q.q
-    end
-    sample, statistics, AdaptationState(Q, κ, ϵ)
+    ((chain = chain, tree_statistics = tree_statistics, ϵs = ϵs),
+     WarmupState(Q, κ, final_ϵ(logϵ_adaptation)))
 end
 
 """
 $(SIGNATURES)
 
-A sequence of adaptation stages:
+Markov Chain Monte Carlo for `sampling_logdensity`, with the adapted `warmup_state`.
+
+Return a `NamedTuple` of
+
+- `chain`, a vector of length `N` that contains the positions,
+
+- `tree_statistics`, a vector of length `N` with the tree statistics.
+"""
+function mcmc(sampling_logdensity, N, warmup_state)
+    @unpack rng, ℓ, sampler_options = sampling_logdensity
+    @unpack Q, κ, ϵ = warmup_state
+    chain = Vector{typeof(Q.q)}(undef, N)
+    tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
+    H = Hamiltonian(κ, ℓ)
+    for i in 1:N
+        Q, tree_statistics[i] = NUTS_sample_tree(rng, sampler_options, H, Q, ϵ)
+        chain[i] = Q.q
+    end
+    (chain = chain, tree_statistics = tree_statistics)
+end
+
+"""
+$(SIGNATURES)
+
+Helper function for constructing the “middle” doubling warmup stages in
+[`default_warmup_stages`](@ref).
+"""
+function _doubling_warmup_stages(M, dual_averaging, middle_steps,
+                                 doubling_stages::Val{D}) where {D}
+    ntuple(i -> TuningNUTS{M}(middle_steps * 2^(i - 1), dual_averaging), D)
+end
+
+"""
+$(SIGNATURES)
+
+A sequence of warmup stages:
 
 1. tuning stepsize with `init_steps` steps
 
@@ -208,49 +282,95 @@ the sample.
 
 (This is the suggested tuner of most papers on NUTS).
 """
-function default_adapting_stages(;
-                                 M::Type{<:Union{Diagonal,Symmetric}} = Diagonal,
-                                 init_steps = 75, middle_steps = 25, doubling_stages = 5,
-                                 terminating_steps = 50,
-                                 dual_averaging = DualAveragingParameters())
-    middle_stages = Any[]
-    for _ in 1:doubling_stages
-        stages = push!(middle_stages, TuningNUTS{M}(middle_steps, dual_averaging))
-        middle_steps *= 2
+function default_warmup_stages(;
+                               M::Type{<:Union{Diagonal,Symmetric}} = Diagonal,
+                               dual_averaging = DualAveragingParameters(),
+                               init_steps = 75, middle_steps = 25, doubling_stages = 5,
+                               terminating_steps = 50)
+    (FindLocalOptimum(),
+     InitialStepsizeSearch(),
+     TuningNUTS{Nothing}(init_steps, dual_averaging),
+     _doubling_warmup_stages(M, dual_averaging, middle_steps, Val(doubling_stages))...,
+     TuningNUTS{Nothing}(terminating_steps, dual_averaging))
+end
+
+function _warmup(sampling_logdensity, stages, initial_state)
+    foldl(stages; init = ((), initial_state)) do acc, stage
+        stages_and_results, warmup_state = acc
+        results, warmup_state′ = warmup(sampling_logdensity, stage, warmup_state)
+        stage_information = (stage = stage, results = results, warmup_state = warmup_state)
+        (stages_and_results..., stage_information), warmup_state′
     end
-    vcat(FindLocalOptimum(),
-         InitialStepsizeSearch(),
-         TuningNUTS{Nothing}(init_steps, dual_averaging),
-         middle_stages,
-         TuningNUTS{Nothing}(terminating_steps, dual_averaging))
 end
 
-function mcmc_stages(rng, ℓ, sampler_options, adaptation_state, stages)
-    [begin
-     samples, statistics, adaptation_state = mcmc_stage(rng, ℓ, sampler_options,
-                                                        adaptation_state, stage)
-     (samples = samples, statistics = statistics, adaptation_state = adaptation_state)
-     end for stage in stages], adaptation_state
+"Shared docstring part for the MCMC API."
+const DOC_MCMC_ARGS =
+"""
+- `rng`: the random number generator, eg `Random.GLOBAL_RNG`
+
+- `ℓ`: the log density, supporting the API of the `LogDensityProblems` package
+
+- `N`: the number of samples for inference, after the warmup.
+"""
+
+"""
+$(SIGNATURES)
+
+Perform MCMC with NUTS, keeping the warmup results. Returns a `NamedTuple` of
+
+- `warmup`, which contains all the warmup information and diagnostics
+
+- `warmup_state`, which contains the final adaptation after all the warmup
+
+- `inference`, which has `chain` and `tree_statistics`, see [`mcmc_with_warmup`](@ref).
+
+!!! warning
+    This function is not (yet) exported because the the warmup API may change.
+
+# Arguments
+
+$(DOC_MCMC_ARGS)
+
+# Keyword arguments
+
+$(DOC_INITIAL_WARMUP_ARGS)
+"""
+function mcmc_keep_warmup(rng::AbstractRNG, ℓ, N::Integer;
+                          initialization = (),
+                          warmup_stages = default_warmup_stages(),
+                          sampler_options = TreeOptionsNUTS())
+    sampling_logdensity = SamplingLogDensity(rng, ℓ, sampler_options)
+    initial_state = initial_warmup_state(rng, ℓ; initialization...)
+    warmup, warmup_state = _warmup(sampling_logdensity, warmup_stages, initial_state)
+    inference = mcmc(sampling_logdensity, N, warmup_state)
+    (warmup = warmup, warmup_state = warmup_state, inference = inference)
 end
 
-function mcmc_NUTS_adaptation(rng, ℓ, N;
-                              initialization = (),
-                              adapting_stages = default_adapting_stages(),
-                              sampler_options = TreeOptionsNUTS())
-    adaptation_state = initial_adaptation_state(rng, ℓ, initialization...)
-    adaptation, adaptation_state =
-        mcmc_stages(rng, ℓ, sampler_options, adaptation_state, adapting_stages)
-    inference_samples, inference_statistics, _ =
-        mcmc_stage(rng, ℓ, sampler_options, adaptation_state, SamplingNUTS(N))
-    (adaptation = adaptation,
-     inference = (samples = inference_samples, statistics = inference_statistics))
-end
+"""
+$(SIGNATURES)
 
-function mcmc_NUTS(rng, ℓ, N;
-                   initialization = (),
-                   adapting_stages = default_adapting_stages(),
-                   sampler_options = TreeOptionsNUTS())
-    mcmc_NUTS_adaptation(rng, ℓ, N; initialization = initialization,
-                         adapting_stages = adapting_stages,
-                         sampler_options = sampler_options).inference
+Perform MCMC with NUTS, including warmup which is not returned. Return a `NamedTuple` of
+
+- `chain`, a vector of positions from the posterior
+
+- `tree_statistics`, a vector of tree statistics
+
+- `κ` and `ϵ`, the adapted metric and stepsize.
+
+# Arguments
+
+$(DOC_MCMC_ARGS)
+
+# Keyword arguments
+
+$(DOC_INITIAL_WARMUP_ARGS)
+"""
+function mcmc_with_warmup(rng, ℓ, N; initialization = (),
+                          warmup_stages = default_warmup_stages(),
+                          sampler_options = TreeOptionsNUTS())
+    @unpack warmup_state, inference =
+        mcmc_keep_warmup(rng, ℓ, N; initialization = initialization,
+                         warmup_stages = warmup_stages, sampler_options = sampler_options)
+    @unpack κ, ϵ = warmup_state
+    (inference..., κ = κ, ϵ = ϵ)
 end

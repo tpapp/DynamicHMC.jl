@@ -5,9 +5,9 @@
 @testset "mcmc" begin
     ℓ = DistributionLogDensity(MvNormal(ones(5), Diagonal(ones(5))))
 
-    @unpack samples, statistics = mcmc_NUTS(RNG, ℓ, 1000)
+    @unpack chain = mcmc_with_warmup(RNG, ℓ, 1000)
 
-    Z = DynamicHMC.position_matrix(samples)
+    Z = DynamicHMC.position_matrix(chain)
     @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.05
     @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.1
 end
