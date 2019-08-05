@@ -1,6 +1,45 @@
 #####
-##### utilities for testing
+##### include this separately for interactive tests
 #####
+
+####
+#### packages and symbols
+####
+
+using DynamicHMC, Test, ArgCheck, DataStructures, Distributions, DocStringExtensions,
+    LinearAlgebra, MCMCDiagnostics, Parameters, Random, StatsBase, StatsFuns, Statistics,
+    Suppressor, HypothesisTests
+
+import ForwardDiff, Random
+
+using DynamicHMC:
+    # trees
+    Directions, next_direction, biased_progressive_logprob2, adjacent_tree,
+    sample_trajectory,
+    # Hamiltonian
+    GaussianKineticEnergy, kinetic_energy, ∇kinetic_energy, rand_p, Hamiltonian,
+    EvaluatedLogDensity, evaluate_ℓ, PhasePoint, logdensity, leapfrog,
+    logdensity,
+    # NUTS
+    TrajectoryNUTS, rand_bool, TurnStatistic, DivergenceStatistic, divergence_statistic,
+    acceptance_rate, TreeStatisticsNUTS, Termination,
+    # stepsize
+    InitialStepsizeSearch, find_initial_stepsize,
+    # mcmc
+    position_matrix,
+    # diagnostics
+    ACCEPTANCE_QUANTILES
+
+import DynamicHMC:
+    # trees
+    move, is_turning, combine_turn_statistics, is_divergent,
+    combine_divergence_statistics, calculate_logprob2, combine_proposals, leaf
+
+import LogDensityProblems: logdensity_and_gradient, dimension, capabilities, LogDensityProblems
+
+####
+#### utilities for testing
+####
 
 ####
 #### general test environment
@@ -12,9 +51,9 @@ Random.seed!(RNG, UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
 "Tolerant testing in a CI environment."
 const RELAX = (k = "CONTINUOUS_INTEGRATION"; haskey(ENV, k) && ENV[k] == "true")
 
-####
-#### random values
-####
+###
+### random values
+###
 
 """
 $(SIGNATURES)
@@ -54,9 +93,9 @@ end
 end
 
 
-####
-#### use multivariate distributions as tests
-####
+###
+### use multivariate distributions as tests
+###
 
 """
 Obtain the log density from a distribution.
@@ -103,9 +142,9 @@ function constant_logdensity(logdensity, gradient)
     FunctionLogDensity(length(gradient), _ -> (logdensity, gradient))
 end
 
-####
-#### Hamiltonian test helper functions
-####
+###
+### Hamiltonian test helper functions
+###
 
 """
 $(SIGNATURES)
