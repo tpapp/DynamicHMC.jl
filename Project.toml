@@ -29,8 +29,7 @@ HypothesisTests = "09f84164-cd44-5f33-b23f-e6b0d136a0d5"
 MCMCDiagnostics = "6e857e4b-079a-58c4-aeab-bc2670384359"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-Suppressor = "fd094767-a336-5f1f-9728-57cf17d0bbfb"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Distributions", "Documenter", "ForwardDiff", "HypothesisTests", "MCMCDiagnostics", "StatsBase", "Suppressor", "Test", "Pkg"]
+test = ["Distributions", "Documenter", "ForwardDiff", "HypothesisTests", "MCMCDiagnostics", "StatsBase", "Test", "Pkg"]

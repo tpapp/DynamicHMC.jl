@@ -8,7 +8,7 @@
 
 using DynamicHMC, Test, ArgCheck, DataStructures, Distributions, DocStringExtensions,
     LinearAlgebra, MCMCDiagnostics, Parameters, Random, StatsBase, StatsFuns, Statistics,
-    Suppressor, HypothesisTests
+    HypothesisTests
 
 import ForwardDiff, Random
 
