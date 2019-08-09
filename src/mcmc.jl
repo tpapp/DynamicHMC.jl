@@ -2,6 +2,9 @@
 ##### Sampling: high-level interface and building blocks
 #####
 
+"Significant digits to display for reporting."
+const REPORT_SIGDIGITS = 3
+
 ####
 #### parts unaffected by warmup
 ####
@@ -123,9 +126,10 @@ function warmup(sampling_logdensity, stepsize_search::InitialStepsizeSearch, war
     @unpack rng, ℓ, reporter = sampling_logdensity
     @unpack Q, κ, ϵ = warmup_state
     @argcheck ϵ ≡ nothing "stepsize ϵ manually specified, won't perform initial search"
-    report(reporter, "finding initial stepsize")
     z = PhasePoint(Q, rand_p(rng, κ))
     ϵ = find_initial_stepsize(stepsize_search, local_acceptance_ratio(Hamiltonian(κ, ℓ), z))
+    report(reporter, "found initial stepsize",
+           ϵ = round(ϵ; sigdigits = REPORT_SIGDIGITS))
     nothing, WarmupState(Q, κ, ϵ)
 end
 
@@ -226,7 +230,7 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
         tree_statistics[i] = stats
         logϵ_adaptation = adapt_stepsize(dual_averaging, logϵ_adaptation,
                                          stats.acceptance_statistic)
-        report(mcmc_reporter, i; ϵ = round(ϵ; sigdigits = 3))
+        report(mcmc_reporter, i; ϵ = round(ϵ; sigdigits = REPORT_SIGDIGITS))
     end
     if M ≢ Nothing
         κ = GaussianKineticEnergy(regularize_M⁻¹(sample_M⁻¹(M, chain), λ))
