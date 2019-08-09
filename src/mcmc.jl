@@ -16,13 +16,15 @@ problem which are not changed during warmup.
 
 $(FIELDS)
 """
-struct SamplingLogDensity{R,L,O}
+struct SamplingLogDensity{R,L,O,S}
     "Random number generator."
     rng::R
     "Log density."
     ℓ::L
     "Sampler options."
     sampler_options::O
+    "Reporting warmup information and chain progress."
+    reporter::S
 end
 
 ####
@@ -99,9 +101,10 @@ in a region which is at least plausible.
 struct FindLocalOptimum end     # FIXME allow custom algorithm, tolerance, etc
 
 function warmup(sampling_logdensity, local_optimization::FindLocalOptimum, warmup_state)
-    @unpack ℓ = sampling_logdensity
+    @unpack ℓ, reporter = sampling_logdensity
     @unpack Q, κ, ϵ = warmup_state
     @unpack q = Q
+    report(reporter, "finding initial optimum")
     fg! = function(F, G, q)
         ℓq, ∇ℓq = logdensity_and_gradient(ℓ, q)
         if G ≠ nothing
@@ -111,15 +114,16 @@ function warmup(sampling_logdensity, local_optimization::FindLocalOptimum, warmu
     end
     objective = NLSolversBase.OnceDifferentiable(NLSolversBase.only_fg!(fg!), q)
     opt = Optim.optimize(objective, q, Optim.LBFGS())
-    Optim.converged(opt) || error("could not find local optimum of log density")
+    Optim.converged(opt) || @warn("could not find local optimum of log density")
     q = Optim.minimizer(opt)
     nothing, WarmupState(evaluate_ℓ(ℓ, q), κ, ϵ)
 end
 
 function warmup(sampling_logdensity, stepsize_search::InitialStepsizeSearch, warmup_state)
-    @unpack rng, ℓ = sampling_logdensity
+    @unpack rng, ℓ, reporter = sampling_logdensity
     @unpack Q, κ, ϵ = warmup_state
     @argcheck ϵ ≡ nothing "stepsize ϵ manually specified, won't perform initial search"
+    report(reporter, "finding initial stepsize")
     z = PhasePoint(Q, rand_p(rng, κ))
     ϵ = find_initial_stepsize(stepsize_search, local_acceptance_ratio(Hamiltonian(κ, ℓ), z))
     nothing, WarmupState(Q, κ, ϵ)
@@ -204,7 +208,7 @@ function regularize_M⁻¹(Σ::Union{Diagonal,Symmetric}, λ::Real)
 end
 
 function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where {M}
-    @unpack rng, ℓ, sampler_options = sampling_logdensity
+    @unpack rng, ℓ, sampler_options, reporter = sampling_logdensity
     @unpack Q, κ, ϵ = warmup_state
     @unpack N, dual_averaging, λ = tuning
     chain = Vector{typeof(Q.q)}(undef, N)
@@ -212,6 +216,8 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
     H = Hamiltonian(κ, ℓ)
     logϵ_adaptation = DualAveragingAdaptation(log(ϵ))
     ϵs = Vector{Float64}(undef, N)
+    mcmc_reporter = make_mcmc_reporter(reporter, N; tuning = M ≡ Nothing ? "stepsize" :
+                                       "stepsize and $(M) metric")
     for i in 1:N
         ϵ = current_ϵ(logϵ_adaptation)
         ϵs[i] = ϵ
@@ -220,9 +226,11 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
         tree_statistics[i] = stats
         logϵ_adaptation = adapt_stepsize(dual_averaging, logϵ_adaptation,
                                          stats.acceptance_statistic)
+        report(mcmc_reporter, i; ϵ = round(ϵ; sigdigits = 3))
     end
     if M ≢ Nothing
         κ = GaussianKineticEnergy(regularize_M⁻¹(sample_M⁻¹(M, chain), λ))
+        report(mcmc_reporter, "adaptation finished", adapted_kinetic_energy = κ)
     end
     ((chain = chain, tree_statistics = tree_statistics, ϵs = ϵs),
      WarmupState(Q, κ, final_ϵ(logϵ_adaptation)))
@@ -240,14 +248,16 @@ Return a `NamedTuple` of
 - `tree_statistics`, a vector of length `N` with the tree statistics.
 """
 function mcmc(sampling_logdensity, N, warmup_state)
-    @unpack rng, ℓ, sampler_options = sampling_logdensity
+    @unpack rng, ℓ, sampler_options, reporter = sampling_logdensity
     @unpack Q, κ, ϵ = warmup_state
     chain = Vector{typeof(Q.q)}(undef, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
     H = Hamiltonian(κ, ℓ)
+    mcmc_reporter = make_mcmc_reporter(reporter, N)
     for i in 1:N
         Q, tree_statistics[i] = NUTS_sample_tree(rng, sampler_options, H, Q, ϵ)
         chain[i] = Q.q
+        report(mcmc_reporter, i)
     end
     (chain = chain, tree_statistics = tree_statistics)
 end
@@ -336,8 +346,9 @@ $(DOC_INITIAL_WARMUP_ARGS)
 function mcmc_keep_warmup(rng::AbstractRNG, ℓ, N::Integer;
                           initialization = (),
                           warmup_stages = default_warmup_stages(),
-                          sampler_options = TreeOptionsNUTS())
-    sampling_logdensity = SamplingLogDensity(rng, ℓ, sampler_options)
+                          sampler_options = TreeOptionsNUTS(),
+                          reporter = default_reporter())
+    sampling_logdensity = SamplingLogDensity(rng, ℓ, sampler_options, reporter)
     initial_state = initial_warmup_state(rng, ℓ; initialization...)
     warmup, warmup_state = _warmup(sampling_logdensity, warmup_stages, initial_state)
     inference = mcmc(sampling_logdensity, N, warmup_state)
@@ -365,10 +376,12 @@ $(DOC_INITIAL_WARMUP_ARGS)
 """
 function mcmc_with_warmup(rng, ℓ, N; initialization = (),
                           warmup_stages = default_warmup_stages(),
-                          sampler_options = TreeOptionsNUTS())
+                          sampler_options = TreeOptionsNUTS(),
+                          reporter = default_reporter())
     @unpack warmup_state, inference =
         mcmc_keep_warmup(rng, ℓ, N; initialization = initialization,
-                         warmup_stages = warmup_stages, sampler_options = sampler_options)
+                         warmup_stages = warmup_stages, sampler_options = sampler_options,
+                         reporter = default_reporter())
     @unpack κ, ϵ = warmup_state
     (inference..., κ = κ, ϵ = ϵ)
 end
