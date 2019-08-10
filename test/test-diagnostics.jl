@@ -14,3 +14,12 @@
     @test 1.8 ≤ EBFMI(sample) ≤ 2.2 # nonsensical value, just checking calculation
     @test repr(stats) isa AbstractString # just test that it prints w/o error
 end
+
+@testset "log acceptance ratios" begin
+    ℓ = DistributionLogDensity(MvNormal(ones(5), Diagonal(ones(5))))
+    log2ϵs = -5:5
+    N = 13
+    logA = explore_log_acceptance_ratios(ℓ, zeros(5), log2ϵs; N = N)
+    @test all(isfinite.(logA))
+    @test size(logA) == (length(log2ϵs), N)
+end

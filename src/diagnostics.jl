@@ -2,8 +2,22 @@
 ##### statistics and diagnostics
 #####
 
+module Diagnostics
+
+export EBFMI, NUTS_statistics, explore_log_acceptance_ratios
+
+using DynamicHMC: Termination, GaussianKineticEnergy, Hamiltonian, evaluate_ℓ,
+    log_acceptance_ratio, PhasePoint, rand_p
+
+using DataStructures: counter
+using DocStringExtensions: SIGNATURES
+using LogDensityProblems: dimension
+using Parameters: @unpack
+import Random
+using Statistics: mean, quantile, var
+
 """
-    EBFMI(sample)
+$(SIGNATURES)
 
 Energy Bayesian fraction of missing information. Useful for diagnosing poorly
 chosen kinetic energies.
@@ -36,7 +50,7 @@ struct NUTS_Statistics{T <: Real,
 end
 
 """
-    NUTS_statistics(sample)
+$(SIGNATURES)
 
 Return statistics about the sample (ie not the variables). Mostly useful for
 NUTS diagnostics.
@@ -77,18 +91,16 @@ end
 """
 $(SIGNATURES)
 
-Return a matrix of [`local_acceptance_ratio`](@ref) values for stepsizes `ϵs`
-and the given momentums `ps`. The latter is calculated from random values when
-an integer is given.
-
-To facilitate plotting, ``-∞`` values are replaced by `NaN`.
+From an initial position, calculate the uncapped log acceptance ratio for the given log2
+stepsizes and momentums `ps`, `N` of which are generated randomly by default.
 """
-function explore_local_acceptance_ratios(H, q, ϵs, ps)
-    R = hcat([local_acceptance_ratio(H, q, p).(ϵs) for p in ps]...)
-    R[isinfinite.(R)] .= NaN
-    R
+function explore_log_acceptance_ratios(ℓ, q, log2ϵs;
+                                       rng = Random.GLOBAL_RNG,
+                                       κ = GaussianKineticEnergy(dimension(ℓ)),
+                                       N = 20, ps = [rand_p(rng, κ) for _ in 1:N])
+    H = Hamiltonian(κ, ℓ)
+    Q = evaluate_ℓ(ℓ, q)
+    [log_acceptance_ratio(H, PhasePoint(Q, p), 2.0^log2ϵ) for log2ϵ in log2ϵs, p in ps]
 end
 
-function explore_local_acceptance_ratios(H, q, ϵs, N::Integer; rng = RNG)
-    explore_local_acceptance_ratios(H, q, ϵs, [rand_p(rng, H.κ) for _ in 1:N])
 end

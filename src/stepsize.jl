@@ -154,6 +154,17 @@ end
 """
 $(SIGNATURES)
 
+Uncapped log acceptance ratio of a Langevin step.
+"""
+function log_acceptance_ratio(H, z, ϵ)
+    target = logdensity(H, z)
+    isfinite(target) || throw(DomainError(z, "Starting point has non-finite density."))
+    logdensity(H, leapfrog(H, z, ϵ)) - target
+end
+
+"""
+$(SIGNATURES)
+
 Return a function of the stepsize (``ϵ``) that calculates the local acceptance
 ratio for a single leapfrog step around `z` along the Hamiltonian `H`. Formally,
 let

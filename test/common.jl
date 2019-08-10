@@ -26,14 +26,15 @@ using DynamicHMC:
     # stepsize
     InitialStepsizeSearch, find_initial_stepsize,
     # mcmc
-    position_matrix,
-    # diagnostics
-    ACCEPTANCE_QUANTILES
+    position_matrix
 
 import DynamicHMC:
     # trees
     move, is_turning, combine_turn_statistics, is_divergent,
     combine_divergence_statistics, calculate_logprob2, combine_proposals, leaf
+
+using DynamicHMC.Diagnostics
+using DynamicHMC.Diagnostics: ACCEPTANCE_QUANTILES
 
 import LogDensityProblems: logdensity_and_gradient, dimension, capabilities, LogDensityProblems
 

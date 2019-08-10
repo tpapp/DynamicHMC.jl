@@ -17,12 +17,9 @@ export
     TreeStatisticsNUTS,
     # mcmc
     InitialStepsizeSearch, DualAveragingAdaptation, WarmupState, FindLocalOptimum,
-    TuningNUTS, mcmc_with_warmup,
-    # diagnostics
-    EBFMI, NUTS_statistics, explore_local_acceptance_ratios
+    TuningNUTS, mcmc_with_warmup
 
 using ArgCheck: @argcheck
-using DataStructures: counter
 using DocStringExtensions: FIELDS, FUNCTIONNAME, SIGNATURES, TYPEDEF
 using LinearAlgebra
 using LinearAlgebra: checksquare, Diagonal, Symmetric
