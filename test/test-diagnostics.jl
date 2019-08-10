@@ -23,3 +23,31 @@ end
     @test all(isfinite.(logA))
     @test size(logA) == (length(log2ϵs), N)
 end
+
+@testset "leapfrog trajectory" begin
+    # problem setup
+    K = 2
+    ℓ = DistributionLogDensity(MvNormal(ones(K), Diagonal(ones(K))))
+    κ = GaussianKineticEnergy(K)
+    q = zeros(K)
+    Q = evaluate_ℓ(ℓ, q)
+    p = ones(K) .* 0.98
+    H = Hamiltonian(κ, ℓ)
+    ϵ = 0.1
+    ixs = 1:15
+    ix0 = 5
+
+    # calculate trajectory manually
+    zs1 = let z = PhasePoint(Q, p)
+        [(z1 = z; z = leapfrog(H, z, ϵ); z1) for _ in ixs]
+    end
+    πs1 = logdensity.(Ref(H), zs1)
+    Δs1 = πs1 .- πs1[ix0]
+
+    # calculate using function
+    @unpack Δs, zs = leapfrog_trajectory(ℓ, zs1[ix0].Q.q, ϵ, ixs .- ix0; κ = κ,
+                                         p = zs1[ix0].p)
+    @test all(isapprox.(Δs, Δs1; atol = 1e-5))
+    @test all(map((x, y) -> x.Q.q ≈ y.Q.q, zs, zs1))
+    @test all(map((x, y) -> x.p ≈ y.p, zs, zs1))
+end
