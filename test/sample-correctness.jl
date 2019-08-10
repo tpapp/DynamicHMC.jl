@@ -51,10 +51,11 @@ function NUTS_tests(rng, ℓ, N; K = 3, max_R̂ = 1.05, min_τ = 0.2,
     # distribution comparison tests
     Z = reduce(hcat, mxs)
     Z′ = samples(ℓ, 1000)
-    KS_stats = [ApproximateTwoSampleKSTest(Z[i, :], Z′[i, :]) for i in 1:K]
-    @test minimum(pvalue, KS_stats) ≥ 0.05 / K
-    AD_stats = [KSampleADTest(Z[i, :], Z′[i, :]) for i in 1:K]
-    @test mean(pvalue, AD_stats) ≥ 0.05 / K
+    d = dimension(ℓ)
+    KS_stats = [ApproximateTwoSampleKSTest(Z[i, :], Z′[i, :]) for i in 1:d]
+    @test minimum(pvalue, KS_stats) ≥ 0.05 / d
+    AD_stats = [KSampleADTest(Z[i, :], Z′[i, :]) for i in 1:d]
+    @test mean(pvalue, AD_stats) ≥ 0.05 / d
 end
 
 @testset "NUTS tests with random normal" begin
@@ -66,4 +67,18 @@ end
         ℓ = multivariate_normal(μ, D, Q)
         NUTS_tests(RNG, ℓ, 1000)
     end
+end
+
+@testset "NUTS tests with specifically picked normals" begin
+    # huge variance
+    ℓ = multivariate_normal([0.0], fill(5e8, 1, 1), I)
+    NUTS_tests(RNG, ℓ, 1000)
+
+    # huge variance, offset
+    ℓ = multivariate_normal([1.0], fill(5e8, 1, 1), I)
+    NUTS_tests(RNG, ℓ, 1000)
+
+    # tiny variance, offset
+    ℓ = multivariate_normal([1.0], fill(5e-8, 1, 1), I)
+    NUTS_tests(RNG, ℓ, 1000)
 end

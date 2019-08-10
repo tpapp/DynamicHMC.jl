@@ -131,10 +131,21 @@ end
 end
 
 @testset "leapfrog back and forth" begin
-    for _ in 1:100
-        H, z = rand_Hz(rand(2:5))
+    for _ in 1:1000
+        H, z = rand_Hz(5)
         z1 = z
         N = 5
+        ϵ = 0.1
+        z1 = leapfrog(H, z1, ϵ)
+        z1 = leapfrog(H, z1, -ϵ)
+        @test z.p ≈ z1.p norm = x -> norm(x, Inf)
+        @test z.Q.q ≈ z1.Q.q norm = x -> norm(x, Inf)
+    end
+
+    for _ in 1:100
+        H, z = rand_Hz(2)
+        z1 = z
+        N = 3
         ϵ = 0.1
 
         # forward
@@ -147,8 +158,8 @@ end
             z1 = leapfrog(H, z1, -ϵ)
         end
 
-        @test z.p ≈ z1.p
-        @test z.Q.q ≈ z1.Q.q
+        @test z.p ≈ z1.p norm = x -> norm(x, Inf) rtol = 0.001
+        @test z.Q.q ≈ z1.Q.q norm = x -> norm(x, Inf) rtol = 0.001
     end
 end
 
