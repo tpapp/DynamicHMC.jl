@@ -130,6 +130,28 @@ end
     end
 end
 
+@testset "leapfrog back and forth" begin
+    for _ in 1:100
+        H, z = rand_Hz(rand(2:5))
+        z1 = z
+        N = 5
+        ϵ = 0.1
+
+        # forward
+        for _ in 1:N
+            z1 = leapfrog(H, z1, ϵ)
+        end
+
+        # backward
+        for _ in 1:N
+            z1 = leapfrog(H, z1, -ϵ)
+        end
+
+        @test z.p ≈ z1.p
+        @test z.Q.q ≈ z1.Q.q
+    end
+end
+
 @testset "PhasePoint validation and infinite values" begin
     # wrong gradient length
     @test_throws ArgumentError EvaluatedLogDensity([1.0, 2.0], 1.0, [1.0])
