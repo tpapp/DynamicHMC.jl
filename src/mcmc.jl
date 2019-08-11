@@ -76,7 +76,7 @@ const DOC_INITIAL_WARMUP_ARGS =
 
 - `κ`: kinetic energy specification. *Default*: Gaussian with identity matrix.
 
-- `ϵ`: initial stepsize, or `nothing` for heuristic finders.
+- `ϵ`: a scalar for initial stepsize, or `nothing` for heuristic finders.
 """
 
 """
@@ -281,12 +281,16 @@ $(SIGNATURES)
 
 A sequence of warmup stages:
 
-1. tuning stepsize with `init_steps` steps
+1. find the local optimum,
 
-2. tuning stepsize and covariance: first with `middle_steps` steps, then repeat with twice
+2. select an initial stepsize based on a heuristic,
+
+3. tuning stepsize with `init_steps` steps
+
+4. tuning stepsize and covariance: first with `middle_steps` steps, then repeat with twice
    the steps `doubling_stages` times
 
-3. tuning stepsize with `terminating_steps` steps.
+5. tuning stepsize with `terminating_steps` steps.
 
 `M` (`Diagonal`, the default or `Symmetric`) determines the type of the metric adapted from
 the sample.
@@ -305,6 +309,25 @@ function default_warmup_stages(;
      TuningNUTS{Nothing}(terminating_steps, stepsize_adaptation))
 end
 
+"""
+$(SIGNATURES)
+
+A sequence of warmup stages for fixed stepsize:
+
+1. find the local optimum,
+
+2. tuning covariance: first with `middle_steps` steps, then repeat with twice
+   the steps `doubling_stages` times
+
+Very similar to [`default_warmup_stages`](@ref), but omits the warmup stages with just stepsize tuning.
+"""
+function fixed_stepsize_warmup_stages(;
+                                      M::Type{<:Union{Diagonal,Symmetric}} = Diagonal,
+                                      middle_steps = 25, doubling_stages = 5)
+    (FindLocalOptimum(),
+     _doubling_warmup_stages(M, FixedStepsize(), middle_steps, Val(doubling_stages))...)
+end
+
 function _warmup(sampling_logdensity, stages, initial_state)
     foldl(stages; init = ((), initial_state)) do acc, stage
         stages_and_results, warmup_state = acc
@@ -317,11 +340,34 @@ end
 "Shared docstring part for the MCMC API."
 const DOC_MCMC_ARGS =
 """
-- `rng`: the random number generator, eg `Random.GLOBAL_RNG`
+# Arguments
+
+- `rng`: the random number generator, eg `Random.GLOBAL_RNG`.
 
 - `ℓ`: the log density, supporting the API of the `LogDensityProblems` package
 
 - `N`: the number of samples for inference, after the warmup.
+
+# Keyword arguments
+
+- `initialization`: see below.
+
+- `warmup_stages`: a sequence of warmup stages. See [`default_warmup_stages`](@ref) and
+  [`fixed_stepsize_warmup_stages`](@ref); the latter requires an `ϵ` in initialization.
+
+- `sampler_options`: see [`TreeOptionsNUTS`](@ref). It is very unlikely you need to modify
+  this, except perhaps for the maximum depth.
+
+- `reporter`: how progress is reported. By default, verbosely for interactive sessions using
+  the log message mechanism (see [`LogProgressReport`](@ref), and no reporting for
+  non-interactive sessions (see [`NoProgressReport`](@ref)).
+
+# Initialization
+
+The `initialization` keyword argument should be a `NamedTuple` which can contain the
+following fields (all of them optional and provided with reasonable defaults):
+
+$(DOC_INITIAL_WARMUP_ARGS)
 """
 
 """
@@ -338,13 +384,7 @@ Perform MCMC with NUTS, keeping the warmup results. Returns a `NamedTuple` of
 !!! warning
     This function is not (yet) exported because the the warmup API may change.
 
-# Arguments
-
 $(DOC_MCMC_ARGS)
-
-# Keyword arguments
-
-$(DOC_INITIAL_WARMUP_ARGS)
 """
 function mcmc_keep_warmup(rng::AbstractRNG, ℓ, N::Integer;
                           initialization = (),
@@ -369,13 +409,7 @@ Perform MCMC with NUTS, including warmup which is not returned. Return a `NamedT
 
 - `κ` and `ϵ`, the adapted metric and stepsize.
 
-# Arguments
-
 $(DOC_MCMC_ARGS)
-
-# Keyword arguments
-
-$(DOC_INITIAL_WARMUP_ARGS)
 """
 function mcmc_with_warmup(rng, ℓ, N; initialization = (),
                           warmup_stages = default_warmup_stages(),
