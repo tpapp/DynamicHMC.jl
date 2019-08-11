@@ -5,10 +5,10 @@
 module Diagnostics
 
 export EBFMI, summarize_tree_statistics, explore_log_acceptance_ratios, leapfrog_trajectory,
-    InvalidTree, REACHED_MAXDEPTH, is_divergent
+    InvalidTree, REACHED_MAX_DEPTH, is_divergent
 
 using DynamicHMC: GaussianKineticEnergy, Hamiltonian, evaluate_ℓ, InvalidTree,
-    REACHED_MAXDEPTH, is_divergent, log_acceptance_ratio, PhasePoint, rand_p, leapfrog,
+    REACHED_MAX_DEPTH, is_divergent, log_acceptance_ratio, PhasePoint, rand_p, leapfrog,
     logdensity, MAX_DIRECTIONS_DEPTH
 
 using ArgCheck: @argcheck
@@ -63,7 +63,7 @@ function count_terminations(tree_statistics)
     turning = 0
     for tree_statistic in tree_statistics
         it = tree_statistic.termination
-        if it == REACHED_MAXDEPTH
+        if it == REACHED_MAX_DEPTH
             max_depth += 1
         elseif is_divergent(it)
             divergence += 1

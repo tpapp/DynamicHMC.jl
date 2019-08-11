@@ -154,7 +154,7 @@ end
     @test trajectory.visited == [1, -1, -2, 2, 3, 4, 5]
     @test first(ζ) == -2:5
     @test sum(exp, last(ζ)) ≈ 1
-    @test termination == DynamicHMC.REACHED_MAXDEPTH
+    @test termination == DynamicHMC.REACHED_MAX_DEPTH
     @test v[1] ≈ testA(trajectory)
     @test v[2] == 7             # initial node does not participate in acceptance rate
 end

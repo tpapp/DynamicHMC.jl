@@ -9,7 +9,7 @@ isinteractive() && include("common.jl")
     directions = Directions(UInt32(0))
     function rand_invalidtree()
         if rand() < 0.1
-            REACHED_MAXDEPTH
+            REACHED_MAX_DEPTH
         else
             left = rand(-5:5)
             right = left + rand(0:5)
@@ -28,7 +28,7 @@ isinteractive() && include("common.jl")
     @test stats.termination_counts.divergence ==
         count(x -> is_divergent(x.termination), tree_statistics)
     @test stats.termination_counts.max_depth ==
-        count(x -> x.termination == REACHED_MAXDEPTH, tree_statistics)
+        count(x -> x.termination == REACHED_MAX_DEPTH, tree_statistics)
     @test stats.termination_counts.turning ==
         (N - stats.termination_counts.max_depth - stats.termination_counts.divergence)
     # depth counts

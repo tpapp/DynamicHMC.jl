@@ -163,7 +163,7 @@ Information about an invalid (sub)tree, using positions relative to the starting
 2. When `left == right`, this is a *divergent* node.
 
 3. `left == 1 && right == 0` is used as a sentinel value for reaching maximum depth without
-encountering any invalid trees (see [`REACHED_MAXDEPTH`](@ref). All other `left > right`
+encountering any invalid trees (see [`REACHED_MAX_DEPTH`](@ref). All other `left > right`
 values are disallowed.
 """
 struct InvalidTree
@@ -178,7 +178,7 @@ is_divergent(invalid_tree::InvalidTree) = invalid_tree.left == invalid_tree.righ
 function Base.show(io::IO, invalid_tree::InvalidTree)
     msg = if is_divergent(invalid_tree)
         "divergence at position $(invalid_tree.left)"
-    elseif invalid_tree == REACHED_MAXDEPTH
+    elseif invalid_tree == REACHED_MAX_DEPTH
         "reached maximum depth without divergence or turning"
     else
         @unpack left, right = invalid_tree
@@ -188,7 +188,7 @@ function Base.show(io::IO, invalid_tree::InvalidTree)
 end
 
 "Sentinel value for reaching maximum depth."
-const REACHED_MAXDEPTH = InvalidTree(1, 0)
+const REACHED_MAX_DEPTH = InvalidTree(1, 0)
 
 """
     result, v = adjacent_tree(rng, trajectory, z, i, depth, is_forward)
@@ -262,7 +262,7 @@ Return the following values
 - `v`: visited node statistics
 
 - `termination`: an `InvalidTree` (this includes the last doubling step turning, which is
-  technically a valid tree) or `REACHED_MAXDEPTH` when all subtrees were valid and no
+  technically a valid tree) or `REACHED_MAX_DEPTH` when all subtrees were valid and no
   turning happens.
 
 - `depth`: the depth of the tree that was sampled from. Doubling steps that lead to an
@@ -273,7 +273,7 @@ function sample_trajectory(rng, trajectory, z, max_depth::Integer, directions::D
     (ζ, ω, τ), v = leaf(trajectory, z, true)
     z₋ = z₊ = z
     depth = 0
-    termination = REACHED_MAXDEPTH
+    termination = REACHED_MAX_DEPTH
     i₋ = i₊ = 0
     while depth < max_depth
         is_forward, directions = next_direction(directions)

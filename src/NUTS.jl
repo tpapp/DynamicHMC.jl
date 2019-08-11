@@ -166,7 +166,7 @@ struct TreeStatisticsNUTS
     π::Float64
     "Depth of the tree."
     depth::Int
-    "Reason for termination. See [`InvalidTree`](@ref) and [`REACHED_MAXDEPTH`](@ref)."
+    "Reason for termination. See [`InvalidTree`](@ref) and [`REACHED_MAX_DEPTH`](@ref)."
     termination::InvalidTree
     "Acceptance rate statistic."
     acceptance_rate::Float64
