@@ -187,12 +187,17 @@ function find_initial_stepsize(parameters::InitialStepsizeSearch, H, z)
 end
 
 """
+$(TYPEDEF)
+
 Parameters for the dual averaging algorithm of Gelman and Hoffman (2014, Algorithm 6).
 
-To get reasonable defaults, initialize with `DualAveragingParameters(logϵ₀)`. See
-[`adapting_ϵ`](@ref) for a joint constructor.
+To get reasonable defaults, initialize with `DualAveraging()`.
+
+# Fields
+
+$(FIELDS)
 """
-struct DualAveragingParameters{T}
+struct DualAveraging{T}
     "target acceptance rate"
     δ::T
     "regularization scale"
@@ -201,7 +206,7 @@ struct DualAveragingParameters{T}
     κ::T
     "offset"
     t₀::Int
-    function DualAveragingParameters(δ::T, γ::T, κ::T, t₀::Int) where {T <: Real}
+    function DualAveraging(δ::T, γ::T, κ::T, t₀::Int) where {T <: Real}
         @argcheck 0 < δ < 1
         @argcheck γ > 0
         @argcheck 0.5 < κ ≤ 1
@@ -210,12 +215,12 @@ struct DualAveragingParameters{T}
     end
 end
 
-function DualAveragingParameters(; δ = 0.8, γ = 0.05, κ = 0.75, t₀ = 10)
-    DualAveragingParameters(promote(δ, γ, κ)..., t₀)
+function DualAveraging(; δ = 0.8, γ = 0.05, κ = 0.75, t₀ = 10)
+    DualAveraging(promote(δ, γ, κ)..., t₀)
 end
 
 "Current state of adaptation for `ϵ`."
-struct DualAveragingAdaptation{T <: AbstractFloat}
+struct DualAveragingState{T <: AbstractFloat}
     μ::T
     m::Int
     H̄::T
@@ -228,17 +233,17 @@ $(SIGNATURES)
 
 Return the stepsize `ϵ` for the next HMC step while adapting.
 """
-current_ϵ(A::DualAveragingAdaptation, tuning = true) = exp(A.logϵ)
+current_ϵ(A::DualAveragingState, tuning = true) = exp(A.logϵ)
 
 """
 $(SIGNATURES)
 
 Return the final stepsize `ϵ` after adaptation.
 """
-final_ϵ(A::DualAveragingAdaptation, tuning = true) = exp(A.logϵ̄)
+final_ϵ(A::DualAveragingState, tuning = true) = exp(A.logϵ̄)
 
-function DualAveragingAdaptation(logϵ₀)
-    DualAveragingAdaptation(log(10) + logϵ₀, 0, zero(logϵ₀), logϵ₀, zero(logϵ₀))
+function DualAveragingState(logϵ₀)
+    DualAveragingState(log(10) + logϵ₀, 0, zero(logϵ₀), logϵ₀, zero(logϵ₀))
 end
 
 """
@@ -248,13 +253,13 @@ Update the adaptation `A` of log stepsize `logϵ` with average Metropolis accept
 over the whole visited trajectory, using the dual averaging algorithm of Gelman and Hoffman
 (2014, Algorithm 6). Return the new adaptation state.
 """
-function adapt_stepsize(parameters::DualAveragingParameters, A::DualAveragingAdaptation, a)
+function adapt_stepsize(parameters::DualAveraging, A::DualAveragingState, a)
     @argcheck 0 ≤ a ≤ 1
     @unpack δ, γ, κ, t₀ = parameters
     @unpack μ, m, H̄, logϵ, logϵ̄ = A
     m += 1
     H̄ += (δ - a - H̄) / (m + t₀)
-    logϵ = μ - √m/γ*H̄
+    logϵ = μ - √m/γ * H̄
     logϵ̄ += m^(-κ)*(logϵ - logϵ̄)
-    DualAveragingAdaptation(μ, m, H̄, logϵ, logϵ̄)
+    DualAveragingState(μ, m, H̄, logϵ, logϵ̄)
 end

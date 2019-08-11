@@ -159,7 +159,7 @@ A `NamedTuple` with the following fields:
 
 $(FIELDS)
 """
-struct TuningNUTS{M,D <: DualAveragingParameters}
+struct TuningNUTS{M,D <: DualAveraging}
     "Number of samples."
     N::Int
     "Dual averaging parameters."
@@ -218,7 +218,7 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
     chain = Vector{typeof(Q.q)}(undef, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
     H = Hamiltonian(κ, ℓ)
-    logϵ_adaptation = DualAveragingAdaptation(log(ϵ))
+    logϵ_adaptation = DualAveragingState(log(ϵ))
     ϵs = Vector{Float64}(undef, N)
     mcmc_reporter = make_mcmc_reporter(reporter, N; tuning = M ≡ Nothing ? "stepsize" :
                                        "stepsize and $(M) metric")
@@ -296,7 +296,7 @@ the sample.
 """
 function default_warmup_stages(;
                                M::Type{<:Union{Diagonal,Symmetric}} = Diagonal,
-                               dual_averaging = DualAveragingParameters(),
+                               dual_averaging = DualAveraging(),
                                init_steps = 75, middle_steps = 25, doubling_stages = 5,
                                terminating_steps = 50)
     (FindLocalOptimum(),

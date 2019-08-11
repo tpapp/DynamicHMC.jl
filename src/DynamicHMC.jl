@@ -16,7 +16,7 @@ export
     # reporting
     NoProgressReport, LogProgressReport,
     # mcmc
-    InitialStepsizeSearch, DualAveragingAdaptation, WarmupState, FindLocalOptimum,
+    InitialStepsizeSearch, DualAveragingState, WarmupState, FindLocalOptimum,
     TuningNUTS, mcmc_with_warmup
 
 using ArgCheck: @argcheck
