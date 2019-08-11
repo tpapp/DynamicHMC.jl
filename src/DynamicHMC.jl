@@ -13,6 +13,8 @@ module DynamicHMC
 export
     # kinetic energy
     GaussianKineticEnergy,
+    # NUTS
+    TreeOptionsNUTS,
     # reporting
     NoProgressReport, LogProgressReport,
     # mcmc

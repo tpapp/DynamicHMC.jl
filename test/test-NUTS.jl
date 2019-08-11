@@ -49,7 +49,7 @@ end
 ###
 
 @testset "low-level turn statistics" begin
-    trajectory = TrajectoryNUTS(nothing, 0, 1, -1000, GeneralizedTurnStatistic)
+    trajectory = TrajectoryNUTS(nothing, 0, 1, -1000, Val{:generalized})
     n = 3
     ρ₁ = ones(n)
     ρ₂ = 2*ρ₁
@@ -65,7 +65,7 @@ end
 end
 
 @testset "low-level visited statistics" begin
-    trajectory = TrajectoryNUTS(nothing, 0, 1, -1000, GeneralizedTurnStatistic)
+    trajectory = TrajectoryNUTS(nothing, 0, 1, -1000, Val{:generalized})
     vs(p, is_initial = false) = leaf_acceptance_statistic(log(p), is_initial)
     x = vs(0.3)
     @test acceptance_rate(x) ≈ 0.3

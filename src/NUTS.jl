@@ -94,7 +94,7 @@ struct GeneralizedTurnStatistic{T}
     ρ::T
 end
 
-function leaf_turn_statistic(::Val{GeneralizedTurnStatistic}, H, z)
+function leaf_turn_statistic(::Val{:generalized}, H, z)
     p♯ = calculate_p♯(H, z)
     GeneralizedTurnStatistic(p♯, p♯, z.p)
 end
@@ -117,7 +117,7 @@ struct ClassicTurnStatistic{T}
     z₊::T
 end
 
-leaf_turn_statistic(::Val{ClassicTurnStatistic}, H, z) = ClassicTurnStatistic(z, z)
+leaf_turn_statistic(::Val{:classic}, H, z) = ClassicTurnStatistic(z, z)
 
 function combine_turn_statistics(::TrajectoryNUTS,
                                  x::ClassicTurnStatistic, y::ClassicTurnStatistic)
@@ -128,7 +128,7 @@ function is_turning(::TrajectoryNUTS, τ::ClassicTurnStatistic)
     @unpack z₋, z₊ = τ
     @argcheck z₋ ≢ z₊ "internal error: is_turning called on a leaf"
     Δq = z₊.Q.q .- z₋.Q.q
-    dot(Δq, z_.p) < 0 || dot(Δq, z₊.p) < 0
+    dot(Δq, z₋.p) < 0 || dot(Δq, z₊.p) < 0
 end
 
 ###
@@ -170,11 +170,11 @@ struct TreeOptionsNUTS{S}
     max_depth::Int
     "Threshold for negative energy relative to starting point that indicated divergence."
     min_Δ::Float64
-    "Turn statistic configuration."
+    "Turn statistic configuration. Use `Val(:generalized)` (the default) or `Val(:classic)`."
     turn_statistic_configuration::S
     function TreeOptionsNUTS(; max_depth = DEFAULT_MAX_TREE_DEPTH,
                              min_Δ = -1000.0,
-                             turn_statistic_configuration = Val{GeneralizedTurnStatistic}())
+                             turn_statistic_configuration = Val{:generalized}())
         @argcheck 0 < max_depth ≤ MAX_DIRECTIONS_DEPTH
         @argcheck min_Δ < 0
         S = typeof(turn_statistic_configuration)
