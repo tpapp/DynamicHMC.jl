@@ -159,27 +159,27 @@ A `NamedTuple` with the following fields:
 
 $(FIELDS)
 """
-struct TuningNUTS{M,D <: DualAveraging}
+struct TuningNUTS{M,D}
     "Number of samples."
     N::Int
     "Dual averaging parameters."
-    dual_averaging::D
+    stepsize_adaptation::D
     """
     Regularization factor for normalizing variance. An estimated covariance matrix `Σ` is
     rescaled by `λ`` towards `σ²I`, where `σ²` is the median of the diagonal. The
     constructor has a reasonable default.
     """
     λ::Float64
-    function TuningNUTS{M}(N::Integer, dual_averaging::D,
+    function TuningNUTS{M}(N::Integer, stepsize_adaptation::D,
                            λ = 5.0/N) where {M <: Union{Nothing,Diagonal,Symmetric},D}
         @argcheck N ≥ 20        # variance estimator is kind of meaningless for few samples
         @argcheck λ ≥ 0
-        new{M,D}(N, dual_averaging, λ)
+        new{M,D}(N, stepsize_adaptation, λ)
     end
 end
 
 function Base.show(io::IO, tuning::TuningNUTS{M}) where {M}
-    @unpack N, dual_averaging, λ = tuning
+    @unpack N, stepsize_adaptation, λ = tuning
     print(io, "Stepsize and metric tuner, $(N) samples, $(M) metric, regularization $(λ)")
 end
 
@@ -214,22 +214,21 @@ end
 function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where {M}
     @unpack rng, ℓ, sampler_options, reporter = sampling_logdensity
     @unpack Q, κ, ϵ = warmup_state
-    @unpack N, dual_averaging, λ = tuning
+    @unpack N, stepsize_adaptation, λ = tuning
     chain = Vector{typeof(Q.q)}(undef, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
     H = Hamiltonian(κ, ℓ)
-    logϵ_adaptation = DualAveragingState(log(ϵ))
+    ϵ_state = initial_adaptation_state(stepsize_adaptation, ϵ)
     ϵs = Vector{Float64}(undef, N)
     mcmc_reporter = make_mcmc_reporter(reporter, N; tuning = M ≡ Nothing ? "stepsize" :
                                        "stepsize and $(M) metric")
     for i in 1:N
-        ϵ = current_ϵ(logϵ_adaptation)
+        ϵ = current_ϵ(ϵ_state)
         ϵs[i] = ϵ
         Q, stats = NUTS_sample_tree(rng, sampler_options, H, Q, ϵ)
         chain[i] = Q.q
         tree_statistics[i] = stats
-        logϵ_adaptation = adapt_stepsize(dual_averaging, logϵ_adaptation,
-                                         stats.acceptance_rate)
+        ϵ_state = adapt_stepsize(stepsize_adaptation, ϵ_state, stats.acceptance_rate)
         report(mcmc_reporter, i; ϵ = round(ϵ; sigdigits = REPORT_SIGDIGITS))
     end
     if M ≢ Nothing
@@ -237,7 +236,7 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
         report(mcmc_reporter, "adaptation finished", adapted_kinetic_energy = κ)
     end
     ((chain = chain, tree_statistics = tree_statistics, ϵs = ϵs),
-     WarmupState(Q, κ, final_ϵ(logϵ_adaptation)))
+     WarmupState(Q, κ, final_ϵ(ϵ_state)))
 end
 
 """
@@ -272,9 +271,9 @@ $(SIGNATURES)
 Helper function for constructing the “middle” doubling warmup stages in
 [`default_warmup_stages`](@ref).
 """
-function _doubling_warmup_stages(M, dual_averaging, middle_steps,
+function _doubling_warmup_stages(M, stepsize_adaptation, middle_steps,
                                  doubling_stages::Val{D}) where {D}
-    ntuple(i -> TuningNUTS{M}(middle_steps * 2^(i - 1), dual_averaging), D)
+    ntuple(i -> TuningNUTS{M}(middle_steps * 2^(i - 1), stepsize_adaptation), D)
 end
 
 """
@@ -296,14 +295,14 @@ the sample.
 """
 function default_warmup_stages(;
                                M::Type{<:Union{Diagonal,Symmetric}} = Diagonal,
-                               dual_averaging = DualAveraging(),
+                               stepsize_adaptation = DualAveraging(),
                                init_steps = 75, middle_steps = 25, doubling_stages = 5,
                                terminating_steps = 50)
     (FindLocalOptimum(),
      InitialStepsizeSearch(),
-     TuningNUTS{Nothing}(init_steps, dual_averaging),
-     _doubling_warmup_stages(M, dual_averaging, middle_steps, Val(doubling_stages))...,
-     TuningNUTS{Nothing}(terminating_steps, dual_averaging))
+     TuningNUTS{Nothing}(init_steps, stepsize_adaptation),
+     _doubling_warmup_stages(M, stepsize_adaptation, middle_steps, Val(doubling_stages))...,
+     TuningNUTS{Nothing}(terminating_steps, stepsize_adaptation))
 end
 
 function _warmup(sampling_logdensity, stages, initial_state)

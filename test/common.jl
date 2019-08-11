@@ -23,7 +23,8 @@ using DynamicHMC:
     TrajectoryNUTS, rand_bool, TurnStatistic, AcceptanceStatistic, leaf_acceptance_statistic,
     acceptance_rate, TreeStatisticsNUTS,
     # stepsize
-    InitialStepsizeSearch, find_initial_stepsize,
+    find_crossing_stepsize, bisect_stepsize, find_initial_stepsize, InitialStepsizeSearch,
+    DualAveraging, initial_adaptation_state, adapt_stepsize, current_ϵ, final_ϵ, FixedStepsize,
     # mcmc
     position_matrix
 

@@ -231,19 +231,12 @@ end
 """
 $(SIGNATURES)
 
-Return the stepsize `ϵ` for the next HMC step while adapting.
+Return an initial adaptation state for the adaptation method and a stepsize `ϵ`.
 """
-current_ϵ(A::DualAveragingState, tuning = true) = exp(A.logϵ)
-
-"""
-$(SIGNATURES)
-
-Return the final stepsize `ϵ` after adaptation.
-"""
-final_ϵ(A::DualAveragingState, tuning = true) = exp(A.logϵ̄)
-
-function DualAveragingState(logϵ₀)
-    DualAveragingState(log(10) + logϵ₀, 0, zero(logϵ₀), logϵ₀, zero(logϵ₀))
+function initial_adaptation_state(::DualAveraging, ϵ)
+    @argcheck ϵ > 0
+    logϵ = log(ϵ)
+    DualAveragingState(log(10) + logϵ, 0, zero(logϵ), logϵ, zero(logϵ))
 end
 
 """
@@ -263,3 +256,36 @@ function adapt_stepsize(parameters::DualAveraging, A::DualAveragingState, a)
     logϵ̄ += m^(-κ)*(logϵ - logϵ̄)
     DualAveragingState(μ, m, H̄, logϵ, logϵ̄)
 end
+
+"""
+$(SIGNATURES)
+
+Return the stepsize `ϵ` for the next HMC step while adapting.
+"""
+current_ϵ(A::DualAveragingState, tuning = true) = exp(A.logϵ)
+
+"""
+$(SIGNATURES)
+
+Return the final stepsize `ϵ` after adaptation.
+"""
+final_ϵ(A::DualAveragingState, tuning = true) = exp(A.logϵ̄)
+
+###
+### fixed stepsize adaptation placeholder
+###
+
+"""
+$(SIGNATURES)
+
+Adaptation with fixed stepsize. Leaves `ϵ` unchanged.
+"""
+struct FixedStepsize end
+
+initial_adaptation_state(::FixedStepsize, ϵ) = ϵ
+
+adapt_stepsize(::FixedStepsize, ϵ, a) = ϵ
+
+current_ϵ(ϵ::Real) = ϵ
+
+final_ϵ(ϵ::Real) = ϵ
