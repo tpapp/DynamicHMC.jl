@@ -1,3 +1,5 @@
+isinteractive() && include("common.jl")
+
 ####
 #### utilities
 ####
@@ -62,14 +64,16 @@ end
     @test is_turning(trajectory, TurnStatistic(p₂, copy(p₂), ρ₁))
 end
 
-@testset "low-level divergence statistics" begin
+@testset "low-level visited statistics" begin
     trajectory = TrajectoryNUTS(nothing, 0, 1, -1000)
-    a(p, divergent = false) = DivergenceStatistic(divergent, p, 1)
-    x = a(0.3)
+    vs(p, is_initial = false) = leaf_acceptance_statistic(log(p), is_initial)
+    x = vs(0.3)
     @test acceptance_rate(x) ≈ 0.3
-    y = a(0.6)
+    y = vs(0.6)
     @test acceptance_rate(y) ≈ 0.6
-    z = reduce((x, y) -> combine_divergence_statistics(trajectory, x, y), [x, x, y])
+    x0 = vs(10, true)    # initial node, does not count
+    z = reduce((x, y) -> combine_visited_statistics(trajectory, x, y),
+               [x, x, y, x0])
     @test acceptance_rate(z) ≈ 0.4
 end
 

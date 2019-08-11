@@ -13,8 +13,8 @@ module DynamicHMC
 export
     # kinetic energy
     GaussianKineticEnergy,
-    # NUTS
-    TreeStatisticsNUTS,
+    # reporting
+    NoProgressReport, LogProgressReport,
     # mcmc
     InitialStepsizeSearch, DualAveragingAdaptation, WarmupState, FindLocalOptimum,
     TuningNUTS, mcmc_with_warmup

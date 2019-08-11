@@ -46,57 +46,40 @@ function combine_proposals(rng, ::TrajectoryNUTS, z₁, z₂, logprob2::Real, is
 end
 
 ###
-### divergence statistics
+### statistics for visited nodes
 ###
 
-"""
-Divergence and acceptance statistics.
-
-Calculated over all visited phase points (not just the tree that is sampled from).
-"""
-struct DivergenceStatistic{Tf}
-    "`true` iff the sampler was terminated because of divergence."
-    divergent::Bool
+struct AcceptanceStatistic{T}
     """
-    Sum of metropolis acceptances probabilities over the whole trajectory (including invalid
-    parts).
+    Logarithm of the sum of metropolis acceptances probabilities over the whole trajectory
+    (including invalid parts).
     """
-    ∑a::Tf
+    log_sum_α::T
     "Total number of leapfrog steps."
     steps::Int
 end
 
-"""
-$(SIGNATURES)
-
-Empty divergence statistic (for initial node).
-"""
-divergence_statistic() = DivergenceStatistic(false, 0.0, 0)
-
-"""
-$(SIGNATURES)
-
-Divergence statistic for leaves. `Δ` is the log density relative to the initial
-point.
-"""
-function divergence_statistic(is_divergent, Δ)
-    DivergenceStatistic(is_divergent, Δ ≥ 0 ? one(Δ) : exp(Δ), 1)
-end
-
-is_divergent(::TrajectoryNUTS, x::DivergenceStatistic) = x.divergent
-
-function combine_divergence_statistics(::TrajectoryNUTS,
-                                       x::DivergenceStatistic, y::DivergenceStatistic)
-    # A divergent subtree make a tree divergent, but acceptance information is kept.
-    DivergenceStatistic(x.divergent || y.divergent, x.∑a + y.∑a, x.steps + y.steps)
+function combine_acceptance_statistics(A::AcceptanceStatistic, B::AcceptanceStatistic)
+    AcceptanceStatistic(logaddexp(A.log_sum_α, B.log_sum_α), A.steps + B.steps)
 end
 
 """
 $(SIGNATURES)
 
-Return the acceptance rate (a `Real` between `0` and `1`).
+Acceptance statistic for a leaf. The initial leaf is considered not to be visited.
 """
-acceptance_rate(x::DivergenceStatistic) = x.∑a / x.steps
+function leaf_acceptance_statistic(Δ, is_initial)
+    is_initial ? AcceptanceStatistic(oftype(Δ, -Inf), 0) : AcceptanceStatistic(min(Δ, 0), 1)
+end
+
+"""
+$(SIGNATURES)
+
+Return the acceptance rate (a `Real` betwen `0` and `1`).
+"""
+acceptance_rate(A::AcceptanceStatistic) = min(exp(A.log_sum_α) / A.steps, 1)
+
+combine_visited_statistics(::TrajectoryNUTS, v, w) = combine_acceptance_statistics(v, w)
 
 ###
 ### turn analysis
@@ -128,10 +111,14 @@ function leaf(trajectory::TrajectoryNUTS, z, is_initial)
     @unpack H, π₀, min_Δ = trajectory
     Δ = is_initial ? zero(π₀) : logdensity(H, z) - π₀
     isdiv = Δ < min_Δ
-    d = is_initial ? divergence_statistic() : divergence_statistic(isdiv, Δ)
-    ζ = isdiv ? nothing : z
-    τ = isdiv ? nothing : (p♯ = calculate_p♯(trajectory.H, z); TurnStatistic(p♯, p♯, z.p))
-    ζ, Δ, τ, d
+    v = leaf_acceptance_statistic(Δ, is_initial)
+    if isdiv
+        nothing, v
+    else
+        p♯ = calculate_p♯(trajectory.H, z)
+        τ = TurnStatistic(p♯, p♯, z.p)
+        (z, Δ, τ), v
+    end
 end
 
 ####
@@ -139,18 +126,24 @@ end
 ####
 
 "Default maximum depth for trees."
-const MAX_DEPTH = 10
+const DEFAULT_MAX_TREE_DEPTH = 10
 
 """
 $(TYPEDEF)
 
 Options for building NUTS trees. These are the parameters that are expected to remain stable
 during adaptation and sampling.
+
+# Fields
+
+$(FIELDS)
 """
 struct TreeOptionsNUTS
+    "Maximum tree depth."
     max_depth::Int
+    "Threshold for negative energy relative to starting point that indicated divergence."
     min_Δ::Float64
-    function TreeOptionsNUTS(; max_depth = MAX_DEPTH, min_Δ = -1000.0)
+    function TreeOptionsNUTS(; max_depth = DEFAULT_MAX_TREE_DEPTH, min_Δ = -1000.0)
         @argcheck 0 < max_depth ≤ MAX_DIRECTIONS_DEPTH
         @argcheck min_Δ < 0
         new(Int(max_depth), Float64(min_Δ))
@@ -162,17 +155,21 @@ $(TYPEDEF)
 
 Diagnostic information for a single tree built with the No-U-turn sampler.
 
+# Fields
+
 Accessing fields directly is part of the API.
+
+$(FIELDS)
 """
 struct TreeStatisticsNUTS
     "Log density (negative energy)."
     π::Float64
     "Depth of the tree."
     depth::Int
-    "Reason for termination."
-    termination::Termination
-    "Average acceptance probability."
-    acceptance_statistic::Float64
+    "Reason for termination. See [`InvalidTree`](@ref) and [`REACHED_MAXDEPTH`](@ref)."
+    termination::InvalidTree
+    "Acceptance rate statistic."
+    acceptance_rate::Float64
     "Number of leapfrog steps evaluated."
     steps::Int
     "Directions for tree doubling (useful for debugging)."
@@ -193,9 +190,9 @@ function NUTS_sample_tree(rng, options::TreeOptionsNUTS, H::Hamiltonian,
     z = PhasePoint(Q, rand_p(rng, H.κ))
     trajectory = TrajectoryNUTS(H, logdensity(H, z), ϵ, options.min_Δ)
     directions = rand(rng, Directions)
-    ζ, d, termination, depth = sample_trajectory(rng, trajectory, z, options.max_depth,
+    ζ, v, termination, depth = sample_trajectory(rng, trajectory, z, options.max_depth,
                                                  directions)
     statistics = TreeStatisticsNUTS(logdensity(H, ζ), depth, termination,
-                                    acceptance_rate(d), d.steps, directions)
+                                    acceptance_rate(v), v.steps, directions)
     ζ.Q, statistics
 end

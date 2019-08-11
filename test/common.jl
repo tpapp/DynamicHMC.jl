@@ -6,23 +6,22 @@
 #### packages and symbols
 ####
 
-using DynamicHMC, Test, ArgCheck, DataStructures, Distributions, DocStringExtensions,
-    LinearAlgebra, MCMCDiagnostics, Parameters, Random, StatsBase, StatsFuns, Statistics,
-    HypothesisTests
+using DynamicHMC, Test, ArgCheck, Distributions, DocStringExtensions, LinearAlgebra,
+    MCMCDiagnostics, Parameters, Random, StatsBase, StatsFuns, Statistics, HypothesisTests
 
 import ForwardDiff, Random
 
 using DynamicHMC:
     # trees
     Directions, next_direction, biased_progressive_logprob2, adjacent_tree,
-    sample_trajectory,
+    sample_trajectory, InvalidTree,
     # Hamiltonian
     GaussianKineticEnergy, kinetic_energy, ∇kinetic_energy, rand_p, Hamiltonian,
     EvaluatedLogDensity, evaluate_ℓ, PhasePoint, logdensity, leapfrog,
     logdensity,
     # NUTS
-    TrajectoryNUTS, rand_bool, TurnStatistic, DivergenceStatistic, divergence_statistic,
-    acceptance_rate, TreeStatisticsNUTS, Termination,
+    TrajectoryNUTS, rand_bool, TurnStatistic, AcceptanceStatistic, leaf_acceptance_statistic,
+    acceptance_rate, TreeStatisticsNUTS,
     # stepsize
     InitialStepsizeSearch, find_initial_stepsize,
     # mcmc
@@ -31,7 +30,7 @@ using DynamicHMC:
 import DynamicHMC:
     # trees
     move, is_turning, combine_turn_statistics, is_divergent,
-    combine_divergence_statistics, calculate_logprob2, combine_proposals, leaf
+    combine_visited_statistics, calculate_logprob2, combine_proposals, leaf
 
 using DynamicHMC.Diagnostics
 using DynamicHMC.Diagnostics: ACCEPTANCE_QUANTILES

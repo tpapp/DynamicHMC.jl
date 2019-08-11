@@ -229,7 +229,7 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
         chain[i] = Q.q
         tree_statistics[i] = stats
         logϵ_adaptation = adapt_stepsize(dual_averaging, logϵ_adaptation,
-                                         stats.acceptance_statistic)
+                                         stats.acceptance_rate)
         report(mcmc_reporter, i; ϵ = round(ϵ; sigdigits = REPORT_SIGDIGITS))
     end
     if M ≢ Nothing
@@ -385,7 +385,7 @@ function mcmc_with_warmup(rng, ℓ, N; initialization = (),
     @unpack warmup_state, inference =
         mcmc_keep_warmup(rng, ℓ, N; initialization = initialization,
                          warmup_stages = warmup_stages, sampler_options = sampler_options,
-                         reporter = default_reporter())
+                         reporter = reporter)
     @unpack κ, ϵ = warmup_state
     (inference..., κ = κ, ϵ = ϵ)
 end

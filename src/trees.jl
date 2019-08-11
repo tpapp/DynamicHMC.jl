@@ -47,7 +47,7 @@ function move end
 """
     $(FUNCTIONNAME)(trajectory, τ)
 
-Test if the turn statistics indicate that the corresponding tree is turning.
+Test if the turn statistics `τ` indicate that the corresponding tree is turning.
 
 Will only be called on nontrivial trees (at least two nodes).
 """
@@ -62,19 +62,12 @@ correspond to the turn statistics have the same ordering.
 function combine_turn_statistics end
 
 """
-    $(FUNCTIONNAME)(trajectory, d)
+    $(FUNCTIONNAME)(trajectory, v₁, v₂)
 
-Test if the divergence statistics indicate that the corresponding tree is divergent.
+Combine visited node statistics for adjacent trees trajectory. Implementation should be
+invariant to the ordering of `v₁` and `v₂` (ie the operation is commutative).
 """
-function is_divergent end
-
-"""
-    $(FUNCTIONNAME)(trajectory, d₁, d₂)
-
-Combine divergence statistics for adjacent trees trajectory. Implementation should be
-invariant to the ordering of `d₁` and `d₂` (ie the operation is commutative).
-"""
-function combine_divergence_statistics end
+function combine_visited_statistics end
 
 """
     $(FUNCTIONNAME)(trajectory, is_doubling::Bool, ω₁, ω₂, ω)
@@ -100,16 +93,19 @@ selecting `ζ₂`.
 function combine_proposals end
 
 """
-    ζ, ω, τ, d = $(FUNCTIONNAME)(trajectory, z, is_initial)
+    ζωτ_or_nothing, v = $(FUNCTIONNAME)(trajectory, z, is_initial)
 
-Return
+Information for a tree made of a single node. When `is_initial == true`, this is the first
+node.
 
-- the proposal `ζ`,
-- the log weight (probability) of node `ω`,
-- turn statistics `τ` (never tested as with `is_turning` for leafs), and
-- divergence statistics `d`
+The first value is either
 
-for a tree made of a single node. When `is_initial == true`, this is the first node.
+1. `nothing` for a divergent node,
+
+2. a tuple containing the proposal `ζ`, the log weight (probability) of the node `ω`, the
+turn statistics `τ` (never tested as with `is_turning` for leafs).
+
+The second value is the visited node information.
 """
 function leaf end
 
@@ -158,48 +154,100 @@ end
 ####
 
 """
-    ζ, τ, d, z = adjacent_tree(rng, trajectory, z, depth, is_forward)
+$(SIGNATURES)
+
+Information about an invalid (sub)tree, using positions relative to the starting node.
+
+1. When `left < right`, this tree was *turning*.
+
+2. When `left == right`, this is a *divergent* node.
+
+3. `left == 1 && right == 0` is used as a sentinel value for reaching maximum depth without
+encountering any invalid trees (see [`REACHED_MAXDEPTH`](@ref). All other `left > right`
+values are disallowed.
+"""
+struct InvalidTree
+    left::Int
+    right::Int
+end
+
+InvalidTree(i::Integer) = InvalidTree(i, i)
+
+is_divergent(invalid_tree::InvalidTree) = invalid_tree.left == invalid_tree.right
+
+function Base.show(io::IO, invalid_tree::InvalidTree)
+    msg = if is_divergent(invalid_tree)
+        "divergence at position $(invalid_tree.left)"
+    elseif invalid_tree == REACHED_MAXDEPTH
+        "reached maximum depth without divergence or turning"
+    else
+        @unpack left, right = invalid_tree
+        "turning at positions $(left):$(right)"
+    end
+    print(io, msg)
+end
+
+"Sentinel value for reaching maximum depth."
+const REACHED_MAXDEPTH = InvalidTree(1, 0)
+
+"""
+    result, v = adjacent_tree(rng, trajectory, z, i, depth, is_forward)
 
 Traverse the tree of given `depth` adjacent to point `z` in `trajectory`.
 
 `is_forward` specifies the direction, `rng` is used for random numbers in
-[`combine_proposals`](@ref).
+[`combine_proposals`](@ref). `i` is an integer position relative to the initial node (`0`).
 
-Return:
+The *first value* is either
 
-- `ζ`: the proposal from the tree. Only valid when `!isdivergent(d) && !isturning(τ)`,
-otherwise the value should not be used.
+1. an `InvalidTree`, indicating the first divergent node or turning subtree that was
+encounteted and invalidated this tree.
 
-- `ω`: the log weight of the subtree that corresponds to the proposal; valid if `ζ` is.
+2. a tuple of `(ζ, ω, τ, z′, i′), with
 
-- `τ`: turn statistics. Only valid when `!isdivergent(d)`.
+    - `ζ`: the proposal from the tree.
 
-- `d`: divergence statistics, always valid.
+    - `ω`: the log weight of the subtree that corresponds to the proposal
 
-- `z`: the point at the edge of the tree (depending on the direction).
+    - `τ`: turn statistics
+
+    - `z′`: the last node of the tree
+
+    - `i′`: the position of the last node relative to the initial node.
+
+The *second value* is always the visited node statistic.
 """
-function adjacent_tree(rng, trajectory, z, depth, is_forward)
+function adjacent_tree(rng, trajectory, z, i, depth, is_forward)
+    i′ = i + (is_forward ? 1 : -1)
     if depth == 0
-        z = move(trajectory, z, is_forward)
-        ζ, ω, τ, d = leaf(trajectory, z, false)
-        ζ, ω, τ, d, z
+        z′ = move(trajectory, z, is_forward)
+        ζωτ, v = leaf(trajectory, z′, false)
+        if ζωτ ≡ nothing
+            InvalidTree(i′), v
+        else
+            (ζωτ..., z′, i′), v
+        end
     else
-        ζ₋, ω₋, τ₋, d₋, z = adjacent_tree(rng, trajectory, z, depth - 1, is_forward)
-        (is_divergent(trajectory, d₋) || (depth > 1 && is_turning(trajectory, τ₋))) &&
-            return ζ₋, ω₋, τ₋, d₋, z
-        ζ₊, ω₊, τ₊, d₊, z = adjacent_tree(rng, trajectory, z, depth - 1, is_forward)
-        d = combine_divergence_statistics(trajectory, d₋, d₊)
-        (is_divergent(trajectory, d) || (depth > 1 && is_turning(trajectory, τ₊))) &&
-            return ζ₊, ω₋, τ₊, d, z
+        # “left” tree
+        t₋, v₋ = adjacent_tree(rng, trajectory, z, i, depth - 1, is_forward)
+        t₋ isa InvalidTree && return t₋, v₋
+        ζ₋, ω₋, τ₋, z₋, i₋ = t₋
+
+        # “right” tree — visited information from left is kept even if invalid
+        t₊, v₊ = adjacent_tree(rng, trajectory, z₋, i₋, depth - 1, is_forward)
+        v = combine_visited_statistics(trajectory, v₋, v₊)
+        t₊ isa InvalidTree && return t₊, v
+        ζ₊, ω₊, τ₊, z₊, i₊ = t₊
+
+        # turning invalidates
         τ = combine_turn_statistics_in_direction(trajectory, τ₋, τ₊, is_forward)
-        ζ, ω = is_turning(trajectory, τ) ? (ζ₋, ω₋) :
-            combine_proposals_and_logweights(rng, trajectory, ζ₋, ζ₊, ω₋, ω₊, is_forward, false)
-        ζ, ω, τ, d, z
+        is_turning(trajectory, τ) && return InvalidTree(i′, i₊), v
+
+        # valid subtree, combine proposals
+        ζ, ω = combine_proposals_and_logweights(rng, trajectory, ζ₋, ζ₊, ω₋, ω₊, is_forward, false)
+        (ζ, ω, τ, z₊, i₊), v
     end
 end
-
-"Reason for terminating a trajectory."
-@enum Termination MaxDepth AdjacentDivergent AdjacentTurn DoubledTurn
 
 """
 $(SIGNATURES)
@@ -211,32 +259,49 @@ Return the following values
 
 - `ζ`: proposal from the tree
 
-- `d`: divergence statistics
+- `v`: visited node statistics
 
-- `termination`: reason for termination (see [`Termination`](@ref))
+- `termination`: an `InvalidTree` (this includes the last doubling step turning, which is
+  technically a valid tree) or `REACHED_MAXDEPTH` when all subtrees were valid and no
+  turning happens.
 
 - `depth`: the depth of the tree that was sampled from. Doubling steps that lead to an
   invalid adjacent tree do not contribute to `depth`.
 """
 function sample_trajectory(rng, trajectory, z, max_depth::Integer, directions::Directions)
     @argcheck max_depth ≤ MAX_DIRECTIONS_DEPTH
-    ζ, ω, τ, d = leaf(trajectory, z, true)
+    (ζ, ω, τ), v = leaf(trajectory, z, true)
     z₋ = z₊ = z
     depth = 0
-    termination = MaxDepth
+    termination = REACHED_MAXDEPTH
+    i₋ = i₊ = 0
     while depth < max_depth
         is_forward, directions = next_direction(directions)
-        ζ′, ω′, τ′, d′, z = adjacent_tree(rng, trajectory, is_forward ? z₊ : z₋,
-                                          depth, is_forward)
-        d = combine_divergence_statistics(trajectory, d, d′)
-        is_divergent(trajectory, d) && (termination = AdjacentDivergent; break)
-        (depth > 0 && is_turning(trajectory, τ′)) && (termination = AdjacentTurn; break)
+        t′, v′ = adjacent_tree(rng, trajectory, is_forward ? z₊ : z₋, is_forward ? i₊ : i₋,
+                               depth, is_forward)
+        v = combine_visited_statistics(trajectory, v, v′)
+
+        # invalid adjacent tree: stop
+        t′ isa InvalidTree && (termination = t′; break)
+
+        # extract information from adjacent tree
+        ζ′, ω′, τ′, z′, i′ = t′
+
+        # update edges and combine proposals
+        if is_forward
+            z₊, i₊ = z′, i′
+        else
+            z₋, i₋ = z′, i′
+        end
+
+        # tree has doubled successfully
         ζ, ω = combine_proposals_and_logweights(rng, trajectory, ζ, ζ′, ω, ω′,
                                                 is_forward, true)
-        τ = combine_turn_statistics_in_direction(trajectory, τ, τ′, is_forward)
-        is_forward ? z₊ = z : z₋ = z
         depth += 1
-        is_turning(trajectory, τ) && (termination = DoubledTurn; break)
+
+        # when the combined tree is turning, stop
+        τ = combine_turn_statistics_in_direction(trajectory, τ, τ′, is_forward)
+        is_turning(trajectory, τ) && (termination = InvalidTree(i₋, i₊); break)
     end
-    ζ, d, termination, depth
+    ζ, v, termination, depth
 end

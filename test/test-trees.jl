@@ -1,3 +1,9 @@
+isinteractive() && include("common.jl")
+
+####
+#### test directions mechanism
+####
+
 @testset "directions" begin
     directions = Directions(0b110101)
     is_forwards = Vector{Bool}()
@@ -8,6 +14,10 @@
     @test collect(is_forwards) == [true, false, true, false, true, true]
     @test rand(RNG, Directions).flags isa UInt32
 end
+
+####
+#### dummy trajectory for unit testing
+####
 
 """
 Trajectory type that is easy to inspect and reason about, for unit testing.
@@ -35,7 +45,7 @@ move(::DummyTrajectory, z, is_forward) = z + (is_forward ? 1 : -1)
 
 function is_turning(::DummyTrajectory, τ)
     turn_flag, positions = τ
-    @test length(positions) > 1
+    @test length(positions) > 1 # not called on a leaf
     turn_flag
 end
 
@@ -46,12 +56,10 @@ function combine_turn_statistics(::DummyTrajectory, τ₁, τ₂)
     (turn_flag1 && turn_flag2, first(positions1):last(positions2))
 end
 
-is_divergent(::DummyTrajectory, d) = first(d)
-
-function combine_divergence_statistics(::DummyTrajectory, d₁, d₂)
-    f1, a1, s1 = d₁
-    f2, a2, s2 = d₂
-    (f1 || f2, a1 + a2, s1 + s2)
+function combine_visited_statistics(::DummyTrajectory, v₁, v₂)
+    a1, s1 = v₁
+    a2, s2 = v₂
+    (a1 + a2, s1 + s2)
 end
 
 function combine_proposals(_, ::DummyTrajectory, zeta1, zeta2, logprob2, is_forward)
@@ -74,88 +82,91 @@ end
 
 function leaf(trajectory::DummyTrajectory, z, is_initial)
     @unpack turning, divergent, ℓ, visited = trajectory
-    Δ = ℓ(z)
     d = z ∈ divergent
     is_initial && @argcheck !d                              # don't start with divergent
+    Δ = ℓ(z)
+    v = is_initial ? (0.0, 0) : (min(exp(Δ), 1), 1)
     !is_initial && push!(visited, z)                        # save position
-    ((z:z, [0.0]),                                          # ζ = nodes, log prob. within tree
-     Δ,                                                     # ω = Δ for leaf
-     (z ∈ turning, z:z),                                    # τ
-     is_initial ? (false, 0.0, 0) : (d, min(exp(Δ), 1), 1)) # d
+    if d
+        nothing, v
+    else
+        (((z:z, [0.0]),          # ζ = nodes, log prob. within tree
+          Δ,                     # ω = Δ for leaf
+          (z ∈ turning, z:z)),   # τ
+         v)
+    end
 end
 
+"A log density for testing."
 testℓ(z) = -abs2(z - 3) * 0.1
 
-testA(ℓ, z) = sum(min.(exp.(ℓ.(z))))
+"Total acceptance rate of `ℓ` over `z`"
+testA(ℓ, z) = sum(min.(exp.(ℓ.(z)), 1))
 
 "sum of acceptance rates for trajectory."
 testA(trajectory::DummyTrajectory) = testA(trajectory.ℓ, trajectory.visited)
 
 @testset "dummy adjacent tree full" begin
     trajectory = DummyTrajectory(testℓ)
-    ζ, ω, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 2, true)
+    (ζ, ω, τ, z′, i′), v = adjacent_tree(nothing, trajectory, 0, 0, 2, true)
     @test first(ζ) == 1:4
     @test sum(exp, last(ζ)) ≈ 1
     @test trajectory.visited == 1:4
     @test !is_turning(trajectory, τ)
-    @test !is_divergent(trajectory, d)
-    @test d[2] ≈ testA(trajectory)
-    @test d[3] == 4
-    @test z′ == 4
+    @test v[1] ≈ testA(trajectory)
+    @test v[2] == 4
+    @test z′ = i′ == 4
 end
 
 @testset "dummy adjacent tree turning" begin
     trajectory = DummyTrajectory(testℓ; turning = 5:7)
-    ζ, ω, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, true)
+    t, v = adjacent_tree(nothing, trajectory, 0, 0, 3, true)
     @test trajectory.visited == 1:6 # [5,6] is turning
-    @test is_turning(trajectory, τ)
-    @test !is_divergent(trajectory, d)
-    @test d[2] == testA(trajectory)
-    @test d[3] == 6
-    @test z′ == 6
+    @test t == InvalidTree(5, 6)
+    @test v[1] == testA(trajectory)
+    @test v[2] == 6
 end
 
 @testset "dummy adjacent tree divergent" begin
     trajectory = DummyTrajectory(testℓ; divergent = 5:7)
-    ζ, ω, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, true)
+    t, v = adjacent_tree(nothing, trajectory, 0, 0, 3, true)
     @test trajectory.visited == 1:5 # 5 is divergent
-    @test is_divergent(trajectory, d)
-    @test d[2] ≈ testA(testℓ, 1:5)
-    @test d[3] == 5
-    @test z′ == 5
+    @test t == InvalidTree(5)
+    @test v[1] ≈ testA(testℓ, 1:5)
+    @test v[2] == 5
 end
 
 @testset "dummy adjacent tree full backward" begin
     trajectory = DummyTrajectory(testℓ)
-    ζ, ω, τ, d, z′ = adjacent_tree(nothing, trajectory, 0, 3, false)
+    (ζ, ω, τ, z′, i′), v = adjacent_tree(nothing, trajectory, 0, 0, 3, false)
     @test first(ζ) == -8:-1
     @test sum(exp, last(ζ)) ≈ 1
     @test trajectory.visited == -(1:8)
     @test !is_turning(trajectory, τ)
-    @test !is_divergent(trajectory, d)
-    @test d[2] ≈ testA(testℓ, -(1:8))
-    @test d[3] == 8
-    @test z′ == -8
+    @test v[1] ≈ testA(testℓ, -(1:8))
+    @test v[2] == 8
+    @test z′ == i′ == -8
 end
 
 @testset "dummy sampled tree" begin
     trajectory = DummyTrajectory(testℓ)
-    ζ, d, termination, depth = sample_trajectory(nothing, trajectory, 0, 3, Directions(0b101))
+    ζ, v, termination, depth = sample_trajectory(nothing, trajectory, 0, 3, Directions(0b101))
     @test trajectory.visited == [1, -1, -2, 2, 3, 4, 5]
     @test first(ζ) == -2:5
     @test sum(exp, last(ζ)) ≈ 1
-    @test termination == DynamicHMC.MaxDepth
-    @test !is_divergent(trajectory, d)
-    @test d[2] ≈ testA(trajectory)
-    @test d[3] == 7             # initial node does not participate in acceptance rate
+    @test termination == DynamicHMC.REACHED_MAXDEPTH
+    @test v[1] ≈ testA(trajectory)
+    @test v[2] == 7             # initial node does not participate in acceptance rate
 end
 
 ####
 #### Detailed balance tests
 ####
 
+"An accumulator for log probabilities associated with a position on a trajectory."
 empty_accumulator() = Dict{Int,Float64}()
 
+"Add log probabilities `πs` at positions `zs` into `accumulator`."
 function add_log_probabilities!(accumulator, zs, πs)
     for (z, π) in zip(zs, πs)
         accumulator[z] = haskey(accumulator, z) ? logaddexp(accumulator[z], π) : π
@@ -163,11 +174,16 @@ function add_log_probabilities!(accumulator, zs, πs)
     accumulator
 end
 
+"Normalize an accumulator by depth."
 function normalize_accumulator(accumulator, depth)
     D = log(0.5) * depth
     Dict((k => v + D) for (k, v) in pairs(accumulator))
 end
 
+"""
+An accumulator with the probability of visiting nodes for all trees with `depth`, strarting
+from `z`, on `trajectory`.
+"""
 function visited_log_probabilities(trajectory, z, depth)
     accumulator = empty_accumulator()
     for flags in 0:(2^depth - 1)
@@ -177,6 +193,10 @@ function visited_log_probabilities(trajectory, z, depth)
     normalize_accumulator(accumulator, depth)
 end
 
+"""
+The probability of visiting node `z′` for all trees with `depth`, strarting from `z`, on
+`trajectory`.
+"""
 function transition_log_probability(trajectory, z, z′, depth)
     p = -Inf
     for flags in 0:(2^depth - 1)

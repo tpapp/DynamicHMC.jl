@@ -4,14 +4,15 @@
 
 module Diagnostics
 
-export EBFMI, NUTS_statistics, explore_log_acceptance_ratios, leapfrog_trajectory
+export EBFMI, summarize_tree_statistics, explore_log_acceptance_ratios, leapfrog_trajectory,
+    InvalidTree, REACHED_MAXDEPTH, is_divergent
 
-using DynamicHMC: Termination, GaussianKineticEnergy, Hamiltonian, evaluate_ℓ,
-    log_acceptance_ratio, PhasePoint, rand_p, leapfrog, logdensity
+using DynamicHMC: GaussianKineticEnergy, Hamiltonian, evaluate_ℓ, InvalidTree,
+    REACHED_MAXDEPTH, is_divergent, log_acceptance_ratio, PhasePoint, rand_p, leapfrog,
+    logdensity, MAX_DIRECTIONS_DEPTH
 
 using ArgCheck: @argcheck
-using DataStructures: counter
-using DocStringExtensions: SIGNATURES
+using DocStringExtensions: SIGNATURES, TYPEDEF
 using LogDensityProblems: dimension
 using Parameters: @unpack
 import Random
@@ -25,19 +26,20 @@ chosen kinetic energies.
 
 Low values (`≤ 0.3`) are considered problematic. See Betancourt (2016).
 """
-EBFMI(sample) = (πs = map(x -> x.π, sample); mean(abs2, diff(πs)) / var(πs))
+function EBFMI(tree_statistics)
+    (πs = map(x -> x.π, tree_statistics); mean(abs2, diff(πs)) / var(πs))
+end
 
-
-"Acceptance quantiles for [`NUTS_Statistics`](@ref) diagnostic summary."
-const ACCEPTANCE_QUANTILES = range(0; stop = 1, length = 5)
+"Acceptance quantiles for [`TreeStatisticsSummary`](@ref) diagnostic summary."
+const ACCEPTANCE_QUANTILES = [0.05, 0.25, 0.5, 0.75, 0.95]
 
 """
+$(TYPEDEF)
+
 Storing the output of [`NUTS_statistics`](@ref) in a structured way, for pretty
 printing. Currently for internal use.
 """
-struct NUTS_Statistics{T <: Real,
-                       DT <: AbstractDict{Termination,Int},
-                       DD <: AbstractDict{Int,Int}}
+struct TreeStatisticsSummary{T <: Real, C <: NamedTuple}
     "Sample length."
     N::Int
     "average_acceptance"
@@ -45,44 +47,83 @@ struct NUTS_Statistics{T <: Real,
     "acceptance quantiles"
     a_quantiles::Vector{T}
     "termination counts"
-    termination_counts::DT
+    termination_counts::C
     "depth counts"
-    depth_counts::DD
+    depth_counts::Vector{Int}
 end
 
 """
 $(SIGNATURES)
 
-Return statistics about the sample (ie not the variables). Mostly useful for
-NUTS diagnostics.
+Count termination reasons in `tree_statistics`.
 """
-function NUTS_statistics(sample)
-    as = map(x -> x.acceptance_statistic, sample)
-    NUTS_Statistics(length(sample),
-                    mean(as), quantile(as, ACCEPTANCE_QUANTILES),
-                    counter(map(x -> x.termination, sample)),
-                    counter(map(x -> x.depth, sample)))
+function count_terminations(tree_statistics)
+    max_depth = 0
+    divergence = 0
+    turning = 0
+    for tree_statistic in tree_statistics
+        it = tree_statistic.termination
+        if it == REACHED_MAXDEPTH
+            max_depth += 1
+        elseif is_divergent(it)
+            divergence += 1
+        else
+            turning += 1
+        end
+    end
+    (max_depth = max_depth, divergence = divergence, turning = turning)
 end
 
-function Base.show(io::IO, stats::NUTS_Statistics)
+"""
+$(SIGNATURES)
+
+Count depths in tree statistics.
+"""
+function count_depths(tree_statistics)
+    c = zeros(Int, MAX_DIRECTIONS_DEPTH)
+    for tree_statistic in tree_statistics
+        c[tree_statistic.depth] += 1
+    end
+    c[1:something(findlast(!iszero, c), 0)]
+end
+
+"""
+$(SIGNATURES)
+
+Summarize tree statistics. Mostly useful for NUTS diagnostics.
+"""
+function summarize_tree_statistics(tree_statistics)
+    As = map(x -> x.acceptance_rate, tree_statistics)
+    TreeStatisticsSummary(length(tree_statistics),
+                          mean(As), quantile(As, ACCEPTANCE_QUANTILES),
+                          count_terminations(tree_statistics),
+                          count_depths(tree_statistics))
+end
+
+function Base.show(io::IO, stats::TreeStatisticsSummary)
     @unpack N, a_mean, a_quantiles, termination_counts, depth_counts = stats
     println(io, "Hamiltonian Monte Carlo sample of length $(N)")
-    print(io, "  acceptance rate mean: $(round(a_mean; digits = 2)), min/25%/median/75%/max:")
+    print(io, "  acceptance rate mean: $(round(a_mean; digits = 2)), 5/25/50/75/95%:")
     for aq in a_quantiles
         print(io, " ", round(aq; digits = 2))
     end
     println(io)
-    function print_dict(dict)
-        for (key, value) in sort(collect(dict), by = first)
+    function print_percentages(pairs)
+        is_first = true
+        for (key, value) in sort(collect(pairs), by = first)
+            if is_first
+                is_first = false
+            else
+                print(io, ",")
+            end
             print(io, " $(key) => $(round(Int, 100*value/N))%")
         end
     end
     print(io, "  termination:")
-    print_dict(termination_counts)
+    print_percentages(pairs(termination_counts))
     println(io)
     print(io, "  depth:")
-    print_dict(depth_counts)
-    println(io)
+    print_percentages(enumerate(depth_counts))
 end
 
 ####

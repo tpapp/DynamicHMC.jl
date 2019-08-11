@@ -1,17 +1,43 @@
-@testset "NUTS statistics" begin
+isinteractive() && include("common.jl")
+
+#####
+##### test diagnostics
+#####
+
+@testset "summarize tree statistics" begin
     N = 1000
-    t = collect(instances(Termination))
     directions = Directions(UInt32(0))
-    sample = [TreeStatisticsNUTS(randn(), rand(1:5), rand(t), rand(), rand(1:30),
-                                 directions) for _ in 1:N]
-    stats = NUTS_statistics(sample)
+    function rand_invalidtree()
+        if rand() < 0.1
+            REACHED_MAXDEPTH
+        else
+            left = rand(-5:5)
+            right = left + rand(0:5)
+            InvalidTree(left, right)
+        end
+    end
+    tree_statistics = [TreeStatisticsNUTS(randn(), rand(1:5), rand_invalidtree(), rand(),
+                                          rand(1:30), directions) for _ in 1:N]
+    stats = summarize_tree_statistics(tree_statistics)
+    # acceptance rates
     @test stats.N == N
-    @test stats.a_mean ≈ mean(x -> x.acceptance_statistic, sample)
+    @test stats.a_mean ≈ mean(x -> x.acceptance_rate, tree_statistics)
     @test stats.a_quantiles ==
-        quantile((x -> x.acceptance_statistic).(sample), ACCEPTANCE_QUANTILES)
-    @test stats.termination_counts == counter(map(x -> x.termination, sample))
-    @test stats.depth_counts == counter(map(x -> x.depth, sample))
-    @test 1.8 ≤ EBFMI(sample) ≤ 2.2 # nonsensical value, just checking calculation
+        quantile((x -> x.acceptance_rate).(tree_statistics), ACCEPTANCE_QUANTILES)
+    # termination counts
+    @test stats.termination_counts.divergence ==
+        count(x -> is_divergent(x.termination), tree_statistics)
+    @test stats.termination_counts.max_depth ==
+        count(x -> x.termination == REACHED_MAXDEPTH, tree_statistics)
+    @test stats.termination_counts.turning ==
+        (N - stats.termination_counts.max_depth - stats.termination_counts.divergence)
+    # depth counts
+    for (i, c) in enumerate(stats.depth_counts)
+        @test count(x -> x.depth == i, tree_statistics) == c
+    end
+    @test sum(stats.depth_counts) == N
+    # misc
+    @test 1.8 ≤ EBFMI(tree_statistics) ≤ 2.2 # nonsensical value, just checking calculation
     @test repr(stats) isa AbstractString # just test that it prints w/o error
 end
 
