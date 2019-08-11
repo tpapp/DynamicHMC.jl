@@ -186,10 +186,10 @@ construction.
 Return two values, the new evaluated log density position, and tree statistics.
 """
 function NUTS_sample_tree(rng, options::TreeOptionsNUTS, H::Hamiltonian,
-                          Q::EvaluatedLogDensity, ϵ)
-    z = PhasePoint(Q, rand_p(rng, H.κ))
+                          Q::EvaluatedLogDensity, ϵ;
+                          p = rand_p(rng, H.κ), directions = rand(rng, Directions))
+    z = PhasePoint(Q, p)
     trajectory = TrajectoryNUTS(H, logdensity(H, z), ϵ, options.min_Δ)
-    directions = rand(rng, Directions)
     ζ, v, termination, depth = sample_trajectory(rng, trajectory, z, options.max_depth,
                                                  directions)
     statistics = TreeStatisticsNUTS(logdensity(H, ζ), depth, termination,

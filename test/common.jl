@@ -21,7 +21,7 @@ using DynamicHMC:
     logdensity,
     # NUTS
     TrajectoryNUTS, rand_bool, TurnStatistic, AcceptanceStatistic, leaf_acceptance_statistic,
-    acceptance_rate, TreeStatisticsNUTS,
+    acceptance_rate, TreeStatisticsNUTS, TreeOptionsNUTS, NUTS_sample_tree,
     # stepsize
     find_crossing_stepsize, bisect_stepsize, find_initial_stepsize, InitialStepsizeSearch,
     DualAveraging, initial_adaptation_state, adapt_stepsize, current_ϵ, final_ϵ, FixedStepsize,
