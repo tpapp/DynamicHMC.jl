@@ -24,7 +24,10 @@ rand_Q(K) = qr(randn(K, K)).Q
 "Random (positive) diagonal matrix."
 rand_D(K) = Diagonal(abs.(randn(K)))
 
-run_chains(rng, ℓ, N, K) = [position_matrix(mcmc_with_warmup(rng, ℓ, N).chain) for i in 1:K]
+function run_chains(rng, ℓ, N, K)
+    [position_matrix(mcmc_with_warmup(rng, ℓ, N; reporter = NoProgressReport()).chain)
+     for i in 1:K]
+end
 
 function mcmc_statistics(position_matrices)
     K = size(first(position_matrices), 1)
@@ -39,7 +42,7 @@ function multivariate_normal(μ, D, Q)
     shift(linear(StandardMultivariateNormal(length(μ)), Q * D), μ)
 end
 
-function NUTS_tests(rng, ℓ, N; K = 3, max_R̂ = 1.05, min_τ = 0.2,
+function NUTS_tests(rng, ℓ, N; K = 3, max_R̂ = 1.05, min_τ = 0.1,
                     KS_p̄ = 0.05, AD_p̄ = 0.05)
     mxs = run_chains(RNG, ℓ, N, K)
 
