@@ -7,9 +7,9 @@ isinteractive() && include("common.jl")
 @testset "mcmc" begin
     ℓ = DistributionLogDensity(MvNormal(ones(5), Diagonal(ones(5))))
 
-    @unpack chain = mcmc_with_warmup(RNG, ℓ, 10000)
+    results = mcmc_with_warmup(RNG, ℓ, 10000)
 
-    Z = DynamicHMC.position_matrix(chain)
+    Z = DynamicHMC.position_matrix(results.chain)
     @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.02
     @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.01
 end
