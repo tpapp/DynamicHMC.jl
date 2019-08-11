@@ -49,23 +49,23 @@ end
 ###
 
 @testset "low-level turn statistics" begin
-    trajectory = TrajectoryNUTS(nothing, 0, 1, -1000)
+    trajectory = TrajectoryNUTS(nothing, 0, 1, -1000, GeneralizedTurnStatistic)
     n = 3
     ρ₁ = ones(n)
     ρ₂ = 2*ρ₁
     p₁ = ρ₁
     p₂ = -ρ₁
-    τ₁ = TurnStatistic(p₁, p₁, ρ₁)
-    τ₂ = TurnStatistic(p₂, p₂, ρ₂)
-    @test combine_turn_statistics(trajectory, τ₁, τ₂) ≂ TurnStatistic(p₁, p₂, ρ₁+ρ₂)
-    @test !is_turning(trajectory, TurnStatistic(p₁, copy(p₁), ρ₁))
-    @test is_turning(trajectory, TurnStatistic(p₁, p₂, ρ₁))
-    @test is_turning(trajectory, TurnStatistic(p₂, copy(p₂), ρ₁))
-    @test is_turning(trajectory, TurnStatistic(p₂, copy(p₂), ρ₁))
+    τ₁ = GeneralizedTurnStatistic(p₁, p₁, ρ₁)
+    τ₂ = GeneralizedTurnStatistic(p₂, p₂, ρ₂)
+    @test combine_turn_statistics(trajectory, τ₁, τ₂) ≂ GeneralizedTurnStatistic(p₁, p₂, ρ₁+ρ₂)
+    @test !is_turning(trajectory, GeneralizedTurnStatistic(p₁, copy(p₁), ρ₁))
+    @test is_turning(trajectory, GeneralizedTurnStatistic(p₁, p₂, ρ₁))
+    @test is_turning(trajectory, GeneralizedTurnStatistic(p₂, copy(p₂), ρ₁))
+    @test is_turning(trajectory, GeneralizedTurnStatistic(p₂, copy(p₂), ρ₁))
 end
 
 @testset "low-level visited statistics" begin
-    trajectory = TrajectoryNUTS(nothing, 0, 1, -1000)
+    trajectory = TrajectoryNUTS(nothing, 0, 1, -1000, GeneralizedTurnStatistic)
     vs(p, is_initial = false) = leaf_acceptance_statistic(log(p), is_initial)
     x = vs(0.3)
     @test acceptance_rate(x) ≈ 0.3

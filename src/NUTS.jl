@@ -10,7 +10,7 @@
 Representation of a trajectory, ie a Hamiltonian with a discrete integrator that
 also checks for divergence.
 """
-struct TrajectoryNUTS{TH,Tf}
+struct TrajectoryNUTS{TH,Tf,S}
     "Hamiltonian."
     H::TH
     "Log density of z (negative log energy) at initial point."
@@ -19,6 +19,8 @@ struct TrajectoryNUTS{TH,Tf}
     ϵ::Tf
     "Smallest decrease allowed in the log density."
     min_Δ::Tf
+    "Turn statistic configuration."
+    turn_statistic_configuration::S
 end
 
 function move(trajectory::TrajectoryNUTS, z, fwd)
@@ -86,21 +88,47 @@ combine_visited_statistics(::TrajectoryNUTS, v, w) = combine_acceptance_statisti
 ###
 
 "Statistics for the identification of turning points. See Betancourt (2017, appendix)."
-struct TurnStatistic{T}
+struct GeneralizedTurnStatistic{T}
     p♯₋::T
     p♯₊::T
     ρ::T
 end
 
-function combine_turn_statistics(::TrajectoryNUTS, x::TurnStatistic, y::TurnStatistic)
-    TurnStatistic(x.p♯₋, y.p♯₊, x.ρ + y.ρ)
+function leaf_turn_statistic(::Val{GeneralizedTurnStatistic}, H, z)
+    p♯ = calculate_p♯(H, z)
+    GeneralizedTurnStatistic(p♯, p♯, z.p)
 end
 
-function is_turning(::TrajectoryNUTS, τ::TurnStatistic)
+function combine_turn_statistics(::TrajectoryNUTS,
+                                 x::GeneralizedTurnStatistic, y::GeneralizedTurnStatistic)
+    GeneralizedTurnStatistic(x.p♯₋, y.p♯₊, x.ρ + y.ρ)
+end
+
+function is_turning(::TrajectoryNUTS, τ::GeneralizedTurnStatistic)
     # Uses the generalized NUTS criterion from Betancourt (2017).
     @unpack p♯₋, p♯₊, ρ = τ
     @argcheck p♯₋ ≢ p♯₊ "internal error: is_turning called on a leaf"
     dot(p♯₋, ρ) < 0 || dot(p♯₊, ρ) < 0
+end
+
+"Turn statistics from Hoffman and Gelman (2014), using phasepoints."
+struct ClassicTurnStatistic{T}
+    z₋::T
+    z₊::T
+end
+
+leaf_turn_statistic(::Val{ClassicTurnStatistic}, H, z) = ClassicTurnStatistic(z, z)
+
+function combine_turn_statistics(::TrajectoryNUTS,
+                                 x::ClassicTurnStatistic, y::ClassicTurnStatistic)
+    ClassicTurnStatistic(x.z₋, y.z₊)
+end
+
+function is_turning(::TrajectoryNUTS, τ::ClassicTurnStatistic)
+    @unpack z₋, z₊ = τ
+    @argcheck z₋ ≢ z₊ "internal error: is_turning called on a leaf"
+    Δq = z₊.Q.q .- z₋.Q.q
+    dot(Δq, z_.p) < 0 || dot(Δq, z₊.p) < 0
 end
 
 ###
@@ -108,15 +136,14 @@ end
 ###
 
 function leaf(trajectory::TrajectoryNUTS, z, is_initial)
-    @unpack H, π₀, min_Δ = trajectory
+    @unpack H, π₀, min_Δ, turn_statistic_configuration = trajectory
     Δ = is_initial ? zero(π₀) : logdensity(H, z) - π₀
     isdiv = Δ < min_Δ
     v = leaf_acceptance_statistic(Δ, is_initial)
     if isdiv
         nothing, v
     else
-        p♯ = calculate_p♯(trajectory.H, z)
-        τ = TurnStatistic(p♯, p♯, z.p)
+        τ = leaf_turn_statistic(turn_statistic_configuration, H, z)
         (z, Δ, τ), v
     end
 end
@@ -138,15 +165,20 @@ during adaptation and sampling.
 
 $(FIELDS)
 """
-struct TreeOptionsNUTS
+struct TreeOptionsNUTS{S}
     "Maximum tree depth."
     max_depth::Int
     "Threshold for negative energy relative to starting point that indicated divergence."
     min_Δ::Float64
-    function TreeOptionsNUTS(; max_depth = DEFAULT_MAX_TREE_DEPTH, min_Δ = -1000.0)
+    "Turn statistic configuration."
+    turn_statistic_configuration::S
+    function TreeOptionsNUTS(; max_depth = DEFAULT_MAX_TREE_DEPTH,
+                             min_Δ = -1000.0,
+                             turn_statistic_configuration = Val{GeneralizedTurnStatistic}())
         @argcheck 0 < max_depth ≤ MAX_DIRECTIONS_DEPTH
         @argcheck min_Δ < 0
-        new(Int(max_depth), Float64(min_Δ))
+        S = typeof(turn_statistic_configuration)
+        new{S}(Int(max_depth), Float64(min_Δ), turn_statistic_configuration)
     end
 end
 
@@ -188,10 +220,10 @@ Return two values, the new evaluated log density position, and tree statistics.
 function NUTS_sample_tree(rng, options::TreeOptionsNUTS, H::Hamiltonian,
                           Q::EvaluatedLogDensity, ϵ;
                           p = rand_p(rng, H.κ), directions = rand(rng, Directions))
+    @unpack max_depth, min_Δ, turn_statistic_configuration = options
     z = PhasePoint(Q, p)
-    trajectory = TrajectoryNUTS(H, logdensity(H, z), ϵ, options.min_Δ)
-    ζ, v, termination, depth = sample_trajectory(rng, trajectory, z, options.max_depth,
-                                                 directions)
+    trajectory = TrajectoryNUTS(H, logdensity(H, z), ϵ, min_Δ, turn_statistic_configuration)
+    ζ, v, termination, depth = sample_trajectory(rng, trajectory, z, max_depth, directions)
     statistics = TreeStatisticsNUTS(logdensity(H, ζ), depth, termination,
                                     acceptance_rate(v), v.steps, directions)
     ζ.Q, statistics

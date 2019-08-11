@@ -17,11 +17,12 @@ using DynamicHMC:
     sample_trajectory, InvalidTree,
     # Hamiltonian
     GaussianKineticEnergy, kinetic_energy, ∇kinetic_energy, rand_p, Hamiltonian,
-    EvaluatedLogDensity, evaluate_ℓ, PhasePoint, logdensity, leapfrog,
+    EvaluatedLogDensity, evaluate_ℓ, PhasePoint, logdensity, leapfrog, calculate_p♯,
     logdensity,
     # NUTS
-    TrajectoryNUTS, rand_bool, TurnStatistic, AcceptanceStatistic, leaf_acceptance_statistic,
-    acceptance_rate, TreeStatisticsNUTS, TreeOptionsNUTS, NUTS_sample_tree,
+    TrajectoryNUTS, rand_bool, GeneralizedTurnStatistic, AcceptanceStatistic,
+    leaf_acceptance_statistic, acceptance_rate, TreeStatisticsNUTS, TreeOptionsNUTS,
+    NUTS_sample_tree,
     # stepsize
     find_crossing_stepsize, bisect_stepsize, find_initial_stepsize, InitialStepsizeSearch,
     DualAveraging, initial_adaptation_state, adapt_stepsize, current_ϵ, final_ϵ, FixedStepsize,
