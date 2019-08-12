@@ -2,6 +2,10 @@
 ##### stepsize heuristics and adaptation
 #####
 
+####
+#### initial stepsize
+####
+
 """
 $(TYPEDEF)
 
@@ -37,8 +41,7 @@ struct InitialStepsizeSearch
     maxiter_crossing::Int
     "Maximum number of iterations for bisection."
     maxiter_bisect::Int
-    function InitialStepsizeSearch(; a_min = 0.25, a_max = 0.75, ϵ₀ = 1.0,
-                                   C = 2.0,
+    function InitialStepsizeSearch(; a_min = 0.25, a_max = 0.75, ϵ₀ = 1.0, C = 2.0,
                                    maxiter_crossing = 400, maxiter_bisect = 400)
         @argcheck 0 < a_min < a_max < 1
         @argcheck 0 < ϵ₀
@@ -148,8 +151,16 @@ function find_initial_stepsize(parameters::InitialStepsizeSearch, A)
     end
 end
 
-find_initial_stepsize(parameters::InitialStepsizeSearch, H, z) =
-    find_initial_stepsize(parameters, local_acceptance_ratio(H, z))
+"""
+$(SIGNATURES)
+
+Uncapped log acceptance ratio of a Langevin step.
+"""
+function log_acceptance_ratio(H, z, ϵ)
+    target = logdensity(H, z)
+    isfinite(target) || throw(DomainError(z, "Starting point has non-finite density."))
+    logdensity(H, leapfrog(H, z, ϵ)) - target
+end
 
 """
 $(SIGNATURES)
@@ -158,48 +169,35 @@ Return a function of the stepsize (``ϵ``) that calculates the local acceptance
 ratio for a single leapfrog step around `z` along the Hamiltonian `H`. Formally,
 let
 
-```math
-A(ϵ) = \\exp(\\text{neg_energy}(H, \\text{leapfrog}(H, z, ϵ)) - \\text{neg_energy}(H, z))
+```julia
+A(ϵ) = exp(logdensity(H, leapfrog(H, z, ϵ)) - logdensity(H, z))
 ```
 
-Note that the ratio is not capped by `1`, so it is not a valid probability
-*per se*.
+Note that the ratio is not capped by `1`, so it is not a valid probability *per se*.
 """
 function local_acceptance_ratio(H, z)
-    target = neg_energy(H, z)
+    target = logdensity(H, z)
     isfinite(target) ||
         throw(DomainError(z.p, "Starting point has non-finite density."))
-    ϵ -> exp(neg_energy(H, leapfrog(H, z, ϵ)) - target)
+    ϵ -> exp(logdensity(H, leapfrog(H, z, ϵ)) - target)
+end
+
+function find_initial_stepsize(parameters::InitialStepsizeSearch, H, z)
+    find_initial_stepsize(parameters, local_acceptance_ratio(H, z))
 end
 
 """
-$(SIGNATURES)
+$(TYPEDEF)
 
-Return a matrix of [`local_acceptance_ratio`](@ref) values for stepsizes `ϵs`
-and the given momentums `ps`. The latter is calculated from random values when
-an integer is given.
+Parameters for the dual averaging algorithm of Gelman and Hoffman (2014, Algorithm 6).
 
-To facilitate plotting, ``-∞`` values are replaced by `NaN`.
+To get reasonable defaults, initialize with `DualAveraging()`.
+
+# Fields
+
+$(FIELDS)
 """
-function explore_local_acceptance_ratios(H, q, ϵs, ps)
-    R = hcat([local_acceptance_ratio(H, q, p).(ϵs) for p in ps]...)
-    R[isinfinite.(R)] .= NaN
-    R
-end
-
-explore_local_acceptance_ratios(H, q, ϵs, N::Int) =
-    explore_local_acceptance_ratios(H, q, ϵs, [rand(H.κ) for _ in 1:N])
-
-"""
-Parameters for the dual averaging algorithm of Gelman and Hoffman (2014,
-Algorithm 6).
-
-To get reasonable defaults, initialize with
-`DualAveragingParameters(logϵ₀)`. See [`adapting_ϵ`](@ref) for a joint
-constructor.
-"""
-struct DualAveragingParameters{T}
-    μ::T
+struct DualAveraging{T}
     "target acceptance rate"
     δ::T
     "regularization scale"
@@ -208,24 +206,22 @@ struct DualAveragingParameters{T}
     κ::T
     "offset"
     t₀::Int
-    function DualAveragingParameters{T}(μ, δ, γ, κ, t₀) where {T}
+    function DualAveraging(δ::T, γ::T, κ::T, t₀::Int) where {T <: Real}
         @argcheck 0 < δ < 1
         @argcheck γ > 0
         @argcheck 0.5 < κ ≤ 1
         @argcheck t₀ ≥ 0
-        new(μ, δ, γ, κ, t₀)
+        new{T}(δ, γ, κ, t₀)
     end
 end
 
-DualAveragingParameters(μ::T, δ::T, γ::T, κ::T, t₀::Int) where T =
-    DualAveragingParameters{T}(μ, δ, γ, κ, t₀)
+function DualAveraging(; δ = 0.8, γ = 0.05, κ = 0.75, t₀ = 10)
+    DualAveraging(promote(δ, γ, κ)..., t₀)
+end
 
-DualAveragingParameters(logϵ₀; δ = 0.8, γ = 0.05, κ = 0.75, t₀ = 10) =
-    DualAveragingParameters(promote(log(10) + logϵ₀, δ, γ, κ)..., t₀)
-
-"Current state of adaptation for `ϵ`. Use `DualAverageingAdaptation(logϵ₀)` to
-get an initial value. See [`adapting_ϵ`](@ref) for a joint constructor."
-struct DualAveragingAdaptation{T <: AbstractFloat}
+"Current state of adaptation for `ϵ`."
+struct DualAveragingState{T <: AbstractFloat}
+    μ::T
     m::Int
     H̄::T
     logϵ::T
@@ -235,45 +231,61 @@ end
 """
 $(SIGNATURES)
 
+Return an initial adaptation state for the adaptation method and a stepsize `ϵ`.
+"""
+function initial_adaptation_state(::DualAveraging, ϵ)
+    @argcheck ϵ > 0
+    logϵ = log(ϵ)
+    DualAveragingState(log(10) + logϵ, 0, zero(logϵ), logϵ, zero(logϵ))
+end
+
+"""
+$(SIGNATURES)
+
+Update the adaptation `A` of log stepsize `logϵ` with average Metropolis acceptance rate `a`
+over the whole visited trajectory, using the dual averaging algorithm of Gelman and Hoffman
+(2014, Algorithm 6). Return the new adaptation state.
+"""
+function adapt_stepsize(parameters::DualAveraging, A::DualAveragingState, a)
+    @argcheck 0 ≤ a ≤ 1
+    @unpack δ, γ, κ, t₀ = parameters
+    @unpack μ, m, H̄, logϵ, logϵ̄ = A
+    m += 1
+    H̄ += (δ - a - H̄) / (m + t₀)
+    logϵ = μ - √m/γ * H̄
+    logϵ̄ += m^(-κ)*(logϵ - logϵ̄)
+    DualAveragingState(μ, m, H̄, logϵ, logϵ̄)
+end
+
+"""
+$(SIGNATURES)
+
 Return the stepsize `ϵ` for the next HMC step while adapting.
 """
-get_current_ϵ(A::DualAveragingAdaptation, tuning = true) = exp(A.logϵ)
+current_ϵ(A::DualAveragingState, tuning = true) = exp(A.logϵ)
 
 """
 $(SIGNATURES)
 
 Return the final stepsize `ϵ` after adaptation.
 """
-get_final_ϵ(A::DualAveragingAdaptation, tuning = true) = exp(A.logϵ̄)
+final_ϵ(A::DualAveragingState, tuning = true) = exp(A.logϵ̄)
 
-DualAveragingAdaptation(logϵ₀) =
-    DualAveragingAdaptation(0, zero(logϵ₀), logϵ₀, zero(logϵ₀))
-
-"""
-    DA_params, A = $(SIGNATURES)
-
-Constructor for both the adaptation parameters and the initial state.
-"""
-function adapting_ϵ(ϵ; args...)
-    logϵ = log(ϵ)
-    DualAveragingParameters(logϵ; args...), DualAveragingAdaptation(logϵ)
-end
+###
+### fixed stepsize adaptation placeholder
+###
 
 """
-    A′ = $(SIGNATURES)
+$(SIGNATURES)
 
-Update the adaptation `A` of log stepsize `logϵ` with average Metropolis
-acceptance rate `a` over the whole visited trajectory, using the dual averaging
-algorithm of Gelman and Hoffman (2014, Algorithm 6). Return the new adaptation.
+Adaptation with fixed stepsize. Leaves `ϵ` unchanged.
 """
-function adapt_stepsize(parameters::DualAveragingParameters,
-                        A::DualAveragingAdaptation, a)
-    @argcheck 0 ≤ a ≤ 1
-    @unpack μ, δ, γ, κ, t₀ = parameters
-    @unpack m, H̄, logϵ, logϵ̄ = A
-    m += 1
-    H̄ += (δ - a - H̄) / (m+t₀)
-    logϵ = μ - √m/γ*H̄
-    logϵ̄ += m^(-κ)*(logϵ - logϵ̄)
-    DualAveragingAdaptation(m, H̄, logϵ, logϵ̄)
-end
+struct FixedStepsize end
+
+initial_adaptation_state(::FixedStepsize, ϵ) = ϵ
+
+adapt_stepsize(::FixedStepsize, ϵ, a) = ϵ
+
+current_ϵ(ϵ::Real) = ϵ
+
+final_ϵ(ϵ::Real) = ϵ

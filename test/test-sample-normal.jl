@@ -1,29 +1,29 @@
 """
-    $SIGNATURES
+$(SIGNATURES)
 
 Simple Hamiltonian Monte Carlo transition, for testing.
 """
 function simple_HMC(H, z::PhasePoint, ϵ, L)
-    π₀ = neg_energy(H, z)
+    π₀ = logdensity(H, z)
     z′ = z
     for _ in 1:L
         z′ = leapfrog(H, z′, ϵ)
     end
-    Δ = neg_energy(H, z′) - π₀
+    Δ = logdensity(H, z′) - π₀
     accept = Δ > 0 || (rand() < exp(Δ))
     accept ? z′ : z
 end
 
 """
-    $SIGNATURES
+$(SIGNATURES)
 
 Simple Hamiltonian Monte Carlo sample, for testing.
 """
 function sample_HMC(H, q, N; ϵ = find_stable_ϵ(H), L = 10)
     qs = similar(q, N, length(q))
     for i in 1:N
-        z = rand_phasepoint(RNG, H, q)
-        q = simple_HMC( H, z, ϵ, L).q
+        z = PhasePoint(evaluate_ℓ(H, q), rand_p(RNG, H.κ))
+        q = simple_HMC( H, z, ϵ, L).Q.q
         qs[i, :] = q
     end
     qs
@@ -34,7 +34,7 @@ end
     K = 2
     ℓ = DistributionLogDensity(MvNormal, K)
     q = rand(ℓ)
-    H = Hamiltonian(ℓ, GaussianKE(Diagonal(ones(K))))
+    H = Hamiltonian(GaussianKineticEnergy(Diagonal(ones(K))), ℓ)
     qs = sample_HMC(H, q, 10000)
     m, C = mean_and_cov(qs, 1)
     @test vec(m) ≈ zeros(K) atol = 0.1
@@ -49,11 +49,11 @@ end
         Σ = rand_Σ(K)
         ℓ = DistributionLogDensity(MvNormal(randn(K), Matrix(Σ)))
         q = rand(ℓ)
-        H = Hamiltonian(ℓ, GaussianKE(Σ))
+        H = Hamiltonian(GaussianKineticEnergy(Σ), ℓ)
         qs = Array{Float64}(undef, N, K)
         ϵ = 0.5
         for i in 1:N
-            trans = NUTS_transition(RNG, H, q, ϵ, 5)
+            trans = transition_NUTS(RNG, H, q, ϵ, 5)
             q = trans.q
             qs[i, :] = q
         end
@@ -70,7 +70,7 @@ end
     sampler2 = tune(sampler, tuner)
     tuner2 = StepsizeCovTuner(200, 10)
     sampler3 = tune(sampler, tuner2)
-    @test all(diag(sampler3.H.κ.Minv) .≥ 2)
+    @test all(diag(sampler3.H.κ.M⁻¹) .≥ 2)
 end
 
 @testset "transition accessors and consistency checks" begin
@@ -78,18 +78,18 @@ end
     Σ = rand_Σ(K)
     ℓ = DistributionLogDensity(MvNormal(randn(K), Matrix(Σ)))
     q = rand(ℓ)
-    H = Hamiltonian(ℓ, GaussianKE(Σ))
+    H = Hamiltonian(GaussianKineticEnergy(Σ), ℓ)
     ϵ = 0.5
     valid_terminations = [DynamicHMC.MaxDepth,
                           DynamicHMC.AdjacentDivergent,
                           DynamicHMC.AdjacentTurn,
                           DynamicHMC.DoubledTurn]
     for _ in 1:1000
-        trans = NUTS_transition(RNG, H, q, ϵ, 5)
+        trans = transition_NUTS(RNG, H, q, ϵ, 5)
         q′ = get_position(trans)
         @test q′ isa Vector{Float64}
         @test length(q′) == length(q)
-        @test get_neg_energy(trans) isa Float64
+        @test get_π(trans) isa Float64
         depth = get_depth(trans)
         @test depth isa Int
         @test depth ≥ 1
