@@ -16,7 +16,7 @@ isinteractive() && include("common.jl")
             InvalidTree(left, right)
         end
     end
-    tree_statistics = [TreeStatisticsNUTS(randn(), rand(1:5), rand_invalidtree(), rand(),
+    tree_statistics = [TreeStatisticsNUTS(randn(), rand(0:5), rand_invalidtree(), rand(),
                                           rand(1:30), directions) for _ in 1:N]
     stats = summarize_tree_statistics(tree_statistics)
     # acceptance rates
@@ -33,7 +33,7 @@ isinteractive() && include("common.jl")
         (N - stats.termination_counts.max_depth - stats.termination_counts.divergence)
     # depth counts
     for (i, c) in enumerate(stats.depth_counts)
-        @test count(x -> x.depth == i, tree_statistics) == c
+        @test count(x -> x.depth == i - 1, tree_statistics) == c
     end
     @test sum(stats.depth_counts) == N
     # misc

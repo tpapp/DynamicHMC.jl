@@ -48,7 +48,7 @@ struct TreeStatisticsSummary{T <: Real, C <: NamedTuple}
     a_quantiles::Vector{T}
     "termination counts"
     termination_counts::C
-    "depth counts"
+    "depth counts (first element is for `0`)"
     depth_counts::Vector{Int}
 end
 
@@ -80,9 +80,9 @@ $(SIGNATURES)
 Count depths in tree statistics.
 """
 function count_depths(tree_statistics)
-    c = zeros(Int, MAX_DIRECTIONS_DEPTH)
+    c = zeros(Int, MAX_DIRECTIONS_DEPTH + 1)
     for tree_statistic in tree_statistics
-        c[tree_statistic.depth] += 1
+        c[tree_statistic.depth + 1] += 1
     end
     c[1:something(findlast(!iszero, c), 0)]
 end
@@ -123,7 +123,7 @@ function Base.show(io::IO, stats::TreeStatisticsSummary)
     print_percentages(pairs(termination_counts))
     println(io)
     print(io, "  depth:")
-    print_percentages(enumerate(depth_counts))
+    print_percentages(zip(axes(depth_counts, 1) .- 1, depth_counts))
 end
 
 ####
