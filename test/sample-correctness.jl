@@ -39,7 +39,7 @@ end
 
 "Multivariate normal with Σ = Q*D*D*Q′."
 function multivariate_normal(μ, D, Q)
-    shift(linear(StandardMultivariateNormal(length(μ)), Q * D), μ)
+    shift(μ, linear(Q * D, StandardMultivariateNormal(length(μ))))
 end
 
 function NUTS_tests(rng, ℓ, N; K = 3, max_R̂ = 1.05, min_τ = 0.1,
