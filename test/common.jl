@@ -27,7 +27,7 @@ using DynamicHMC:
     find_crossing_stepsize, bisect_stepsize, find_initial_stepsize, InitialStepsizeSearch,
     DualAveraging, initial_adaptation_state, adapt_stepsize, current_ϵ, final_ϵ, FixedStepsize,
     # mcmc
-    position_matrix
+    position_matrix, WarmupState
 
 import DynamicHMC:
     # trees
