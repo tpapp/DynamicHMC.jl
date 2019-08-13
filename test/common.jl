@@ -39,13 +39,22 @@ using DynamicHMC.Diagnostics: ACCEPTANCE_QUANTILES
 
 import LogDensityProblems: logdensity_and_gradient, dimension, capabilities, LogDensityProblems
 
+### LogDensityTestSuite is under active development, use the latest
+### FIXME remove code below when that package stabilizies
+if !isinteractive()             # on CI
+    @info "installing LogDensityTestSuite#master"
+    import Pkg
+    Pkg.API.add(Pkg.PackageSpec(; name = "LogDensityTestSuite", rev = "master"))
+end
+using LogDensityTestSuite
+
 ####
 #### utilities for testing
 ####
 
-####
-#### general test environment
-####
+###
+### general test environment
+###
 
 const RNG = Random.GLOBAL_RNG   # shorthand
 Random.seed!(RNG, UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])

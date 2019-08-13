@@ -1,22 +1,8 @@
+isinteractive() && include("common.jl")
+
 #####
 ##### sample correctness tests
 #####
-
-isinteractive() && include("common.jl")
-
-####
-#### LogDensityTestSuite is under active development, use the latest
-#### FIXME remove code below when that package stabilizies and use Project.toml
-####
-
-try
-    using LogDensityTestSuite
-catch
-    @info "installing LogDensityTestSuite"
-    import Pkg
-    Pkg.API.add(Pkg.PackageSpec(; url = "https://github.com/tpapp/LogDensityTestSuite.jl"))
-    using LogDensityTestSuite
-end
 
 "Random unitary matrix."
 rand_Q(K) = qr(randn(K, K)).Q
