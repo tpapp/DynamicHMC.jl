@@ -12,7 +12,7 @@ using DynamicHMC: GaussianKineticEnergy, Hamiltonian, evaluate_ℓ, InvalidTree,
     logdensity, MAX_DIRECTIONS_DEPTH
 
 using ArgCheck: @argcheck
-using DocStringExtensions: SIGNATURES, TYPEDEF
+using DocStringExtensions: FIELDS, SIGNATURES, TYPEDEF
 using LogDensityProblems: dimension
 using Parameters: @unpack
 import Random
@@ -38,6 +38,10 @@ $(TYPEDEF)
 
 Storing the output of [`NUTS_statistics`](@ref) in a structured way, for pretty
 printing. Currently for internal use.
+
+# Fields
+
+$(FIELDS)
 """
 struct TreeStatisticsSummary{T <: Real, C <: NamedTuple}
     "Sample length."
@@ -146,16 +150,64 @@ function explore_log_acceptance_ratios(ℓ, q, log2ϵs;
 end
 
 """
+$(TYPEDEF)
+
+Implements an iterator on a leapfrog trajectory until the first non-finite log density.
+
+# Fields
+
+$(FIELDS)
+"""
+struct LeapfrogTrajectory{TH,TZ,TF,Tϵ}
+    "Hamiltonian"
+    H::TH
+    "Initial position"
+    z₀::TZ
+    "Negative energy at initial position."
+    π₀::TF
+    "Stepsize (negative: move backward)."
+    ϵ::Tϵ
+end
+
+Base.IteratorSize(::Type{<:LeapfrogTrajectory}) = Base.SizeUnknown()
+
+function Base.iterate(lft::LeapfrogTrajectory, zi = (lft.z₀, 0))
+    @unpack H, ϵ, π₀ = lft
+    z, i = zi
+    if isfinite(z.Q.ℓq)
+        z′ = leapfrog(H, z, ϵ)
+        i′ = i + sign(ϵ)
+        _position_information(lft, z′, i′), (z′, i′)
+    else
+        nothing
+    end
+end
+
+"""
 $(SIGNATURES)
 
-Calculate a leapfrog trajectory visiting `positions` relative to the starting point `q`,
-with stepsize `ϵ`. `positions` has to contain `0`.
+Position information returned by [`leapfrog_trajectory`](@ref), see documentation there.
+Internal function.
+"""
+function _position_information(lft::LeapfrogTrajectory, z, i)
+    @unpack H, π₀ = lft
+    (z = z, position = i, Δ = logdensity(H, z) - π₀)
+end
 
-Returns a `NamedTuple` of
+"""
+$(SIGNATURES)
 
-- `Δs`, the log density + the kinetic energy relative to position `0`,
+Calculate a leapfrog trajectory visiting `positions` (specified as a `UnitRange`, eg `-5:5`)
+relative to the starting point `q`, with stepsize `ϵ`. `positions` has to contain `0`, and
+the trajectories are only tracked up to the first non-finite log density in each direction.
 
-- `zs`, which are [`PhasePoint`](@ref) objects.
+Returns a vector of `NamedTuple`s, each containin
+
+- `z`, a [`PhasePoint`](@ref) object,
+
+- `position`, the corresponding position,
+
+- `Δ`, the log density + the kinetic energy relative to position `0`.
 """
 function leapfrog_trajectory(ℓ, q, ϵ, positions::UnitRange{<:Integer};
                              rng = Random.GLOBAL_RNG,
@@ -165,16 +217,11 @@ function leapfrog_trajectory(ℓ, q, ϵ, positions::UnitRange{<:Integer};
     Q = evaluate_ℓ(ℓ, q)
     H = Hamiltonian(κ, ℓ)
     z₀ = PhasePoint(Q, p)
-    fwd_part = let z = z₀
-        [(z = leapfrog(H, z, ϵ); z) for _ in 1:B]
-    end
-    bwd_part = let z = z₀
-        [(z = leapfrog(H, z, -ϵ); z) for _ in 1:(-A)]
-    end
-    zs = vcat(reverse!(bwd_part), z₀, fwd_part)
-    πs = logdensity.(Ref(H), zs)
-    Δs = πs .- Ref(πs[1 - A])   # relative to z₀
-    (Δs = Δs, zs = zs)
+    π₀ = logdensity(H, z₀)
+    lft_fwd = LeapfrogTrajectory(H, z₀, π₀, ϵ)
+    fwd_part = collect(Iterators.take(lft_fwd, B))
+    bwd_part = collect(Iterators.take(LeapfrogTrajectory(H, z₀, π₀, -ϵ), -A))
+    vcat(reverse!(bwd_part), _position_information(lft_fwd, z₀, 0), fwd_part)
 end
 
 end

@@ -71,9 +71,8 @@ end
     Δs1 = πs1 .- πs1[ix0]
 
     # calculate using function
-    @unpack Δs, zs = leapfrog_trajectory(ℓ, zs1[ix0].Q.q, ϵ, ixs .- ix0; κ = κ,
-                                         p = zs1[ix0].p)
-    @test all(isapprox.(Δs, Δs1; atol = 1e-5))
-    @test all(map((x, y) -> x.Q.q ≈ y.Q.q, zs, zs1))
-    @test all(map((x, y) -> x.p ≈ y.p, zs, zs1))
+    traj = leapfrog_trajectory(ℓ, zs1[ix0].Q.q, ϵ, ixs .- ix0; κ = κ, p = zs1[ix0].p)
+    @test all(isapprox.(map(t -> t.Δ, traj), Δs1; atol = 1e-5))
+    @test all(map((t, y) -> t.z.Q.q ≈ y.Q.q, traj, zs1))
+    @test all(map((t, y) -> t.z.p ≈ y.p, traj, zs1))
 end

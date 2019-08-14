@@ -219,10 +219,13 @@ Return the new phase point.
 The leapfrog algorithm uses the gradient of the next position to evolve the momentum. If
 this is not finite, the momentum won't be either, `logdensity` above will catch this and
 return an `-Inf`, making the point divergent.
+
+
 """
 function leapfrog(H::Hamiltonian{<: EuclideanKineticEnergy}, z::PhasePoint, ϵ)
     @unpack ℓ, κ = H
     @unpack p, Q = z
+    @argcheck isfinite(Q.ℓq) "Internal error: leapfrog called from non-finite log density"
     pₘ = p + ϵ/2 * Q.∇ℓq
     q′ = Q.q + ϵ * ∇kinetic_energy(κ, pₘ)
     Q′ = evaluate_ℓ(H.ℓ, q′)
