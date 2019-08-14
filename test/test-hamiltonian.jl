@@ -1,3 +1,5 @@
+isinteractive() && include("common.jl")
+
 ####
 #### utility functions
 ####
@@ -102,6 +104,14 @@ end
             @test z.Q.q ≈ q
             @test z.p ≈ p
         end
+    end
+
+    @testset "leapfrog on invalid values" begin
+        p = randn(n)
+        q = fill(NaN, n)
+        Q = evaluate_ℓ(ℓ, q)
+        err = ArgumentError("Internal error: leapfrog called from non-finite log density")
+        @test_throws err leapfrog(H, PhasePoint(Q, p), 0.01)
     end
 end
 
