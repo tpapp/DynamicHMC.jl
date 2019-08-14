@@ -4,6 +4,14 @@ isinteractive() && include("common.jl")
 ##### Test building blocks of MCMC
 #####
 
+@testset "printing" begin
+    ℓ = DistributionLogDensity(MvNormal(ones(1), Diagonal(ones(1))))
+    κ = GaussianKineticEnergy(1)
+    Q = evaluate_ℓ(ℓ, [1.0])
+    @test repr(WarmupState(Q, κ, 1.0)) isa String
+    @test repr(WarmupState(Q, κ, nothing)) isa String
+end
+
 @testset "mcmc" begin
     ℓ = DistributionLogDensity(MvNormal(ones(5), Diagonal(ones(5))))
 

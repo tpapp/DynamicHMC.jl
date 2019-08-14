@@ -38,6 +38,15 @@ end
 ### warmup state
 ###
 
+"""
+$(TYPEDEF)
+
+Representation of a warmup state. Not part of the API.
+
+# Fields
+
+$(FIELDS)
+"""
 struct WarmupState{TQ <: EvaluatedLogDensity,Tκ <: KineticEnergy, Tϵ <: Union{Real,Nothing}}
     Q::TQ
     κ::Tκ
@@ -46,8 +55,8 @@ end
 
 function Base.show(io::IO, warmup_state::WarmupState)
     @unpack κ, ϵ = warmup_state
-    print(io, "adapted sampling parameters: stepsize (ϵ) ≈ $(round(ϵ; sigdigits = 3))\n",
-          "  $(κ)")
+    ϵ_display = ϵ ≡ nothing ? "unspecified" : "≈ $(round(ϵ; sigdigits = REPORT_SIGDIGITS))"
+    print(io, "adapted sampling parameters: stepsize (ϵ) $(ϵ_display), $(κ)")
 end
 
 ###
