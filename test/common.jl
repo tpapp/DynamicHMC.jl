@@ -7,7 +7,7 @@
 ####
 
 using DynamicHMC, Test, ArgCheck, Distributions, DocStringExtensions, LinearAlgebra,
-    MCMCDiagnostics, Parameters, Random, StatsBase, StatsFuns, Statistics, HypothesisTests
+    MCMCDiagnostics, Parameters, Random, StatsBase, StatsFuns, Statistics
 
 import ForwardDiff, Random
 
