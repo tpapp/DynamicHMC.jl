@@ -22,6 +22,8 @@ The second argument can be
 [`make_mcmc_reporter`](@ref)).
 
 `meta` arguments are key-value pairs.
+
+In this context, a *step* is a NUTS transition, not a leapfrog step.
 """
 report(reporter::NoProgressReport, step::Union{AbstractString,Integer}; meta...) = nothing
 
