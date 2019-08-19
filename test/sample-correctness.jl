@@ -15,11 +15,13 @@ rand_D(K) = Diagonal(abs.(randn(K)))
 """
 $(SIGNATURES)
 
-Run `K` chains of MCMC on `ℓ`, each for `N` samples, return a vector of position matrices.
+Run `K` chains of MCMC on `ℓ`, each for `N` samples, return a vector of position matrices
+and EBFMI statistics as fields of a `NamedTuple`.
 """
 function run_chains(rng, ℓ, N, K)
-    [position_matrix(mcmc_with_warmup(rng, ℓ, N; reporter = NoProgressReport()).chain)
-     for i in 1:K]
+    results = [mcmc_with_warmup(rng, ℓ, N; reporter = NoProgressReport()) for i in 1:K]
+    (position_matrices = map(r -> position_matrix(r.chain), results),
+     EBFMIs = map(r -> EBFMI(r.tree_statistics), results))
 end
 
 """
@@ -42,26 +44,26 @@ multivariate_normal(μ, L) = shift(μ, linear(L, StandardMultivariateNormal(leng
 "Multivariate normal with Σ = Q*D*D*Q′."
 multivariate_normal(μ, D, Q) = multivariate_normal(μ, Q * D)
 
-
-
 """
 $(SIGNATURES)
 
 Run MCMC on `ℓ`, obtaining `N` samples from `K` independently adapted chains.
 
-`R̂`, `τ`, and two-sided `p` statistics comparing to `B` uniform bins are obtained and
-compared to thresholds that either *alert* or *fail*. The latter should be lax because of
-false positives, the tests are rather hair-trigger.
+`R̂`, `τ`, two-sided `p` statistics comparing to `B` uniform bins, and EBFMIs are obtained
+and compared to thresholds that either *alert* or *fail*. The latter should be lax because
+of false positives, the tests are rather hair-trigger.
 
 Output is sent to `io`. Specifically, `title` is printed for the first alert.
 """
 function NUTS_tests(rng, ℓ, title, N; K = 3, B = 10, io = stdout,
                     R̂_alert = 1.05, R̂_fail = 1.1,
                     τ_alert = 0.2, τ_fail = 0.1,
-                    p_alert = 0.001, p_fail = p_alert * 0.1)
+                    p_alert = 0.001, p_fail = p_alert * 0.1,
+                    EBFMI_alert = 0.5, EBFMI_fail = 0.2)
     @argcheck 1 < R̂_alert ≤ R̂_fail
     @argcheck 0 < τ_fail ≤ τ_alert
     @argcheck 0 < p_fail ≤ p_alert
+    @argcheck 0 < EBFMI_fail < EBFMI_alert
 
     d = dimension(ℓ)
 
@@ -72,16 +74,17 @@ function NUTS_tests(rng, ℓ, title, N; K = 3, B = 10, io = stdout,
             title_printed = true
         end
     end
-    mxs = run_chains(RNG, ℓ, N, K)
+    @unpack position_matrices, EBFMIs = run_chains(RNG, ℓ, N, K)
 
     # mixing and autocorrelation diagnostics
-    @unpack R̂, τ = mcmc_statistics(mxs)
+    @unpack R̂, τ = mcmc_statistics(position_matrices)
     max_R̂ = maximum(R̂)
     if max_R̂ > R̂_alert
         _print_title_once()
         println(io, "ALERT max R̂ = $(max_R̂)\n  R̂ = $(round.(R̂, sigdigits = 3))" )
     end
     @test all(max_R̂ ≤ R̂_fail)
+
     min_τ = minimum(τ)
     if min_τ < τ_alert
         _print_title_once()
@@ -89,8 +92,15 @@ function NUTS_tests(rng, ℓ, title, N; K = 3, B = 10, io = stdout,
     end
     @test all(min_τ ≥ τ_fail)
 
+    min_EBFMI = minimum(EBFMIs)
+    if min_EBFMI < EBFMI_alert
+        _print_title_once()
+        println(io, "ALERT min EBFMI = $(min_EBFMI)\n  EBFMI = $(round.(EBFMIs, sigdigits = 3))" )
+    end
+    @test all(min_EBFMI ≥ EBFMI_fail)
+
     # distribution comparison tests
-    Z = reduce(hcat, mxs)
+    Z = reduce(hcat, position_matrices)
     Z′ = samples(ℓ, 1000)
     pd_alert = p_alert / (d * B)
     pd_fail = p_fail / (d * B)
