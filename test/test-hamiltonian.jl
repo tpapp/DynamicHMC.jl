@@ -194,3 +194,73 @@ end
     @test repr(H) ==
         "Hamiltonian with Gaussian kinetic energy, √diag(M⁻¹): [1.0, 2.0]"
 end
+
+####
+#### test Hamiltonian/leapfrog using HMC
+####
+
+"""
+$(SIGNATURES)
+
+Simple Hamiltonian Monte Carlo transition, for testing.
+"""
+function HMC_transition(H, z::PhasePoint, ϵ, L)
+    π₀ = logdensity(H, z)
+    z′ = z
+    for _ in 1:L
+        z′ = leapfrog(H, z′, ϵ)
+    end
+    Δ = logdensity(H, z′) - π₀
+    accept = Δ > 0 || (rand() < exp(Δ))
+    accept ? z′ : z
+end
+
+"""
+$(SIGNATURES)
+
+Simple Hamiltonian Monte Carlo sample, for testing.
+"""
+function HMC_sample(H, q, N; ϵ = find_stable_ϵ(H), L = 10)
+    qs = similar(q, N, length(q))
+    for i in 1:N
+        z = PhasePoint(evaluate_ℓ(H.ℓ, q), rand_p(RNG, H.κ))
+        q = HMC_transition( H, z, ϵ, L).Q.q
+        qs[i, :] = q
+    end
+    qs
+end
+
+@testset "unit normal simple HMC" begin
+    # Tests the leapfrog and Hamiltonian code with HMC.
+    K = 2
+    ℓ = DistributionLogDensity(MvNormal, K)
+    q = rand(ℓ)
+    H = Hamiltonian(GaussianKineticEnergy(Diagonal(ones(K))), ℓ)
+    qs = HMC_sample(H, q, 10000)
+    m, C = mean_and_cov(qs, 1)
+    @test vec(m) ≈ zeros(K) atol = 0.1
+    @test C ≈ Matrix(Diagonal(ones(K))) atol = 0.1
+end
+
+@testset "normal NUTS HMC transition mean and cov" begin
+    # A test for NUTS_sample_tree with a fixed ϵ and κ, which is perfectly adapted and
+    # should provide excellent mixing
+    for _ in 1:10
+        K = rand(2:8)
+        N = 10000
+        Σ = rand_Σ(K)
+        ℓ = DistributionLogDensity(MvNormal(randn(K), Matrix(Σ)))
+        Q = evaluate_ℓ(ℓ, rand(ℓ))
+        H = Hamiltonian(GaussianKineticEnergy(Σ), ℓ)
+        qs = Array{Float64}(undef, N, K)
+        ϵ = 0.5
+        opt = TreeOptionsNUTS()
+        for i in 1:N
+            Q = first(NUTS_sample_tree(RNG, opt, H, Q, ϵ))
+            qs[i, :] = Q.q
+        end
+        m, C = mean_and_cov(qs, 1)
+        @test vec(m) ≈ mean(ℓ) atol = 0.1 rtol = maximum(diag(C))*0.02 norm = x -> norm(x,1)
+        @test cov(qs, dims = 1) ≈ cov(ℓ) atol = 0.1 rtol = 0.1
+    end
+end
