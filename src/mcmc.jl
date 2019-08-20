@@ -175,7 +175,7 @@ struct TuningNUTS{M,D}
     stepsize_adaptation::D
     """
     Regularization factor for normalizing variance. An estimated covariance matrix `Σ` is
-    rescaled by `λ`` towards `σ²I`, where `σ²` is the median of the diagonal. The
+    rescaled by `λ` towards ``σ²I``, where ``σ²`` is the median of the diagonal. The
     constructor has a reasonable default.
     """
     λ::Float64
@@ -304,7 +304,7 @@ A sequence of warmup stages:
 `M` (`Diagonal`, the default or `Symmetric`) determines the type of the metric adapted from
 the sample.
 
-(This is the suggested tuner of most papers on NUTS).
+This is the suggested tuner of most applications.
 """
 function default_warmup_stages(;
                                M::Type{<:Union{Diagonal,Symmetric}} = Diagonal,
@@ -328,7 +328,8 @@ A sequence of warmup stages for fixed stepsize:
 2. tuning covariance: first with `middle_steps` steps, then repeat with twice
    the steps `doubling_stages` times
 
-Very similar to [`default_warmup_stages`](@ref), but omits the warmup stages with just stepsize tuning.
+Very similar to [`default_warmup_stages`](@ref), but omits the warmup stages with just
+stepsize tuning.
 """
 function fixed_stepsize_warmup_stages(;
                                       M::Type{<:Union{Diagonal,Symmetric}} = Diagonal,

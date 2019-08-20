@@ -1,10 +1,10 @@
-# [Introduction](@id Introduction)
+# Introduction
 
-This package implements a variant of the “No-U-Turn Sampler” of Hoffmann and [Gelman (2014)](https://arxiv.org/abs/1111.4246), as described in [Betancourt (2017)](https://arxiv.org/abs/1701.02434). **In order to make the best use of this package, you should read at least the latter paper thoroughly**.
+DynamicHMC.jl implements a variant of the “No-U-Turn Sampler” of Hoffmann and [Gelman (2014)](https://arxiv.org/abs/1111.4246), as described in [Betancourt (2017)](https://arxiv.org/abs/1701.02434).[^1] This package is mainly useful for Bayesian inference.
 
-This package is mainly useful for Bayesian inference. In order to use it, you need to be familiar with the conceptual building blocks of Bayesian inference, most importantly, you should be able to code a (log) posterior as a function in Julia. For various techniques and a discussion of MCMC methods (eg domain transformations, or integrating out discrete parameters), you may find the [Stan Modeling Language manual](http://mc-stan.org/users/documentation/index.html) helpful. If you are unfamiliar with Bayesian methods, [Bayesian Data Analysis](http://www.stat.columbia.edu/~gelman/book/) is a good introduction, among other great books.
+[^1]: In order to make the best use of this package, you should read at least the latter paper thoroughly.
 
-The package aims to “[do one thing and do it well](https://en.wikipedia.org/wiki/Unix_philosophy#Do_One_Thing_and_Do_It_Well)”: given a log density function
+In order to use it, you should be familiar with the conceptual building blocks of Bayesian inference, most importantly, you should be able to code a (log) posterior as a function in Julia.[^2] The package aims to “[do one thing and do it well](https://en.wikipedia.org/wiki/Unix_philosophy#Do_One_Thing_and_Do_It_Well)”: given a log density function
 
 ```math
 \ell: \mathbb{R}^k \to \mathbb{R}
@@ -18,20 +18,26 @@ p(x) \propto \exp(\ell(x))
 
 using the algorithm above.
 
-The package provides a framework to [tune](@ref tuning) the algorithm to find near-optimal parameters for sampling, and also [diagnostics](@ref Diagnostics) that are specific to the algorithm.
+[^2]: For various techniques and a discussion of MCMC methods (eg domain transformations, or integrating out discrete parameters), you may find the [Stan Modeling Language manual](http://mc-stan.org/users/documentation/index.html) helpful. If you are unfamiliar with Bayesian methods, I would recommend [Bayesian Data Analysis](http://www.stat.columbia.edu/~gelman/book/) and [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/).
 
-However, following a modular approach, it does *not* provide
+The interface of DynamicHMC.jl expects that you code ``\ell(x), \nabla\ell(x)`` using the interface of the [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) package. The latter package also allows you to just code ``\ell(x)`` and obtain ``\nabla\ell(x)`` via [automatic differentiation](https://en.wikipedia.org/wiki/Automatic_differentiation).
 
-1. Domain transformations from subsets of ``\mathbb{R}^k``. For that, see [TransformVariables.jl](https://github.com/tpapp/TransformVariables.jl).
+While the NUTS algorithm operates on an *unrestricted* domain ``\mathbb{R}^k``, some parameters have natural restrictions: for example, standard deviations are positive, valid correlation matrices are a subset of all matrices, and structural econometric models can have parameter restrictions for stability. In order to sample for posteriors with parameters like these, *domain transformations* are required.[^3] Also, it is advantageous to decompose a flat vector `x` to a collection of parameters in a disciplined manner.
 
-2. Automatic differentiation. Julia has a thriving [AD ecosystem](http://www.juliadiff.org/) which should allow you to implement this. This package uses [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) for defining (log) density functions, which already has some one-liner solutions for AD, and is easily extensible for other methods.
+[^3]: For nonlinear transformations, correcting with the logarithm of the determinant of the Jacobian is required.
 
-3. Generic MCMC diagnostics not specific to NUTS. See [MCMCDiagnostics.jl](https://github.com/tpapp/MCMCDiagnostics.jl) for an implementation of ``\hat{R}`` and effective sample size calculations.
+I recommend that you use [TransformVariables.jl](https://github.com/tpapp/TransformVariables.jl) in combination with LogdensityProblems.jl for this purpose: it has built-in transformations for common cases, and also allows decomposing vectors into tuples, named tuples, and arrays of parameters, combined with these transformations.
 
-## Examples
+## Use cases
 
-Worked examples of using this package for Bayesian inference are available in the repository [DynamicHMCExamples.jl](https://github.com/tpapp/DynamicHMCExamples.jl). It is highly recommended that you skim through them first.
+This package has the following intended use cases:
+
+1. A robust and simple engine for MCMC. The intended audience is users who like to code their (log)posteriors directly, optimize and benchmark them them as Julia code, and at the same time want to have access detailed diagnostic information from the NUTS sampler.
+
+2. A *backend* for another interface that needs a NUTS implementation.
+
+3. A *research platform* for advances in MCMC methods. The code of this package is extensively documented, and should allow extensions and experiments easily using multiple dispatch. Contributions are always welcome.
 
 ## Support
 
-If you have questions, feature requests, or bug reports, please [open an issue](https://github.com/tpapp/DynamicHMC.jl/issues/new). I would like to emphasize that it is perfectly fine to open issues just to ask questions.
+If you have questions, feature requests, or bug reports, please [open an issue](https://github.com/tpapp/DynamicHMC.jl/issues/new). I would like to emphasize that it is perfectly fine to open issues just to ask questions. You can also address questions to [@Tamas_Papp](https://discourse.julialang.org/u/Tamas_Papp) on the Julia discourse forum.

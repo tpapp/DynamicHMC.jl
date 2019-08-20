@@ -1,15 +1,14 @@
 using Documenter, DynamicHMC
 
 makedocs(modules = [DynamicHMC],
-         format = :html,
+         format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"),
          clean = true,
          sitename = "DynamicHMC.jl",
          authors = "Tamás K. Papp",
          checkdocs = :exports,
-         pages = [
-             "Overview" => "index.md",
-             "High-level API" => "api.md",
-             "Low-level building blocks" => "lowlevel.md",
-         ])
+         # strict = true,
+         pages = ["Introduction" => "index.md",
+                  "A worked example" => "worked_example.md",
+                  "Documentation" => "interface.md"])
 
 deploydocs(repo = "github.com/tpapp/DynamicHMC.jl.git")
