@@ -9,8 +9,6 @@ isinteractive() && include("common.jl")
 "Random unitary matrix."
 rand_Q(K) = qr(randn(K, K)).Q
 
-"Random (positive) diagonal matrix."
-rand_D(K) = Diagonal(abs.(randn(K)))
 
 """
 $(SIGNATURES)
@@ -117,14 +115,14 @@ end
         K = rand(3:10)
         μ = randn(K)
         D = rand_D(K)
-        Q = rand_Q(K)
-        ℓ = multivariate_normal(μ, D, Q)
-        title = "multivariate normal μ = $(μ) D = $(D) Q = $(Q)"
+        C = rand_C(K)
+        ℓ = multivariate_normal(μ, D * C)
+        title = "multivariate normal μ = $(μ) D = $(D) C = $(C)"
         NUTS_tests(RNG, ℓ, title, 1000; p_alert = 1e-4)
     end
 end
 
-@testset "NUTS tests with specific distributions" begin
+@testset "NUTS tests with specific normal distributions" begin
     ℓ = multivariate_normal([0.0], fill(5e8, 1, 1))
     NUTS_tests(RNG, ℓ, "univariate huge variance", 1000)
 
