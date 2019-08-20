@@ -41,6 +41,8 @@ $(TYPEDEF)
 
 Report progress into the `Logging` framework, using `@info`.
 
+For the information reported, a *step* is a NUTS transition, not a leapfrog step.
+
 # Fields
 
 $(FIELDS)
