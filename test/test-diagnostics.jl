@@ -42,7 +42,7 @@ isinteractive() && include("common.jl")
 end
 
 @testset "log acceptance ratios" begin
-    ℓ = DistributionLogDensity(MvNormal(ones(5), Diagonal(ones(5))))
+    ℓ = multivariate_normal(ones(5))
     log2ϵs = -5:5
     N = 13
     logA = explore_log_acceptance_ratios(ℓ, zeros(5), log2ϵs; N = N)
@@ -53,7 +53,7 @@ end
 @testset "leapfrog trajectory" begin
     # problem setup
     K = 2
-    ℓ = DistributionLogDensity(MvNormal(ones(K), Diagonal(ones(K))))
+    ℓ = multivariate_normal(ones(K))
     κ = GaussianKineticEnergy(K)
     q = zeros(K)
     Q = evaluate_ℓ(ℓ, q)
