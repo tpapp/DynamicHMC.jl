@@ -1,34 +1,35 @@
 # DynamicHMC
 
-Bare-bones implementation of robust dynamic Hamiltonian Monte Carlo methods.
+Implementation of robust dynamic Hamiltonian Monte Carlo methods in Julia.
 
-[![Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.](http://www.repostatus.org/badges/latest/wip.svg)](http://www.repostatus.org/#wip)
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![Build Status](https://travis-ci.org/tpapp/DynamicHMC.jl.svg?branch=master)](https://travis-ci.org/tpapp/DynamicHMC.jl)
-[![Coverage Status](https://coveralls.io/repos/tpapp/DynamicHMC.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/tpapp/DynamicHMC.jl?branch=master)
 [![codecov.io](http://codecov.io/github/tpapp/DynamicHMC.jl/coverage.svg?branch=master)](http://codecov.io/github/tpapp/DynamicHMC.jl?branch=master)
-[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://tpapp.github.io/DynamicHMC.jl/dev)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://tpapp.github.io/DynamicHMC.jl/latest)
 
 ## Overview
 
 This package implements a modern version of the “No-U-turn sampler” in the Julia language, mostly as described in [Betancourt (2017)](https://arxiv.org/abs/1701.02434), with some tweaks.
 
-In contrast to [Mamba.jl](https://github.com/brian-j-smith/Mamba.jl) and [Klara.jl](https://github.com/JuliaStats/Klara.jl), which provide an integrated framework for building up a Bayesian model from small components, this package requires that you code a *log-density function* of the posterior, which also provides derivatives (for which of course you would use [automatic differentiation](http://www.juliadiff.org/)).
+In contrast to frameworks which utilize a directed acyclic graph to build a posterior for a Bayesian model from small components, this package requires that you code a *log-density function* of the posterior in Julia. Derivatives can be provided manually, or using [automatic differentiation](http://www.juliadiff.org/).
 
-Since most of the runtime is spent on calculating the log-likelihood, this allows the use of standard tools like [profiling](https://docs.julialang.org/en/latest/stdlib/profile/) and [benchmarking](https://github.com/JuliaCI/BenchmarkTools.jl) to optimize its [performance](https://docs.julialang.org/en/latest/manual/performance-tips/).
+Consequently, this package requires that the user is comfortable with the basics of the theory of Bayesian inference, to the extent of coding a (log) posterior density in Julia. This approach allows the use of standard tools like [profiling](https://docs.julialang.org/en/v1/manual/profile/) and [benchmarking](https://github.com/JuliaCI/BenchmarkTools.jl) to optimize its [performance](https://docs.julialang.org/en/v1/manual/performance-tips/).
 
-Consequently, this package requires that the user is comfortable with the basics of the theory of Bayesian inference, to the extent of coding a (log) posterior density in Julia. Gelman et al (2013) and Gelman and Hill (2007) are excellent introductions.
+The building blocks of the algorithm are implemented using a *functional* (non-modifying) approach whenever possible, allowing extensive unit testing of components, while at the same time also intended to serve as a transparent, pedagogical introduction to the low-level mechanics of current Hamiltonian Monte Carlo samplers, and as a platform for research into MCMC methods.
 
-Also, the building blocks of the algorithm are implemented using a *functional* (non-modifying) approach whenever possible, allowing extensive unit testing of components, while at the same time also intended to serve as a transparent, pedagogical introduction to the low-level mechanics of current Hamiltonian Monte Carlo samplers.
+Please start with the [documentation](https://tpapp.github.io/DynamicHMC.jl/latest).
 
 ## Examples
 
-Examples are available in [DynamicHMCExamples.jl](https://github.com/tpapp/DynamicHMCExamples.jl).
+- Some basic examples are available in [DynamicHMCExamples.jl](https://github.com/tpapp/DynamicHMCExamples.jl).
+
+- [DynamicHMCModels.jl](https://github.com/StatisticalRethinkingJulia/DynamicHMCModels.jl) contains worked examples from the [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/) book.
 
 ## Support and participation
 
-For general questions, open an issue or ask on [the Discourse forum](https://discourse.julialang.org/).
+For general questions, open an issue or ask on [the Discourse forum](https://discourse.julialang.org/). I am happy to help with models.
 
-The API is in the process of being refined to accommodate various modeling approaches. Users who wish to participate in the discussion should subscribe to the Github notifications (“watching” the package). Also, I will do my best to accommodate feature requests, just open issues.
+Users who rely on this package and want to participate in discussions are recommended to subscribe to the Github notifications (“watching” the package). Also, I will do my best to accommodate feature requests, just open issues.
 
 ## Bibliography
 
@@ -43,3 +44,5 @@ Gelman, A., Carlin, J. B., Stern, H. S., Dunson, D. B., Vehtari, A., & Rubin, D.
 Gelman, A., & Hill, J. (2007). Data analysis using regression and multilevel/hierarchical models.
 
 Hoffman, M. D., & Gelman, A. (2014). The No-U-turn sampler: adaptively setting path lengths in Hamiltonian Monte Carlo. Journal of Machine Learning Research, 15(1), 1593-1623.
+
+McElreath, R. (2018). Statistical rethinking: A Bayesian course with examples in R and Stan. Chapman and Hall/CRC.
