@@ -63,8 +63,8 @@ function combine_visited_statistics(::DummyTrajectory, v₁, v₂)
 end
 
 function combine_proposals(_, ::DummyTrajectory, zeta1, zeta2, logprob2, is_forward)
-    lp2 = logprob2 > 0 ? 1.0 : logprob2
-    lp1 = logprob2 > 0 ? zero(lp2) : log1mexp(lp2)
+    lp2 = logprob2 > 0 ? 0.0 : logprob2
+    lp1 = logprob2 > 0 ? oftype(lp2, -Inf) : log1mexp(lp2)
     if !is_forward
         # exchange so that we can test for adjacency, and join as a UnitRange
         zeta1, zeta2 = zeta2, zeta1
@@ -77,7 +77,7 @@ function combine_proposals(_, ::DummyTrajectory, zeta1, zeta2, logprob2, is_forw
 end
 
 function calculate_logprob2(::DummyTrajectory, is_doubling, ω₁, ω₂, ω)
-    biased_progressive_logprob2(false #=is_doubling =#, ω₁, ω₂, ω)
+    biased_progressive_logprob2(is_doubling, ω₁, ω₂, ω)
 end
 
 function leaf(trajectory::DummyTrajectory, z, is_initial)
