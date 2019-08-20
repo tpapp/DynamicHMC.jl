@@ -38,12 +38,6 @@ function mcmc_statistics(position_matrices)
     (R̂ = R̂, τ = τ)
 end
 
-"Multivariate normal with `Σ = LL'`."
-multivariate_normal(μ, L) = shift(μ, linear(L, StandardMultivariateNormal(length(μ))))
-
-"Multivariate normal with Σ = Q*D*D*Q′."
-multivariate_normal(μ, D, Q) = multivariate_normal(μ, Q * D)
-
 """
 $(SIGNATURES)
 

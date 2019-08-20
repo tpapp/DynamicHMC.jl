@@ -131,27 +131,18 @@ Statistics.var(ℓ::DistributionLogDensity) = var(ℓ.distribution)
 Statistics.cov(ℓ::DistributionLogDensity) = cov(ℓ.distribution)
 Base.rand(ℓ::DistributionLogDensity) = rand(ℓ.distribution)
 
-"""
-A function returning a log density and a gradient.
-"""
-struct FunctionLogDensity{F}
-    dimension::Int
-    f::F
-end
+###
+### Multivariate normal ℓ for testing
+###
 
-dimension(ℓ::FunctionLogDensity) = length(ℓ.dimension)
+"Multivariate normal with `Σ = LL'`."
+multivariate_normal(μ, L) = shift(μ, linear(L, StandardMultivariateNormal(length(μ))))
 
-logdensity_and_gradient(ℓ::FunctionLogDensity, x::AbstractVector) = ℓ.f(x)
+"Multivariate normal with Σ = Q*D*D*Q′."
+multivariate_normal(μ, D, Q) = multivariate_normal(μ, Q * D)
 
-"""
-$(SIGNATURES)
-
-A log density always returning a constant log density and gradient (thus not necessarily
-consistent).
-"""
-function constant_logdensity(logdensity, gradient)
-    FunctionLogDensity(length(gradient), _ -> (logdensity, gradient))
-end
+"Multivariate normal with diagonal `Σ` (constant `v` variance)."
+multivariate_normal(μ, v::Real = 1) = multivariate_normal(μ, Diagonal(fill(v, length(μ))))
 
 ###
 ### Hamiltonian test helper functions
