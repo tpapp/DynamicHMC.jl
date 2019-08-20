@@ -160,8 +160,9 @@ Useful for testing.
 function rand_Hz(K)
     μ = randn(K)
     Σ = rand_Σ(K)
+    L = cholesky(Σ).L
     κ = GaussianKineticEnergy(inv(rand_Σ(Diagonal, K)))
-    H = Hamiltonian(κ, multivariate_normal(μ, cholesky(Σ).L))
-    z = PhasePoint(evaluate_ℓ(H.ℓ, randn(K)), rand_p(RNG, κ))
+    H = Hamiltonian(κ, multivariate_normal(μ, L))
+    z = PhasePoint(evaluate_ℓ(H.ℓ, μ .+ L * randn(K)), rand_p(RNG, κ))
     (μ = μ, Σ = Σ, H = H, z = z)
 end
