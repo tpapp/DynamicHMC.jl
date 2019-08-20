@@ -103,10 +103,10 @@ results = mcmc_with_warmup(Random.GLOBAL_RNG, ∇P, 1000; reporter = NoProgressR
 nothing # hide
 ```
 
-The returned parameter is a `NamedTuple`. Most importantly, it contains the field `chain`, which is a vector of vectors. You should use the transformation you defined above to retrieve the parameters (here, only `α`). We display the mean here to check that it was recovered correctly.
+The returned value is a `NamedTuple`. Most importantly, it contains the field `chain`, which is a vector of vectors. You should use the transformation you defined above to retrieve the parameters (here, only `α`). We display the mean here to check that it was recovered correctly.
 
 ```@example bernoulli
-posterior = transform.(Ref(trans), results.chain)
+posterior = transform.(trans, results.chain)
 posterior_α = first.(posterior)
 mean(posterior_α)
 ```
