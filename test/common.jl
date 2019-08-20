@@ -6,7 +6,7 @@
 #### packages and symbols
 ####
 
-using DynamicHMC, Test, ArgCheck, Distributions, DocStringExtensions, LinearAlgebra,
+using DynamicHMC, Test, ArgCheck, DocStringExtensions, LinearAlgebra,
     MCMCDiagnostics, Parameters, Random, StatsBase, StatsFuns, Statistics
 
 import ForwardDiff, Random
@@ -97,39 +97,12 @@ function simulated_meancov(f, N)
 end
 
 @testset "simulated meancov" begin
-    d = MvNormal([2,2], [2.0,1.0])
-    m, C = simulated_meancov(()->rand(d), 10000)
-    @test m ≈ mean(d) atol = 0.05 rtol = 0.1
-    @test C ≈ cov(d) atol = 0.05 rtol = 0.1
+    μ = [2, 1.2]
+    D = [2.0, 0.7]
+    m, C = simulated_meancov(()-> randn(2) .* D .+ μ, 10000)
+    @test m ≈ μ atol = 0.05 rtol = 0.1
+    @test C ≈ Diagonal(abs2.(D)) atol = 0.05 rtol = 0.1
 end
-
-
-###
-### use multivariate distributions as tests
-###
-
-"""
-Obtain the log density from a distribution.
-"""
-struct DistributionLogDensity{D <: Distribution{Multivariate,Continuous}}
-    distribution::D
-end
-
-dimension(ℓ::DistributionLogDensity) = length(ℓ.distribution)
-
-capabilities(::Type{<:DistributionLogDensity}) = LogDensityProblems.LogDensityOrder(1)
-
-function logdensity_and_gradient(ℓ::DistributionLogDensity, x::AbstractVector)
-    logpdf(ℓ.distribution, x), gradlogpdf(ℓ.distribution, x)
-end
-
-DistributionLogDensity(::Type{MvNormal}, n::Int) = # canonical
-    DistributionLogDensity(MvNormal(zeros(n), ones(n)))
-
-Statistics.mean(ℓ::DistributionLogDensity) = mean(ℓ.distribution)
-Statistics.var(ℓ::DistributionLogDensity) = var(ℓ.distribution)
-Statistics.cov(ℓ::DistributionLogDensity) = cov(ℓ.distribution)
-Base.rand(ℓ::DistributionLogDensity) = rand(ℓ.distribution)
 
 ###
 ### Multivariate normal ℓ for testing
@@ -168,16 +141,27 @@ thus decorrelates the density perfectly.
 """
 find_stable_ϵ(κ::GaussianKineticEnergy, Σ) = √eigmin(κ.W'*Σ*κ.W)
 
-find_stable_ϵ(H::Hamiltonian{<:Any,<: DistributionLogDensity}) =
-    find_stable_ϵ(H.κ, cov(H.ℓ.distribution))
+"""
+$(SIGNATURES)
 
-"Random Hamiltonian `H` with phasepoint `z`, with dimension `K`."
+A `NamedTuple` that contains
+
+- a random `K`-element vector `μ`
+
+- a random `K × K` covariance matrix `Σ`,
+
+- a random Hamiltonian `H` with `ℓ` corresponding to a multivariate normal with `μ`, `Σ`,
+  and a random Gaussian kinetic energy (unrelated to `ℓ`)
+
+- a random phasepoint `z`.
+
+Useful for testing.
+"""
 function rand_Hz(K)
     μ = randn(K)
     Σ = rand_Σ(K)
     κ = GaussianKineticEnergy(inv(rand_Σ(Diagonal, K)))
-    dist = MvNormal(μ, Matrix(Σ))
-    H = Hamiltonian(κ, DistributionLogDensity(dist))
-    z = PhasePoint(evaluate_ℓ(H.ℓ, rand(RNG, dist)), rand_p(RNG, κ))
-    H, z
+    H = Hamiltonian(κ, multivariate_normal(μ, cholesky(Σ).L))
+    z = PhasePoint(evaluate_ℓ(H.ℓ, randn(K)), rand_p(RNG, κ))
+    (μ = μ, Σ = Σ, H = H, z = z)
 end

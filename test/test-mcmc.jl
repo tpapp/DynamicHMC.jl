@@ -5,7 +5,7 @@ isinteractive() && include("common.jl")
 #####
 
 @testset "printing" begin
-    ℓ = DistributionLogDensity(MvNormal(ones(1), Diagonal(ones(1))))
+    ℓ = multivariate_normal(ones(1))
     κ = GaussianKineticEnergy(1)
     Q = evaluate_ℓ(ℓ, [1.0])
     @test repr(WarmupState(Q, κ, 1.0)) isa String
@@ -13,7 +13,7 @@ isinteractive() && include("common.jl")
 end
 
 @testset "mcmc" begin
-    ℓ = DistributionLogDensity(MvNormal(ones(5), Diagonal(ones(5))))
+    ℓ = multivariate_normal(ones(5))
 
     # defaults
     results = mcmc_with_warmup(RNG, ℓ, 10000)
