@@ -144,9 +144,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LogDensityProblems]]
 deps = ["ArgCheck", "BenchmarkTools", "DiffResults", "DocStringExtensions", "Parameters", "Random", "Requires", "TransformVariables"]
-git-tree-sha1 = "b1c15910c01e385b9b3c2f8f29fbb2b4235354a8"
+git-tree-sha1 = "10058bfce11b71237e3ea9975b4153f8207d536e"
 uuid = "6fdf6af0-433a-55f7-b3ed-c6c6e0b8df7c"
-version = "0.9.0"
+version = "0.9.1"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -301,10 +301,10 @@ uuid = "0796e94c-ce3b-5d07-9a54-7f471281c624"
 version = "0.5.6"
 
 [[TransformVariables]]
-deps = ["ArgCheck", "DocStringExtensions", "ForwardDiff", "LinearAlgebra", "MacroTools", "Parameters", "Random"]
-git-tree-sha1 = "0c138b8e82fa4e95a6e05314158c79091718b9f3"
+deps = ["ArgCheck", "DocStringExtensions", "ForwardDiff", "LinearAlgebra", "MacroTools", "Parameters", "Pkg", "Random"]
+git-tree-sha1 = "92ae24ba0e9e5b421fc9fd64f6aa26f046e48fd0"
 uuid = "84d833dd-6860-57f9-a1a7-6da5db126cff"
-version = "0.3.4"
+version = "0.3.5"
 
 [[URIParser]]
 deps = ["Test", "Unicode"]
