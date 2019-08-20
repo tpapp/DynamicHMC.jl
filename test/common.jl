@@ -37,7 +37,7 @@ import DynamicHMC:
 using DynamicHMC.Diagnostics
 using DynamicHMC.Diagnostics: ACCEPTANCE_QUANTILES
 
-import LogDensityProblems: logdensity_and_gradient, dimension, capabilities, LogDensityProblems
+using LogDensityProblems: logdensity_and_gradient, dimension, LogDensityProblems
 
 ### LogDensityTestSuite is under active development, use the latest
 ### FIXME remove code below when that package stabilizies

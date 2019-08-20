@@ -77,6 +77,37 @@ end
     @test acceptance_rate(z) ≈ 0.4
 end
 
+# define a distribution which is divergent everywhere except at 0
+struct AlwaysDivergentTest
+    K::Int
+end
+
+function LogDensityProblems.capabilities(::Type{AlwaysDivergentTest})
+    LogDensityProblems.LogDensityOrder{1}()
+end
+LogDensityProblems.dimension(d::AlwaysDivergentTest) = d.K
+function LogDensityProblems.logdensity_and_gradient(d::AlwaysDivergentTest, x)
+    if all(iszero.(x))
+        0.0, zeros(length(x))
+    else
+        -Inf, nothing
+    end
+end
+
+@testset "unconditional divergence" begin
+
+    # test NUTS sampler where all movements are divergent
+    K = 3
+    ℓ = AlwaysDivergentTest(K)
+    Q, tree_statistics = NUTS_sample_tree(RNG, TreeOptionsNUTS(),
+                                          Hamiltonian(GaussianKineticEnergy(K), ℓ),
+                                          evaluate_ℓ(ℓ, zeros(K)), 1.0)
+    @test is_divergent(tree_statistics.termination)
+    @test iszero(tree_statistics.acceptance_rate)
+    @test iszero(tree_statistics.depth)
+    @test tree_statistics.steps == 1
+end
+
 ###
 ### test proposals
 ###

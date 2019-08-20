@@ -167,7 +167,14 @@ $(SIGNATURES)
 Evaluate log density and gradient and save with the position. Preferred interface for
 creating `EvaluatedLogDensity` instances.
 """
-evaluate_ℓ(ℓ, q) = EvaluatedLogDensity(q, logdensity_and_gradient(ℓ, q)...)
+function evaluate_ℓ(ℓ, q)
+    ℓq, ∇ℓq = logdensity_and_gradient(ℓ, q)
+    if isfinite(ℓq)
+        EvaluatedLogDensity(q, ℓq, ∇ℓq)
+    else
+        EvaluatedLogDensity(q, oftype(ℓq, -Inf), q) # second q used just as a placeholder
+    end
+end
 
 """
 $(TYPEDEF)
