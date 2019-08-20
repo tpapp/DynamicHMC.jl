@@ -207,7 +207,7 @@ function NUTS_sample_tree(rng, options::TreeOptionsNUTS, H::Hamiltonian,
     z = PhasePoint(Q, p)
     trajectory = TrajectoryNUTS(H, logdensity(H, z), ϵ, min_Δ, turn_statistic_configuration)
     ζ, v, termination, depth = sample_trajectory(rng, trajectory, z, max_depth, directions)
-    statistics = TreeStatisticsNUTS(logdensity(H, ζ), depth, termination,
-                                    acceptance_rate(v), v.steps, directions)
-    ζ.Q, statistics
+    tree_statistics = TreeStatisticsNUTS(logdensity(H, ζ), depth, termination,
+                                         acceptance_rate(v), v.steps, directions)
+    ζ.Q, tree_statistics
 end
