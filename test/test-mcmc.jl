@@ -28,8 +28,8 @@ end
                                initialization = (ϵ = 1.0, ),
                                warmup_stages = fixed_stepsize_warmup_stages())
     Z = DynamicHMC.position_matrix(results.chain)
-    @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.02
-    @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.02
+    @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.03
+    @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.03
     @test mean(x -> x.acceptance_rate, results.tree_statistics) ≥ 0.7
 end
 
