@@ -420,6 +420,27 @@ Perform MCMC with NUTS, including warmup which is not returned. Return a `NamedT
 - `κ` and `ϵ`, the adapted metric and stepsize.
 
 $(DOC_MCMC_ARGS)
+
+# Usage examples
+
+Using a fixed stepsize:
+```julia
+mcmc_with_warmup(rng, ℓ, N;
+                 initialization = (ϵ = 0.1, ),
+                 warmup_stages = fixed_stepsize_warmup_stages())
+```
+
+Starting from a given position `q₀` and kinetic energy scaled down (will still be adapted):
+```julia
+mcmc_with_warmup(rng, ℓ, N;
+                 initialization = (q = q₀, κ = GaussianKineticEnergy(5, 0.1)))
+```
+
+Using a dense metric:
+```julia
+mcmc_with_warmup(rng, ℓ, N;
+                 warmup_stages = default_warmup_stages(; M = Symmetric))
+```
 """
 function mcmc_with_warmup(rng, ℓ, N; initialization = (),
                           warmup_stages = default_warmup_stages(),

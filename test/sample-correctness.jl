@@ -11,9 +11,12 @@ $(SIGNATURES)
 
 Run `K` chains of MCMC on `ℓ`, each for `N` samples, return a vector of position matrices
 and EBFMI statistics as fields of a `NamedTuple`.
+
+Keyword arguments are passed to `mcmc_with_warmup`.
 """
-function run_chains(rng, ℓ, N, K)
-    results = [mcmc_with_warmup(rng, ℓ, N; reporter = NoProgressReport()) for i in 1:K]
+function run_chains(rng, ℓ, N, K; mcmc_args...)
+    results = [mcmc_with_warmup(rng, ℓ, N; reporter = NoProgressReport(), mcmc_args...)
+               for i in 1:K]
     (position_matrices = map(r -> position_matrix(r.chain), results),
      EBFMIs = map(r -> EBFMI(r.tree_statistics), results))
 end
@@ -42,12 +45,14 @@ and compared to thresholds that either *alert* or *fail*. The latter should be l
 of false positives, the tests are rather hair-trigger.
 
 Output is sent to `io`. Specifically, `title` is printed for the first alert.
+
+`mcmc_args` are passed down to `mcmc_with_warmup`.
 """
 function NUTS_tests(rng, ℓ, title, N; K = 3, B = 10, io = stdout,
                     R̂_alert = 1.05, R̂_fail = 2 * (R̂_alert - 1) + 1,
                     τ_alert = 0.2, τ_fail = τ_alert * 0.5,
                     p_alert = 0.001, p_fail = p_alert * 0.1,
-                    EBFMI_alert = 0.5, EBFMI_fail = 0.2)
+                    EBFMI_alert = 0.5, EBFMI_fail = 0.2, mcmc_args = NamedTuple())
     @argcheck 1 < R̂_alert ≤ R̂_fail
     @argcheck 0 < τ_fail ≤ τ_alert
     @argcheck 0 < p_fail ≤ p_alert
@@ -62,7 +67,7 @@ function NUTS_tests(rng, ℓ, title, N; K = 3, B = 10, io = stdout,
             title_printed = true
         end
     end
-    @unpack position_matrices, EBFMIs = run_chains(RNG, ℓ, N, K)
+    @unpack position_matrices, EBFMIs = run_chains(RNG, ℓ, N, K; mcmc_args...)
 
     # mixing and autocorrelation diagnostics
     @unpack R̂, τ = mcmc_statistics(position_matrices)
