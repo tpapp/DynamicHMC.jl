@@ -44,8 +44,8 @@ of false positives, the tests are rather hair-trigger.
 Output is sent to `io`. Specifically, `title` is printed for the first alert.
 """
 function NUTS_tests(rng, ℓ, title, N; K = 3, B = 10, io = stdout,
-                    R̂_alert = 1.05, R̂_fail = 1.1,
-                    τ_alert = 0.2, τ_fail = 0.1,
+                    R̂_alert = 1.05, R̂_fail = 2 * (R̂_alert - 1) + 1,
+                    τ_alert = 0.2, τ_fail = τ_alert * 0.5,
                     p_alert = 0.001, p_fail = p_alert * 0.1,
                     EBFMI_alert = 0.5, EBFMI_fail = 0.2)
     @argcheck 1 < R̂_alert ≤ R̂_fail
@@ -161,11 +161,11 @@ end
 
 @testset "NUTS tests with mixtures" begin
     ℓ1 = multivariate_normal(zeros(3), 1.0)
-    D2 = Diagonal(fill(0.5, 3))
+    D2 = Diagonal(fill(0.4, 3))
     C2 = [1.0 -0.48058358598852935 0.39971148270854306;
           0.0 0.876948924897229 -0.5361348433365906;
           0.0 0.0 0.7434985947205197]
     ℓ2 = multivariate_normal(ones(3), D2 * C2)
-    ℓ = mix(0.05, ℓ1, ℓ2)
+    ℓ = mix(0.2, ℓ1, ℓ2)
     NUTS_tests(RNG, ℓ, "mixture of two normals", 1000)
 end
