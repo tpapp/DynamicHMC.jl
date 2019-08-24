@@ -40,12 +40,12 @@ NoProgressReport
 LogProgressReport
 ```
 
-## Tree options
+## Algorithm and parameters
 
-You probably won't need to change the tree building options with normal usage.
+You probably won't need to change these options with normal usage, except possibly increasing the maximum tree depth.
 
 ```@docs
-DynamicHMC.TreeOptionsNUTS
+DynamicHMC.NUTS
 ```
 
 # Diagnostics

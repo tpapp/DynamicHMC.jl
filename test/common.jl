@@ -21,11 +21,11 @@ using DynamicHMC:
     logdensity,
     # NUTS
     TrajectoryNUTS, rand_bool, GeneralizedTurnStatistic, AcceptanceStatistic,
-    leaf_acceptance_statistic, acceptance_rate, TreeStatisticsNUTS, TreeOptionsNUTS,
-    NUTS_sample_tree,
+    leaf_acceptance_statistic, acceptance_rate, TreeStatisticsNUTS, NUTS, sample_tree,
     # stepsize
     find_crossing_stepsize, bisect_stepsize, find_initial_stepsize, InitialStepsizeSearch,
-    DualAveraging, initial_adaptation_state, adapt_stepsize, current_ϵ, final_ϵ, FixedStepsize,
+    DualAveraging, initial_adaptation_state, adapt_stepsize, current_ϵ, final_ϵ,
+    FixedStepsize,
     # mcmc
     position_matrix, WarmupState
 

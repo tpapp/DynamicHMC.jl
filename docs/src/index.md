@@ -41,3 +41,21 @@ This package has the following intended use cases:
 ## Support
 
 If you have questions, feature requests, or bug reports, please [open an issue](https://github.com/tpapp/DynamicHMC.jl/issues/new). I would like to emphasize that it is perfectly fine to open issues just to ask questions. You can also address questions to [@Tamas_Papp](https://discourse.julialang.org/u/Tamas_Papp) on the Julia discourse forum.
+
+## Versioning and interface changes
+
+Package versioning follows [Semantic Versioning 2.0](https://semver.org/). Only major version increments change the API in a breaking manner, but there is no deprecation cycle. You are strongly advised to add a [compatibility section](https://julialang.github.io/Pkg.jl/dev/compatibility/) to your `Project.toml`, eg
+
+```toml
+[compat]
+DynamicHMC = "^2.0"
+```
+
+Only symbols (functions and types) exported directly or indirectly from the `DynamicHMC` module are considered part of the interface. Importantly, the [`DynamicHMC.Diagnostics`](@ref Diagnostics) submodule is not considered part of the interface with respect to semantic versioning, and may be changed with just a minor version increment. The rationale for this is that a good generic diagnostics interface is much harder to get right, so some experimental improvements, occasionally reverted or redesigned, will be normal for this package in the medium run. If you depend on this explicitly in non-interactive code, use
+
+```toml
+[compat]
+DynamicHMC = "~2.0"
+```
+
+There is an actively maintained [CHANGELOG](https://github.com/tpapp/DynamicHMC.jl/blob/master/CHANGELOG.md) which is worth reading after every release, especially major ones.

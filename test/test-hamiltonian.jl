@@ -243,8 +243,8 @@ end
 end
 
 @testset "normal NUTS HMC transition mean and cov" begin
-    # A test for NUTS_sample_tree with a fixed ϵ and κ, which is perfectly adapted and
-    # should provide excellent mixing
+    # A test for sample_tree with a fixed ϵ and κ, which is perfectly adapted and should
+    # provide excellent mixing
     for _ in 1:10
         K = rand(2:8)
         N = 10000
@@ -256,9 +256,9 @@ end
         H = Hamiltonian(GaussianKineticEnergy(Σ), ℓ)
         qs = Array{Float64}(undef, N, K)
         ϵ = 0.5
-        opt = TreeOptionsNUTS()
+        algorithm = NUTS()
         for i in 1:N
-            Q = first(NUTS_sample_tree(RNG, opt, H, Q, ϵ))
+            Q = first(sample_tree(RNG, algorithm, H, Q, ϵ))
             qs[i, :] = Q.q
         end
         m, C = mean_and_cov(qs, 1)
