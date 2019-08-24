@@ -2,6 +2,8 @@
 
 # v2.0.0
 
+Note: the interface was redesigned. You probably want to review the docs, especially the worked example.
+
 ## API changes
 
 - major API change: entry point is now `mcmc_with_warmup`
