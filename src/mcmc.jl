@@ -24,8 +24,11 @@ struct SamplingLogDensity{R,L,O,S}
     rng::R
     "Log density."
     ℓ::L
-    "Sampler options."
-    sampler_options::O
+    """
+    Algorithm used for sampling, also contains the relevant parameters that are not affected
+    by adaptation. See eg [`NUTS`](@ref).
+    """
+    algorithm::O
     "Reporting warmup information and chain progress."
     reporter::S
 end
@@ -221,7 +224,7 @@ function regularize_M⁻¹(Σ::Union{Diagonal,Symmetric}, λ::Real)
 end
 
 function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where {M}
-    @unpack rng, ℓ, sampler_options, reporter = sampling_logdensity
+    @unpack rng, ℓ, algorithm, reporter = sampling_logdensity
     @unpack Q, κ, ϵ = warmup_state
     @unpack N, stepsize_adaptation, λ = tuning
     chain = Vector{typeof(Q.q)}(undef, N)
@@ -234,7 +237,7 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
     for i in 1:N
         ϵ = current_ϵ(ϵ_state)
         ϵs[i] = ϵ
-        Q, stats = NUTS_sample_tree(rng, sampler_options, H, Q, ϵ)
+        Q, stats = sample_tree(rng, algorithm, H, Q, ϵ)
         chain[i] = Q.q
         tree_statistics[i] = stats
         ϵ_state = adapt_stepsize(stepsize_adaptation, ϵ_state, stats.acceptance_rate)
@@ -260,14 +263,14 @@ Return a `NamedTuple` of
 - `tree_statistics`, a vector of length `N` with the tree statistics.
 """
 function mcmc(sampling_logdensity, N, warmup_state)
-    @unpack rng, ℓ, sampler_options, reporter = sampling_logdensity
+    @unpack rng, ℓ, algorithm, reporter = sampling_logdensity
     @unpack Q, κ, ϵ = warmup_state
     chain = Vector{typeof(Q.q)}(undef, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
     H = Hamiltonian(κ, ℓ)
     mcmc_reporter = make_mcmc_reporter(reporter, N)
     for i in 1:N
-        Q, tree_statistics[i] = NUTS_sample_tree(rng, sampler_options, H, Q, ϵ)
+        Q, tree_statistics[i] = sample_tree(rng, algorithm, H, Q, ϵ)
         chain[i] = Q.q
         report(mcmc_reporter, i)
     end
@@ -365,7 +368,7 @@ const DOC_MCMC_ARGS =
 - `warmup_stages`: a sequence of warmup stages. See [`default_warmup_stages`](@ref) and
   [`fixed_stepsize_warmup_stages`](@ref); the latter requires an `ϵ` in initialization.
 
-- `sampler_options`: see [`TreeOptionsNUTS`](@ref). It is very unlikely you need to modify
+- `algorithm`: see [`NUTS`](@ref). It is very unlikely you need to modify
   this, except perhaps for the maximum depth.
 
 - `reporter`: how progress is reported. By default, verbosely for interactive sessions using
@@ -399,9 +402,9 @@ $(DOC_MCMC_ARGS)
 function mcmc_keep_warmup(rng::AbstractRNG, ℓ, N::Integer;
                           initialization = (),
                           warmup_stages = default_warmup_stages(),
-                          sampler_options = TreeOptionsNUTS(),
+                          algorithm = NUTS(),
                           reporter = default_reporter())
-    sampling_logdensity = SamplingLogDensity(rng, ℓ, sampler_options, reporter)
+    sampling_logdensity = SamplingLogDensity(rng, ℓ, algorithm, reporter)
     initial_state = initial_warmup_state(rng, ℓ; initialization...)
     warmup, warmup_state = _warmup(sampling_logdensity, warmup_stages, initial_state)
     inference = mcmc(sampling_logdensity, N, warmup_state)
@@ -444,11 +447,10 @@ mcmc_with_warmup(rng, ℓ, N;
 """
 function mcmc_with_warmup(rng, ℓ, N; initialization = (),
                           warmup_stages = default_warmup_stages(),
-                          sampler_options = TreeOptionsNUTS(),
-                          reporter = default_reporter())
+                          algorithm = NUTS(), reporter = default_reporter())
     @unpack warmup_state, inference =
         mcmc_keep_warmup(rng, ℓ, N; initialization = initialization,
-                         warmup_stages = warmup_stages, sampler_options = sampler_options,
+                         warmup_stages = warmup_stages, algorithm = algorithm,
                          reporter = reporter)
     @unpack κ, ϵ = warmup_state
     (inference..., κ = κ, ϵ = ϵ)

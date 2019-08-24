@@ -138,26 +138,25 @@ const DEFAULT_MAX_TREE_DEPTH = 10
 """
 $(TYPEDEF)
 
-Options for building NUTS trees. These are the parameters that are expected to remain stable
-during adaptation and sampling.
+Implementation of the “No-U-Turn Sampler” of Hoffman and Gelman (2014), including subsequent
+developments, as described in Betancourt (2017).
 
 # Fields
 
 $(FIELDS)
 """
-struct TreeOptionsNUTS{S}
+struct NUTS{S}
     "Maximum tree depth."
     max_depth::Int
-    "Threshold for negative energy relative to starting point that indicated divergence."
+    "Threshold for negative energy relative to starting point that indicates divergence."
     min_Δ::Float64
     """
     Turn statistic configuration. Currently only `Val(:generalized)` (the default) is
     supported.
     """
     turn_statistic_configuration::S
-    function TreeOptionsNUTS(; max_depth = DEFAULT_MAX_TREE_DEPTH,
-                             min_Δ = -1000.0,
-                             turn_statistic_configuration = Val{:generalized}())
+    function NUTS(; max_depth = DEFAULT_MAX_TREE_DEPTH, min_Δ = -1000.0,
+                  turn_statistic_configuration = Val{:generalized}())
         @argcheck 0 < max_depth ≤ MAX_DIRECTIONS_DEPTH
         @argcheck min_Δ < 0
         S = typeof(turn_statistic_configuration)
@@ -195,15 +194,14 @@ end
 $(SIGNATURES)
 
 No-U-turn Hamiltonian Monte Carlo transition, using Hamiltonian `H`, starting at evaluated
-log density position `Q`, using stepsize `ϵ`. `options` govern the details of tree
-construction.
+log density position `Q`, using stepsize `ϵ`. Parameters of `algorithm` govern the details
+of tree construction.
 
 Return two values, the new evaluated log density position, and tree statistics.
 """
-function NUTS_sample_tree(rng, options::TreeOptionsNUTS, H::Hamiltonian,
-                          Q::EvaluatedLogDensity, ϵ;
+function sample_tree(rng, algorithm::NUTS, H::Hamiltonian, Q::EvaluatedLogDensity, ϵ;
                           p = rand_p(rng, H.κ), directions = rand(rng, Directions))
-    @unpack max_depth, min_Δ, turn_statistic_configuration = options
+    @unpack max_depth, min_Δ, turn_statistic_configuration = algorithm
     z = PhasePoint(Q, p)
     trajectory = TrajectoryNUTS(H, logdensity(H, z), ϵ, min_Δ, turn_statistic_configuration)
     ζ, v, termination, depth = sample_trajectory(rng, trajectory, z, max_depth, directions)

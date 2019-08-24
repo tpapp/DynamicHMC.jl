@@ -99,9 +99,8 @@ end
     # test NUTS sampler where all movements are divergent
     K = 3
     ℓ = AlwaysDivergentTest(K)
-    Q, tree_statistics = NUTS_sample_tree(RNG, TreeOptionsNUTS(),
-                                          Hamiltonian(GaussianKineticEnergy(K), ℓ),
-                                          evaluate_ℓ(ℓ, zeros(K)), 1.0)
+    Q, tree_statistics = sample_tree(RNG, NUTS(), Hamiltonian(GaussianKineticEnergy(K), ℓ),
+                                     evaluate_ℓ(ℓ, zeros(K)), 1.0)
     @test is_divergent(tree_statistics.termination)
     @test iszero(tree_statistics.acceptance_rate)
     @test iszero(tree_statistics.depth)
