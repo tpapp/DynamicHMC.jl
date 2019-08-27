@@ -6,8 +6,8 @@
 #### packages and symbols
 ####
 
-using DynamicHMC, Test, ArgCheck, DocStringExtensions, LinearAlgebra, MCMCDiagnostics,
-    Parameters, Random, StatsBase, StatsFuns, Statistics
+using DynamicHMC, Test, ArgCheck, DocStringExtensions, HypothesisTests, LinearAlgebra,
+    MCMCDiagnostics, Parameters, Random, StatsBase, StatsFuns, Statistics
 
 import ForwardDiff, Random, TransformVariables
 

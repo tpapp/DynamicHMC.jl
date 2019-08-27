@@ -34,21 +34,28 @@ end
 """
 $(SIGNATURES)
 
+Jitter in `(-ϵ, +ϵ)`. Useful for tiebreaking for the Kolmogorov-Smirnov tests.
+"""
+jitter(rng, len, ϵ = 64*eps()) = (2 * ϵ) .* (rand(rng, len) .-  0.5)
+
+"""
+$(SIGNATURES)
+
 Run MCMC on `ℓ`, obtaining `N` samples from `K` independently adapted chains.
 
-`R̂`, `τ`, two-sided `p` statistics comparing to `B` uniform bins, and EBFMIs are obtained
-and compared to thresholds that either *alert* or *fail*. The latter should be lax because
-of false positives, the tests are rather hair-trigger.
+`R̂`, `τ`, Kolmogorov-Smirnov and Anderson-Darling `p`, and EBFMIs are obtained and compared
+to thresholds that either *alert* or *fail*. The latter should be lax because of false
+positives, the tests can be rather hair-trigger.
 
 Output is sent to `io`. Specifically, `title` is printed for the first alert.
 
 `mcmc_args` are passed down to `mcmc_with_warmup`.
 """
-function NUTS_tests(rng, ℓ, title, N; K = 3, B = 10, io = stdout,
+function NUTS_tests(rng, ℓ, title, N; K = 3, io = stdout, mcmc_args = NamedTuple(),
                     R̂_alert = 1.05, R̂_fail = 2 * (R̂_alert - 1) + 1,
                     τ_alert = 0.2, τ_fail = τ_alert * 0.5,
                     p_alert = 0.001, p_fail = p_alert * 0.1,
-                    EBFMI_alert = 0.5, EBFMI_fail = 0.2, mcmc_args = NamedTuple())
+                    EBFMI_alert = 0.5, EBFMI_fail = EBFMI_alert / 2)
     @argcheck 1 < R̂_alert ≤ R̂_fail
     @argcheck 0 < τ_fail ≤ τ_alert
     @argcheck 0 < p_fail ≤ p_alert
@@ -91,18 +98,24 @@ function NUTS_tests(rng, ℓ, title, N; K = 3, B = 10, io = stdout,
     # distribution comparison tests
     Z = reduce(hcat, position_matrices)
     Z′ = samples(ℓ, 1000)
-    pd_alert = p_alert / (d * B)
-    pd_fail = p_fail / (d * B)
+    pd_alert = p_alert / d      # a simple Bonferroni correction
+    pd_fail = p_fail / d
+    ϵ = jitter(rng, size(Z, 2))
+    ϵ′ = jitter(rng, size(Z′, 2))
     for i in 1:d
-        q = quantile_boundaries(Z′[i, :], B)
-        bc = bin_counts(q, Z[i, :])
-        min_p = minimum(two_sided_pvalues(bc))
-        if min_p ≤ pd_alert
+        p_AD = pvalue(KSampleADTest(Z′[i, :], Z[i, :]))
+        p_KS = pvalue(ApproximateTwoSampleKSTest(Z′[i, :] .+ ϵ′, Z[i, :] .+ ϵ))
+        if p_AD ≤ pd_alert
             _print_title_once()
-            println(io, "ALERT extreme p ≈ $(round(min_p, sigdigits = 3)) for coordinate $(i) of $(d)")
-            print_ascii_plot(io, bc)
-            println(io)
+            println(io, "ALERT extreme Anderson-Darling p ≈ $(round(p_AD, sigdigits = 3))",
+                    " for coordinate $(i) of $(d)")
         end
-        @test min_p ≥ pd_fail
+        if p_KS ≤ pd_alert
+            _print_title_once()
+            println(io, "ALERT extreme Kolmogorov-Smirnov p ≈ $(round(p_KS, sigdigits = 3))",
+                    " for coordinate $(i) of $(d)")
+        end
+        @test p_AD ≥ pd_fail
+        @test p_KS ≥ pd_fail
     end
 end

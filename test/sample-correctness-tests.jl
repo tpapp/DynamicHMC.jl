@@ -7,7 +7,6 @@ include("sample-correctness-utilities.jl")
 ##### Sample from well-characterized distributions using LogDensityTestSuite, check
 ##### convergence and mixing, and compare.
 
-
 @testset "NUTS tests with random normal" begin
     for _ in 1:10
         K = rand(3:10)
@@ -16,7 +15,7 @@ include("sample-correctness-utilities.jl")
         C = rand_C(K)
         ℓ = multivariate_normal(μ, D * C)
         title = "multivariate normal μ = $(μ) D = $(D) C = $(C)"
-        NUTS_tests(RNG, ℓ, title, 1000; p_alert = 1e-5)
+        NUTS_tests(RNG, ℓ, title, 1000)
     end
 end
 
@@ -70,4 +69,14 @@ end
     ℓ2 = multivariate_normal(ones(3), D2 * C2)
     ℓ = mix(0.2, ℓ1, ℓ2)
     NUTS_tests(RNG, ℓ, "mixture of two normals", 1000)
+end
+
+@testset "NUTS tests with heavier tails and skewness" begin
+    K = 5
+
+    ℓ = elongate(1.2, StandardMultivariateNormal(K))
+    NUTS_tests(RNG, ℓ, "elongate(1.2, 𝑁)", 1000; p_alert = 1e-5, EBFMI_alert = 0.2)
+
+    ℓ = elongate(1.1, shift(ones(K), StandardMultivariateNormal(K)))
+    NUTS_tests(RNG, ℓ, "skew elongate(1.1, 𝑁)", 1000)
 end
