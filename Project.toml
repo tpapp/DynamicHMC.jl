@@ -22,6 +22,7 @@ julia = "1"
 [extras]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+HypothesisTests = "09f84164-cd44-5f33-b23f-e6b0d136a0d5"
 LogDensityTestSuite = "feb245ec-c857-584e-a66a-22324acf10c6"
 MCMCDiagnostics = "6e857e4b-079a-58c4-aeab-bc2670384359"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
@@ -30,4 +31,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 
 [targets]
-test = ["Documenter", "ForwardDiff", "LogDensityTestSuite", "MCMCDiagnostics", "StatsBase", "Test", "TransformVariables", "Pkg"]
+test = ["Documenter", "ForwardDiff", "HypothesisTests", "LogDensityTestSuite", "MCMCDiagnostics", "StatsBase", "Test", "TransformVariables", "Pkg"]
