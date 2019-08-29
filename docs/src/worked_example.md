@@ -3,14 +3,21 @@
 !!! note
     An extended version of this example can be found [in the DynamicHMCExamples.jl package](https://github.com/tpapp/DynamicHMCExamples.jl/blob/master/src/example_independent_bernoulli.jl).
 
-Consider estimating estimating the parameter ``0 \le \alpha \le 1`` from ``n`` IID observations
+Consider estimating estimating the parameter ``0 \le \alpha \le 1`` from ``n`` IID observations[^4]
+
+[^4]: Note that NUTS is not especially suitable for low-dimensional parameter spaces, but this example works fine.
 
 ```math
 y_i \sim \mathrm{Bernoulli}(\alpha)
 ```
-We will code this with the help of TransformVariables.jl, and obtain the gradient with ForwardDiff.jl (in practice, for nontrivial models, at the moment I would recommend [Flux.jl](https://github.com/FluxML/Flux.jl)).[^4]
+We will code this with the help of TransformVariables.jl, and obtain the gradient with ForwardDiff.jl (in practice, at the moment I would recommend [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl) for small models, and [Flux.jl](https://github.com/FluxML/Flux.jl) for larger ones — consider benchmarking a single evaluation of the log density with gradient).[^5]
 
-[^4]: Note that NUTS is not especially suitable for low-dimensional parameter spaces, but this example works fine.
+[^5]: An example of how you can benchmark a log density with gradient `∇P`, obtained as described below:
+    ```julia
+    using BenchmarkTools, LogDensityProblems
+    x = randn(LogDensityProblems.dimension(∇P))
+    @benchmark LogDensityProblems.logdensity_and_gradient($∇P, $x)
+    ```
 
 First, we load the packages we use.
 
@@ -29,9 +36,9 @@ struct BernoulliProblem
 end
 ```
 
-Then we make this problem *callable* with the parameters. Here, we have a single parameter `α`, but pass this in a `NamedTuple` to demonstrate a generally useful pattern. Then, we define an instance of this problem with the data, called `p`.[^5]
+Then we make this problem *callable* with the parameters. Here, we have a single parameter `α`, but pass this in a `NamedTuple` to demonstrate a generally useful pattern. Then, we define an instance of this problem with the data, called `p`.[^6]
 
-[^5]: Note that here we used a *flat prior*. This is generally not a good idea for variables with non-finite support: one would usually make priors parameters of the `struct` above, and add the log prior to the log likelihood above.
+[^6]: Note that here we used a *flat prior*. This is generally not a good idea for variables with non-finite support: one would usually make priors parameters of the `struct` above, and add the log prior to the log likelihood above.
 
 ```@example bernoulli
 function (problem::BernoulliProblem)(θ)
