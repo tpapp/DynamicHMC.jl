@@ -67,12 +67,16 @@ end
 ###
 
 """
-    $(FUNCTIONNAME)(sampling_logdensity::SamplingLogDensity, warmup_stage, warmup_state)
+$(SIGNATURES)
 
 Return the *results* and the *next warmup state* after warming up/adapting according to
 `warmup_stage`, starting from `warmup_state`.
+
+Use `nothing` for a no-op.
 """
-function warmup end
+function warmup(sampling_logdensity::SamplingLogDensity, warmup_stage::Nothing, warmup_state)
+    nothing, warmup_state
+end
 
 """
 $(SIGNATURES)
@@ -113,23 +117,37 @@ Find a local optimum (using quasi-Newton methods).
 It is recommended that this stage is applied so that the initial stepsize selection happens
 in a region which is at least plausible.
 """
-struct FindLocalOptimum end     # FIXME allow custom algorithm, tolerance, etc
+Base.@kwdef struct FindLocalOptimum{T}
+    """
+    Add `-0.5 * magnitude_penalty * sum(abs2, q)` to the log posterior **when finding the local
+    optimum**. This can help avoid getting into high-density edge areas of the posterior
+    which are otherwise not typical (eg multilevel models).
+    """
+    magnitude_penalty::T = 1e-4
+    """
+    Maximum number of iterations in the optimization algorithm. Recall that we don't need to
+    find the mode, or even a local mode, just be in a reasonable region.
+    """
+    iterations::Int = 50
+    # FIXME allow custom algorithm, tolerance, etc
+end
 
 function warmup(sampling_logdensity, local_optimization::FindLocalOptimum, warmup_state)
     @unpack ℓ, reporter = sampling_logdensity
+    @unpack magnitude_penalty, iterations = local_optimization
     @unpack Q, κ, ϵ = warmup_state
     @unpack q = Q
     report(reporter, "finding initial optimum")
     fg! = function(F, G, q)
         ℓq, ∇ℓq = logdensity_and_gradient(ℓ, q)
         if G ≠ nothing
-            @. G = -∇ℓq
+            @. G = -∇ℓq - q * magnitude_penalty
         end
-        -ℓq
+        -ℓq - (0.5 * magnitude_penalty * sum(abs2, q))
     end
     objective = NLSolversBase.OnceDifferentiable(NLSolversBase.only_fg!(fg!), q)
-    opt = Optim.optimize(objective, q, Optim.LBFGS())
-    Optim.converged(opt) || @warn("could not find local optimum of log density")
+    opt = Optim.optimize(objective, q, Optim.LBFGS(),
+                         Optim.Options(; iterations = iterations))
     q = Optim.minimizer(opt)
     nothing, WarmupState(evaluate_ℓ(ℓ, q), κ, ϵ)
 end
@@ -293,9 +311,9 @@ $(SIGNATURES)
 
 A sequence of warmup stages:
 
-1. find the local optimum,
+1. find the local optimum using `local_optimization`,
 
-2. select an initial stepsize based on a heuristic,
+2. select an initial stepsize using `stepsize_search` (default: based on a heuristic),
 
 3. tuning stepsize with `init_steps` steps
 
@@ -308,14 +326,18 @@ A sequence of warmup stages:
 the sample.
 
 This is the suggested tuner of most applications.
+
+Use `nothing` for `local_optimization` or `stepsize_adaptation` to skip the corresponding
+step.
 """
 function default_warmup_stages(;
+                               local_optimization = FindLocalOptimum(),
+                               stepsize_search = InitialStepsizeSearch(),
                                M::Type{<:Union{Diagonal,Symmetric}} = Diagonal,
                                stepsize_adaptation = DualAveraging(),
                                init_steps = 75, middle_steps = 25, doubling_stages = 5,
                                terminating_steps = 50)
-    (FindLocalOptimum(),
-     InitialStepsizeSearch(),
+    (local_optimization, stepsize_search,
      TuningNUTS{Nothing}(init_steps, stepsize_adaptation),
      _doubling_warmup_stages(M, stepsize_adaptation, middle_steps, Val(doubling_stages))...,
      TuningNUTS{Nothing}(terminating_steps, stepsize_adaptation))
@@ -326,7 +348,7 @@ $(SIGNATURES)
 
 A sequence of warmup stages for fixed stepsize:
 
-1. find the local optimum,
+1. find the local optimum using `local_optimization`,
 
 2. tuning covariance: first with `middle_steps` steps, then repeat with twice
    the steps `doubling_stages` times
@@ -335,9 +357,10 @@ Very similar to [`default_warmup_stages`](@ref), but omits the warmup stages wit
 stepsize tuning.
 """
 function fixed_stepsize_warmup_stages(;
+                                      local_optimization = FindLocalOptimum(),
                                       M::Type{<:Union{Diagonal,Symmetric}} = Diagonal,
                                       middle_steps = 25, doubling_stages = 5)
-    (FindLocalOptimum(),
+    (local_optimization,
      _doubling_warmup_stages(M, FixedStepsize(), middle_steps, Val(doubling_stages))...)
 end
 
@@ -443,6 +466,13 @@ Using a dense metric:
 ```julia
 mcmc_with_warmup(rng, ℓ, N;
                  warmup_stages = default_warmup_stages(; M = Symmetric))
+```
+
+Disabling the optimization step:
+```julia
+mcmc_with_warmup(rng, ℓ, N;
+                 warmup_stages = default_warmup_stages(; local_optimization = nothing,
+                                                         M = Symmetric))
 ```
 """
 function mcmc_with_warmup(rng, ℓ, N; initialization = (),
