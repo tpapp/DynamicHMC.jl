@@ -104,8 +104,8 @@ Create an initial warmup state from a random position.
 
 $(DOC_INITIAL_WARMUP_ARGS)
 """
-function initial_warmup_state(rng, ℓ; q = random_position(rng, dimension(ℓ)),
-                              κ = GaussianKineticEnergy(dimension(ℓ)), ϵ = nothing)
+function initialize_warmup_state(rng, ℓ; q = random_position(rng, dimension(ℓ)),
+                                 κ = GaussianKineticEnergy(dimension(ℓ)), ϵ = nothing)
     WarmupState(evaluate_ℓ(ℓ, q), κ, ϵ)
 end
 
@@ -364,11 +364,19 @@ function fixed_stepsize_warmup_stages(;
      _doubling_warmup_stages(M, FixedStepsize(), middle_steps, Val(doubling_stages))...)
 end
 
-function _warmup(sampling_logdensity, stages, initial_state)
-    foldl(stages; init = ((), initial_state)) do acc, stage
+"""
+$(SIGNATURES)
+
+Helper function for implementing warmup.
+
+!!! note
+    Changes may imply documentation updates in [`mcmc_keep_warmup`](@ref).
+"""
+function _warmup(sampling_logdensity, stages, initial_warmup_state)
+    foldl(stages; init = ((), initial_warmup_state)) do acc, stage
         stages_and_results, warmup_state = acc
         results, warmup_state′ = warmup(sampling_logdensity, stage, warmup_state)
-        stage_information = (stage = stage, results = results, warmup_state = warmup_state)
+        stage_information = (stage = stage, results = results, warmup_state = warmup_state′)
         (stages_and_results..., stage_information), warmup_state′
     end
 end
@@ -411,14 +419,24 @@ $(SIGNATURES)
 
 Perform MCMC with NUTS, keeping the warmup results. Returns a `NamedTuple` of
 
-- `warmup`, which contains all the warmup information and diagnostics
+- `initial_warmup_state`, which contains the initial warmup state
 
-- `warmup_state`, which contains the final adaptation after all the warmup
+- `warmup`, an iterable of `NamedTuple`s each containing fields
+
+    - `stage`: the relevant warmup stage
+
+    - `results`: results returned by that warmup stage (may be `nothing` if not applicable,
+      or a chain, with tree statistics, etc; see the documentation of stages)
+
+    - `warmup_state`: the warmup state *after* the corresponding stage.
+
+- `final_warmup_state`, which contains the final adaptation after all the warmup
 
 - `inference`, which has `chain` and `tree_statistics`, see [`mcmc_with_warmup`](@ref).
 
 !!! warning
-    This function is not (yet) exported because the the warmup API may change.
+    This function is not (yet) exported because the the warmup interface may change with
+    minor versions without being considered breaking. Recommended for interactive use.
 
 $(DOC_MCMC_ARGS)
 """
@@ -428,10 +446,11 @@ function mcmc_keep_warmup(rng::AbstractRNG, ℓ, N::Integer;
                           algorithm = NUTS(),
                           reporter = default_reporter())
     sampling_logdensity = SamplingLogDensity(rng, ℓ, algorithm, reporter)
-    initial_state = initial_warmup_state(rng, ℓ; initialization...)
-    warmup, warmup_state = _warmup(sampling_logdensity, warmup_stages, initial_state)
+    initial_warmup_state = initialize_warmup_state(rng, ℓ; initialization...)
+    warmup, warmup_state = _warmup(sampling_logdensity, warmup_stages, initial_warmup_state)
     inference = mcmc(sampling_logdensity, N, warmup_state)
-    (warmup = warmup, warmup_state = warmup_state, inference = inference)
+    (initial_warmup_state = initial_warmup_state, warmup = warmup,
+     final_warmup_state = warmup_state, inference = inference)
 end
 
 """
@@ -478,10 +497,10 @@ mcmc_with_warmup(rng, ℓ, N;
 function mcmc_with_warmup(rng, ℓ, N; initialization = (),
                           warmup_stages = default_warmup_stages(),
                           algorithm = NUTS(), reporter = default_reporter())
-    @unpack warmup_state, inference =
+    @unpack final_warmup_state, inference =
         mcmc_keep_warmup(rng, ℓ, N; initialization = initialization,
                          warmup_stages = warmup_stages, algorithm = algorithm,
                          reporter = reporter)
-    @unpack κ, ϵ = warmup_state
+    @unpack κ, ϵ = final_warmup_state
     (inference..., κ = κ, ϵ = ϵ)
 end

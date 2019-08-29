@@ -172,9 +172,9 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
 [[NLSolversBase]]
 deps = ["Calculus", "DiffEqDiffTools", "DiffResults", "Distributed", "ForwardDiff"]
-git-tree-sha1 = "1c4b1d76f731dee88a0f494c59c750f3fd7d9ddd"
+git-tree-sha1 = "c430bd3f2dfcffc30688cf4a9cb61535e8d85f65"
 uuid = "d41bc354-129a-5804-8e4c-c37616107c6c"
-version = "7.4.0"
+version = "7.4.1"
 
 [[NaNMath]]
 deps = ["Compat"]

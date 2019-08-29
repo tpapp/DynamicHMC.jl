@@ -48,6 +48,15 @@ You probably won't need to change these options with normal usage, except possib
 DynamicHMC.NUTS
 ```
 
+## Inspecting warmup
+
+!!! note
+    The warmup interface below is not considered part of the exposed API, and may change with just minor version bump. It is intended for interactive use; the docstrings and the field names of results should be informative.
+
+```@docs
+DynamicHMC.mcmc_keep_warmup
+```
+
 # Diagnostics
 
 !!! note
