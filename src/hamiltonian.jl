@@ -161,6 +161,16 @@ struct EvaluatedLogDensity{T,S}
     end
 end
 
+# general constructors below are necessary to sanitize input from eg Diagnostics, or an
+# initial position given as integers, etc
+
+function EvaluatedLogDensity(q::AbstractVector, ℓq::Real, ∇ℓq::AbstractVector)
+    q, ∇ℓq = promote(q, ∇ℓq)
+    EvaluatedLogDensity(q, ℓq, ∇ℓq)
+end
+
+EvaluatedLogDensity(q, ℓq::Real, ∇ℓq) = EvaluatedLogDensity(collect(q), ℓq, collect(∇ℓq))
+
 """
 $(SIGNATURES)
 

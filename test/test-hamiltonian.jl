@@ -173,18 +173,29 @@ end
     end
 end
 
-@testset "PhasePoint validation and infinite values" begin
+@testset "PhasePoint building blocks and infinite values" begin
     # wrong gradient length
     @test_throws ArgumentError EvaluatedLogDensity([1.0, 2.0], 1.0, [1.0])
+
     # wrong p length
     Q = EvaluatedLogDensity([1.0, 2.0], 1.0, [1.0, 2.0])
     @test_throws ArgumentError PhasePoint(Q, [1.0])
     @test PhasePoint(Q, [1.0, 2.0]) isa PhasePoint
+
+    # fallback constructors
+    Q1 = EvaluatedLogDensity([1.0, 2.0], -2.0, [3.0, 3.0])       # standard
+    Q2 = EvaluatedLogDensity([1, 2], -2.0, [3.0, 3.0])           # promote
+    Q3 = EvaluatedLogDensity((i for i in 1:2), -2.0, [3.0, 3.0]) # generator
+    @test Q1.q == Q2.q == Q3.q
+    @test Q1.ℓq == Q2.ℓq == Q3.ℓq
+    @test Q1.∇ℓq == Q2.∇ℓq == Q3.∇ℓq
+
     # infinity fallbacks
     h = Hamiltonian(GaussianKineticEnergy(1), multivariate_normal(zeros(1)))
     @test logdensity(h, PhasePoint(EvaluatedLogDensity([1.0], -Inf, [1.0]), [1.0])) == -Inf
     @test logdensity(h, PhasePoint(EvaluatedLogDensity([1.0], NaN, [1.0]), [1.0])) == -Inf
     @test logdensity(h, PhasePoint(EvaluatedLogDensity([1.0], 9.0, [1.0]), [NaN])) == -Inf
+
 end
 
 @testset "Hamiltonian and KE printing" begin
