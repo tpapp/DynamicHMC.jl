@@ -7,6 +7,7 @@ Implementation of robust dynamic Hamiltonian Monte Carlo methods in Julia.
 [![codecov.io](http://codecov.io/github/tpapp/DynamicHMC.jl/coverage.svg?branch=master)](http://codecov.io/github/tpapp/DynamicHMC.jl?branch=master)
 [![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://tpapp.github.io/DynamicHMC.jl/stable)
 [![Documentation](https://img.shields.io/badge/docs-master-blue.svg)](https://tpapp.github.io/DynamicHMC.jl/latest)
+[![DOI](https://zenodo.org/badge/93741413.svg)](https://zenodo.org/badge/latestdoi/93741413)
 
 ## Overview
 
