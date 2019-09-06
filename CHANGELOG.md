@@ -1,5 +1,9 @@
 # Unreleased
 
+# v2.0.2
+
+Default keyword arguments for LogProgressReport.
+
 # v2.0.1
 
 Don't print `chain_id` when it is `nothing`.
