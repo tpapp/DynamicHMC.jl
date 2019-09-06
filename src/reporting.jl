@@ -56,8 +56,19 @@ struct LogProgressReport{T}
     time_interval_s::Float64
 end
 
+"""
+$(SIGNATURES)
+
+Assemble log message metadata.
+
+Currently, it adds `chain_id` *iff* it is not `nothing`.
+"""
+_log_meta(chain_id::Nothing, meta) = meta
+
+_log_meta(chain_id, meta) = (chain_id = chain_id, meta...)
+
 function report(reporter::LogProgressReport, message::AbstractString; meta...)
-    @info message chain_id = reporter.chain_id meta...
+    @info message _log_meta(reporter.chain_id, meta)...
     nothing
 end
 
@@ -69,7 +80,7 @@ mutable struct LogMCMCReport{T}
 end
 
 function report(reporter::LogMCMCReport, message::AbstractString; meta...)
-    @info message chain_id = reporter.log_progress_report.chain_id meta...
+    @info message _log_meta(reporter.log_progress_report.chain_id, meta)...
     nothing
 end
 
@@ -88,11 +99,11 @@ function report(reporter::LogMCMCReport, step::Integer; meta...)
     Δ_time_s = (t_ns - last_reported_time_ns) / 1_000_000_000
     if last_reported_step < 0 || Δ_steps ≥ step_interval || Δ_time_s ≥ time_interval_s
         seconds_per_step = Δ_time_s / Δ_steps
-        @info("MCMC progress", chain_id = chain_id, step = step,
-              seconds_per_step = round(seconds_per_step; sigdigits = 2),
-              estimated_seconds_left = round((total_steps - step) * seconds_per_step;
-                                             sigdigits = 2),
-              meta...)
+        meta_progress = (step = step,
+                         seconds_per_step = round(seconds_per_step; sigdigits = 2),
+                         estimated_seconds_left = round((total_steps - step) *
+                                                        seconds_per_step; sigdigits = 2))
+        @info "MCMC progress" merge(_log_meta(chain_id, meta_progress), meta)...
         reporter.last_reported_step = step
         reporter.last_reported_time_ns = t_ns
     end
