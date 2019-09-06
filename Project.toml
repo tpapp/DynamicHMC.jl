@@ -1,7 +1,7 @@
 name = "DynamicHMC"
 uuid = "bbc10e6e-7c05-544b-b16e-64fede858acb"
 authors = ["Tamas K. Papp <tkpapp@gmail.com>"]
-version = "2.0.0"
+version = "2.0.1"
 
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"

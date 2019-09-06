@@ -1,5 +1,9 @@
 # Unreleased
 
+# v2.0.1
+
+Don't print `chain_id` when it is `nothing`.
+
 # v2.0.0
 
 Note: the interface was redesigned. You probably want to review the docs, especially the worked example.
