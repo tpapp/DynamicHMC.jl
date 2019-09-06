@@ -47,13 +47,13 @@ For the information reported, a *step* is a NUTS transition, not a leapfrog step
 
 $(FIELDS)
 """
-struct LogProgressReport{T}
+Base.@kwdef struct LogProgressReport{T}
     "ID of chain. Can be an arbitrary object, eg `nothing`."
-    chain_id::T
+    chain_id::T = nothing
     "Always report progress past `step_interval` of the last report."
-    step_interval::Int
-    "Always report progress past this much time (in second) after the last report."
-    time_interval_s::Float64
+    step_interval::Int = 100
+    "Always report progress past this much time (in seconds) after the last report."
+    time_interval_s::Float64 = 1000.0
 end
 
 """
@@ -113,11 +113,12 @@ end
 """
 $(SIGNATURES)
 
-Return a default reporter with the given chain ID, taking the environment into account.
+Return a default reporter, taking the environment into account. Keyword arguments are passed
+to constructors when applicable.
 """
-function default_reporter(; chain_id = nothing)
+function default_reporter(; kwargs...)
     if isinteractive()
-        LogProgressReport(chain_id, 100, 1000.0)
+        LogProgressReport(; kwargs...)
     else
         NoProgressReport()
     end
