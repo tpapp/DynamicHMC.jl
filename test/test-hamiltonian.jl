@@ -201,9 +201,10 @@ end
 @testset "Hamiltonian and KE printing" begin
     κ = GaussianKineticEnergy(Diagonal([1.0, 4.0]))
     @test repr(κ) == "Gaussian kinetic energy (Diagonal), √diag(M⁻¹): [1.0, 2.0]"
-    H = Hamiltonian(κ, multivariate_normal(zeros(1)))
+    H = Hamiltonian(κ, multivariate_normal(zeros(2)))
     @test repr(H) ==
         "Hamiltonian with Gaussian kinetic energy (Diagonal), √diag(M⁻¹): [1.0, 2.0]"
+    @test_throws ArgumentError Hamiltonian(κ, multivariate_normal(zeros(1)))
 end
 
 ####
