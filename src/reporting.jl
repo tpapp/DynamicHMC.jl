@@ -72,10 +72,24 @@ function report(reporter::LogProgressReport, message::AbstractString; meta...)
     nothing
 end
 
+"""
+$(TYPEDEF)
+
+A composite type for tracking the state for which the last log message was emitted, for MCMC
+reporting with a given total number of steps (see [`make_mcmc_reporter`](@ref).
+
+# Fields
+
+$(FIELDS)
+"""
 mutable struct LogMCMCReport{T}
+    "The progress report sink."
     log_progress_report::T
+    "Total steps for this stage."
     total_steps::Int
+    "Index of the last reported step."
     last_reported_step::Int
+    "The last time a report was logged (determined using `time_ns`)."
     last_reported_time_ns::UInt64
 end
 

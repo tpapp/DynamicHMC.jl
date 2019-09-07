@@ -10,7 +10,17 @@
 """
 $(TYPEDEF)
 
-Kinetic energy specifications.
+Kinetic energy specifications. Implements the methods
+
+- `Base.size`
+
+- [`kinetic_energy`](@ref)
+
+- [`calculate_p♯`](@ref)
+
+- [`∇kinetic_energy`](@ref)
+
+- [`rand_p`](@ref)
 
 For all subtypes, it is implicitly assumed that kinetic energy is symmetric in
 the momentum `p`,
@@ -81,6 +91,8 @@ end
 ## NOTE about implementation: the 3 methods are callable without a third argument (`q`)
 ## because they are defined for Gaussian (Euclidean) kinetic energies.
 
+Base.size(κ::GaussianKineticEnergy, args...) = size(κ.M⁻¹, args...)
+
 """
 $(SIGNATURES)
 
@@ -130,7 +142,7 @@ struct Hamiltonian{K,L}
     """
     function Hamiltonian(κ::K, ℓ::L) where {K <: KineticEnergy,L}
         @argcheck capabilities(ℓ) ≥ LogDensityOrder(1)
-        # FIXME argcheck size compatibility
+        @argcheck dimension(ℓ) == size(κ, 1)
         new{K,L}(κ, ℓ)
     end
 end
