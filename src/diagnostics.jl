@@ -27,7 +27,8 @@ chosen kinetic energies.
 Low values (`≤ 0.3`) are considered problematic. See Betancourt (2016).
 """
 function EBFMI(tree_statistics)
-    (πs = map(x -> x.π, tree_statistics); mean(abs2, diff(πs)) / var(πs))
+    πs = map(x -> x.π, tree_statistics)
+    mean(abs2, diff(πs)) / var(πs)
 end
 
 "Acceptance quantiles for [`TreeStatisticsSummary`](@ref) diagnostic summary."
