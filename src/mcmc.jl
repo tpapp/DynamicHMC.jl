@@ -283,8 +283,15 @@ using ResumableFunctions
 # - `tree_statistics`, a vector of length `N` with the tree statistics.
 # """
 @resumable function mcmc(sampling_logdensity, N, warmup_state)
-    @unpack rng, ℓ, algorithm, reporter = sampling_logdensity
-    @unpack Q, κ, ϵ = warmup_state
+    rng = sampling_logdensity.rng
+    ℓ = sampling_logdensity.ℓ
+    algorithm = sampling_logdensity.algorithm
+    reporter = sampling_logdensity.reporter
+
+    Q = warmup_state.Q
+    κ = warmup_state.κ
+    ϵ = warmup_state.ϵ
+
 
     H = Hamiltonian(κ, ℓ)
     while true
