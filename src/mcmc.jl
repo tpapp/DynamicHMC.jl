@@ -276,7 +276,7 @@ using ResumableFunctions
 
 # Markov Chain Monte Carlo for `sampling_logdensity`, with the adapted `warmup_state`.
 
-# Return a `NamedTuple` of
+# Return a `NamedTup`le` of
 
 # - `chain`, a vector of length `N` that contains the positions,
 
@@ -448,8 +448,8 @@ function mcmc_keep_warmup(rng::AbstractRNG, ℓ, N::Integer;
     initial_warmup_state = initialize_warmup_state(rng, ℓ; initialization...)
     warmup, warmup_state = _warmup(sampling_logdensity, warmup_stages, initial_warmup_state)
     inference = mcmc(sampling_logdensity, N, warmup_state)
-    (initial_warmup_state = initial_warmup_state, warmup = warmup,
-     final_warmup_state = warmup_state, inference = inference)
+    # (initial_warmup_state = initial_warmup_state, warmup = warmup,
+    #  final_warmup_state = warmup_state, inference = inference)
 end
 
 """
@@ -496,10 +496,10 @@ mcmc_with_warmup(rng, ℓ, N;
 function mcmc_with_warmup(rng, ℓ, N; initialization = (),
                           warmup_stages = default_warmup_stages(),
                           algorithm = NUTS(), reporter = default_reporter())
-    @unpack final_warmup_state, inference =
+    # @unpack final_warmup_state, inference =
         mcmc_keep_warmup(rng, ℓ, N; initialization = initialization,
                          warmup_stages = warmup_stages, algorithm = algorithm,
                          reporter = reporter)
-    @unpack κ, ϵ = final_warmup_state
-    (inference..., κ = κ, ϵ = ϵ)
+    # @unpack κ, ϵ = final_warmup_state
+    # (inference..., κ = κ, ϵ = ϵ)
 end
