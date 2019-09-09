@@ -269,30 +269,29 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
      WarmupState(Q, κ, final_ϵ(ϵ_state)))
 end
 
-"""
-$(SIGNATURES)
+using ResumableFunctions
 
-Markov Chain Monte Carlo for `sampling_logdensity`, with the adapted `warmup_state`.
+# """
+# $(SIGNATURES)
 
-Return a `NamedTuple` of
+# Markov Chain Monte Carlo for `sampling_logdensity`, with the adapted `warmup_state`.
 
-- `chain`, a vector of length `N` that contains the positions,
+# Return a `NamedTuple` of
 
-- `tree_statistics`, a vector of length `N` with the tree statistics.
-"""
-function mcmc(sampling_logdensity, N, warmup_state)
+# - `chain`, a vector of length `N` that contains the positions,
+
+# - `tree_statistics`, a vector of length `N` with the tree statistics.
+# """
+@resumable function mcmc(sampling_logdensity, N, warmup_state)
     @unpack rng, ℓ, algorithm, reporter = sampling_logdensity
     @unpack Q, κ, ϵ = warmup_state
-    chain = Vector{typeof(Q.q)}(undef, N)
-    tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
+
     H = Hamiltonian(κ, ℓ)
-    mcmc_reporter = make_mcmc_reporter(reporter, N)
-    for i in 1:N
-        Q, tree_statistics[i] = sample_tree(rng, algorithm, H, Q, ϵ)
-        chain[i] = Q.q
-        report(mcmc_reporter, i)
+    while true
+        Q, tree_statistics_i = sample_tree(rng, algorithm, H, Q, ϵ)
+        chain_i = Q.q
+        @yield (val=chain_i, meta=tree_statistics_i)
     end
-    (chain = chain, tree_statistics = tree_statistics)
 end
 
 """
