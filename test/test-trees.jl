@@ -62,6 +62,9 @@ function combine_visited_statistics(::DummyTrajectory, v₁, v₂)
     (a1 + a2, s1 + s2)
 end
 
+# copyied from StatsFuns.jl
+log1mexp(x::Real) = x < log(0.5) ? log1p(-exp(x)) : log(-expm1(x))
+
 function combine_proposals(_, ::DummyTrajectory, zeta1, zeta2, logprob2, is_forward)
     lp2 = logprob2 > 0 ? 0.0 : logprob2
     lp1 = logprob2 > 0 ? oftype(lp2, -Inf) : log1mexp(lp2)

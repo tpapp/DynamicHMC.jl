@@ -29,9 +29,14 @@ using LinearAlgebra: checksquare, Diagonal, Symmetric
 using LogDensityProblems: capabilities, LogDensityOrder, dimension, logdensity_and_gradient
 import NLSolversBase, Optim # optimization step in mcmc
 using Parameters: @unpack
-using Random: AbstractRNG, randn, Random
+using Random: AbstractRNG, randn, Random, randexp
 using Statistics: cov, mean, median, middle, quantile, var
-using StatsFuns: logaddexp
+
+# copy from StatsFuns.jl
+function logaddexp(x, y)
+    isfinite(x) && isfinite(y) || return max(x,y)
+    x > y ? x + log1p(exp(y - x)) : y + log1p(exp(x - y))
+end
 
 include("trees.jl")
 include("hamiltonian.jl")

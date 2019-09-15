@@ -1,5 +1,8 @@
 # Unreleased
 
+- use `randexp` for Metropolis acceptance draws
+- remove dependence on StatsFuns.jl
+
 # v2.0.2
 
 Default keyword arguments for LogProgressReport.

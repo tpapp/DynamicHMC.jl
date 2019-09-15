@@ -35,16 +35,19 @@ end
 """
 $(SIGNATURES)
 
-Random boolean which is `true` with the given probability `prob`.
+Random boolean which is `true` with the given probability `exp(logprob)`, which can be `≥ 1`
+in which case no random value is drawn.
 """
-rand_bool(rng::AbstractRNG, prob::T) where {T <: AbstractFloat} = rand(rng, T) ≤ prob
+function rand_bool_logprob(rng::AbstractRNG, logprob)
+    logprob ≥ 0 || (randexp(rng, Float64) > -logprob)
+end
 
 function calculate_logprob2(::TrajectoryNUTS, is_doubling, ω₁, ω₂, ω)
     biased_progressive_logprob2(is_doubling, ω₁, ω₂, ω)
 end
 
 function combine_proposals(rng, ::TrajectoryNUTS, z₁, z₂, logprob2::Real, is_forward)
-    (logprob2 ≥ 0 || rand_bool(rng, exp(logprob2))) ? z₂ : z₁
+    rand_bool_logprob(rng, logprob2) ? z₂ : z₁
 end
 
 ###
