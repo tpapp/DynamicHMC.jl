@@ -31,6 +31,14 @@ end
     @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.03
     @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.03
     @test mean(x -> x.acceptance_rate, results.tree_statistics) ≥ 0.7
+
+    # stepwise
+    results = mcmc_keep_warmup(RNG, ℓ, 0; reporter = NoProgressReport())
+    steps = mcmc_steps(results.sampling_logdensity, results.final_warmup_state)
+    qs = let Q = results.final_warmup_state.Q
+        [(Q = first(mcmc_next_step(steps, Q)); Q.q) for _ in 1:1000]
+    end
+    @test norm(mean(reduce(hcat, qs); dims = 2) .- ones(5), Inf) ≤ 0.1
 end
 
 # @testset "tuner framework" begin

@@ -57,6 +57,18 @@ DynamicHMC.NUTS
 DynamicHMC.mcmc_keep_warmup
 ```
 
+## Stepwise sampling
+
+!!! note
+    The warmup interface below is not considered part of the exposed API, and may change with just minor version bump.
+
+An experimental interface is available to users who wish to do MCMC one step at a time, eg until some desired criterion about effective sample size or mixing is satisfied. See the docstrings below for an example.
+
+```@docs
+DynamicHMC.mcmc_steps
+DynamicHMC.mcmc_next_step
+```
+
 # Diagnostics
 
 !!! note
