@@ -41,7 +41,16 @@ end
 ###
 
 @testset "random booleans" begin
-    @test abs(mean(rand_bool(RNG, 0.3) for _ in 1:10000) - 0.3) ≤ 0.01
+    for prob in (1:9) ./ 10
+        logprob = log(prob)
+        @test abs(mean(rand_bool_logprob(RNG, logprob) for _ in 1:10000) - prob) ≤ 0.01
+    end
+
+    # these operations don't call the RNG, this is checked
+    RNG′ = copy(RNG)
+    @test all(rand_bool_logprob(RNG, 0) for _ in 1:10000)
+    @test all(rand_bool_logprob(RNG, 10) for _ in 1:10000)
+    @test rand(RNG′) == rand(RNG)
 end
 
 ###
