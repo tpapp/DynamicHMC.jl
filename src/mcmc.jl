@@ -270,6 +270,71 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
 end
 
 """
+$(TYPEDEF)
+
+A composite type for performing MCMC stepwise after warmup.
+
+The type is *not* part of the API, see [`mcmc_steps`](@ref) and [`mcmc_next_step`](@ref).
+"""
+struct MCMCSteps{TR,TA,TH,TE}
+    rng::TR
+    algorithm::TA
+    H::TH
+    ϵ::TE
+end
+
+"""
+$(SIGNATURES)
+
+Return a value which can be used to perform MCMC stepwise, eg until some criterion is
+satisfied about the sample. See [`mcmc_next_step`](@ref).
+
+Two constructors are available:
+
+1. Explicitly providing
+    - `rng`, the random number generator,
+    - `algorithm`, see [`mcmc_with_warmup`](@ref),
+    - `κ`, the (adapted) metric,
+    - `ℓ`, the log density callable (see [`mcmc_with_warmup`](@ref),
+    - `ϵ`, the stepsize.
+
+2. Using the fields `sampling_logdensity` and `warmup_state`, eg from
+    [`mcmc_keep_warmup`](@ref) (make sure you use eg `final_warmup_state`).
+
+# Example
+
+```julia
+# initialization
+results = DynamicHMC.mcmc_keep_warmup(RNG, ℓ, 0; reporter = NoProgressReport())
+steps = mcmc_steps(results.sampling_logdensity, results.final_warmup_state)
+Q = results.final_warmup_state.Q
+
+# a single update step
+Q, tree_stats = mcmc_next_step(steps, Q)
+
+# extract the position
+Q.q
+```
+"""
+mcmc_steps(rng, algorithm, κ, ℓ, ϵ) = MCMCSteps(rng, algorithm, Hamiltonian(κ, ℓ), ϵ)
+
+function mcmc_steps(sampling_logdensity::SamplingLogDensity, warmup_state)
+    @unpack rng, ℓ, algorithm = sampling_logdensity
+    @unpack κ, ϵ = warmup_state
+    mcmc_steps(rng, algorithm, κ, ℓ, ϵ)
+end
+
+"""
+$(SIGNATURES)
+
+Given `Q` (an evaluated log density at a position), return the next `Q` and tree statistics.
+"""
+function mcmc_next_step(mcmc_steps::MCMCSteps, Q::EvaluatedLogDensity)
+    @unpack rng, algorithm, H, ϵ = mcmc_steps
+    sample_tree(rng, algorithm, H, Q, ϵ)
+end
+
+"""
 $(SIGNATURES)
 
 Markov Chain Monte Carlo for `sampling_logdensity`, with the adapted `warmup_state`.
@@ -281,14 +346,14 @@ Return a `NamedTuple` of
 - `tree_statistics`, a vector of length `N` with the tree statistics.
 """
 function mcmc(sampling_logdensity, N, warmup_state)
-    @unpack rng, ℓ, algorithm, reporter = sampling_logdensity
-    @unpack Q, κ, ϵ = warmup_state
+    @unpack reporter = sampling_logdensity
+    @unpack Q = warmup_state
     chain = Vector{typeof(Q.q)}(undef, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
-    H = Hamiltonian(κ, ℓ)
     mcmc_reporter = make_mcmc_reporter(reporter, N)
+    steps = mcmc_steps(sampling_logdensity, warmup_state)
     for i in 1:N
-        Q, tree_statistics[i] = sample_tree(rng, algorithm, H, Q, ϵ)
+        Q, tree_statistics[i] = mcmc_next_step(steps, Q)
         chain[i] = Q.q
         report(mcmc_reporter, i)
     end
@@ -434,6 +499,8 @@ Perform MCMC with NUTS, keeping the warmup results. Returns a `NamedTuple` of
 
 - `inference`, which has `chain` and `tree_statistics`, see [`mcmc_with_warmup`](@ref).
 
+- `sampling_logdensity`, which contains information that is invariant to warmup
+
 !!! warning
     This function is not (yet) exported because the the warmup interface may change with
     minor versions without being considered breaking. Recommended for interactive use.
@@ -450,7 +517,8 @@ function mcmc_keep_warmup(rng::AbstractRNG, ℓ, N::Integer;
     warmup, warmup_state = _warmup(sampling_logdensity, warmup_stages, initial_warmup_state)
     inference = mcmc(sampling_logdensity, N, warmup_state)
     (initial_warmup_state = initial_warmup_state, warmup = warmup,
-     final_warmup_state = warmup_state, inference = inference)
+     final_warmup_state = warmup_state, inference = inference,
+     sampling_logdensity = sampling_logdensity)
 end
 
 """

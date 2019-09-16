@@ -1,6 +1,9 @@
 # Unreleased
 
+- add experimental “iterator” interface ([#94])
+
 - use `randexp` for Metropolis acceptance draws
+
 - remove dependence on StatsFuns.jl
 
 # v2.0.2
