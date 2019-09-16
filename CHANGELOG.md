@@ -1,5 +1,9 @@
 # Unreleased
 
+- add example for skipping stepsize search
+
+# v2.1.0
+
 - add experimental “iterator” interface ([#94])
 
 - use `randexp` for Metropolis acceptance draws
