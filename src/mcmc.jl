@@ -130,6 +130,7 @@ Base.@kwdef struct FindLocalOptimum{T}
     """
     iterations::Int = 50
     # FIXME allow custom algorithm, tolerance, etc
+    # FIXME verify >0 of parameters in constructor
 end
 
 function warmup(sampling_logdensity, local_optimization::FindLocalOptimum, warmup_state)
@@ -139,11 +140,12 @@ function warmup(sampling_logdensity, local_optimization::FindLocalOptimum, warmu
     @unpack q = Q
     report(reporter, "finding initial optimum")
     fg! = function(F, G, q)
+        # NOTE: Optim.optimize *minimizes*, so we *add* a penalty
         ℓq, ∇ℓq = logdensity_and_gradient(ℓ, q)
         if G ≠ nothing
-            @. G = -∇ℓq - q * magnitude_penalty
+            @. G = -∇ℓq + q * magnitude_penalty
         end
-        -ℓq - (0.5 * magnitude_penalty * sum(abs2, q))
+        -ℓq + (0.5 * magnitude_penalty * sum(abs2, q))
     end
     objective = NLSolversBase.OnceDifferentiable(NLSolversBase.only_fg!(fg!), q)
     opt = Optim.optimize(objective, q, Optim.LBFGS(),
