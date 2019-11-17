@@ -563,6 +563,13 @@ mcmc_with_warmup(rng, ℓ, N;
                  warmup_stages = default_warmup_stages(; local_optimization = nothing,
                                                          M = Symmetric))
 ```
+
+Disabling the initial stepsize search (provided explicitly, still adapted):
+```julia
+mcmc_with_warmup(rng, ℓ, N;
+                 initialization = (ϵ = 1.0, ),
+                 warmup_stages = default_warmup_stages(; stepsize_search = nothing))
+```
 """
 function mcmc_with_warmup(rng, ℓ, N; initialization = (),
                           warmup_stages = default_warmup_stages(),
