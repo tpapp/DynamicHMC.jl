@@ -77,6 +77,7 @@ end
     ℓ = elongate(1.2, StandardMultivariateNormal(K))
     NUTS_tests(RNG, ℓ, "elongate(1.2, 𝑁)", 1000; p_alert = 1e-5, EBFMI_alert = 0.2)
 
+    # this has very nasty tails to we relax requirements a bit
     ℓ = elongate(1.1, shift(ones(K), StandardMultivariateNormal(K)))
     NUTS_tests(RNG, ℓ, "skew elongate(1.1, 𝑁)", 10000; τ_alert = 0.1, EBFMI_alert = 0.2)
 end
