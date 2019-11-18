@@ -68,7 +68,7 @@ end
           0.0 0.0 0.7434985947205197]
     ℓ2 = multivariate_normal(ones(3), D2 * C2)
     ℓ = mix(0.2, ℓ1, ℓ2)
-    NUTS_tests(RNG, ℓ, "mixture of two normals", 1000)
+    NUTS_tests(RNG, ℓ, "mixture of two normals", 1000; τ_alert = 0.15)
 end
 
 @testset "NUTS tests with heavier tails and skewness" begin
@@ -77,6 +77,7 @@ end
     ℓ = elongate(1.2, StandardMultivariateNormal(K))
     NUTS_tests(RNG, ℓ, "elongate(1.2, 𝑁)", 1000; p_alert = 1e-5, EBFMI_alert = 0.2)
 
+    # this has very nasty tails to we relax requirements a bit
     ℓ = elongate(1.1, shift(ones(K), StandardMultivariateNormal(K)))
-    NUTS_tests(RNG, ℓ, "skew elongate(1.1, 𝑁)", 1000)
+    NUTS_tests(RNG, ℓ, "skew elongate(1.1, 𝑁)", 10000; τ_alert = 0.1, EBFMI_alert = 0.2)
 end

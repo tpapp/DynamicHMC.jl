@@ -62,11 +62,13 @@ function NUTS_tests(rng, ℓ, title, N; K = 3, io = stdout, mcmc_args = NamedTup
     @argcheck 0 < EBFMI_fail < EBFMI_alert
 
     d = dimension(ℓ)
+    _round(x) = round(x; sigdigits = 3) # for printing
 
     title_printed = false
     function _print_title_once()
         if !title_printed
-            println(io, "INFO while testing: $(title), dimension $(d)")
+            printstyled(io, "INFO while testing: $(title), dimension $(d)\n";
+                        color = :blue, bold = true)
             title_printed = true
         end
     end
@@ -77,21 +79,21 @@ function NUTS_tests(rng, ℓ, title, N; K = 3, io = stdout, mcmc_args = NamedTup
     max_R̂ = maximum(R̂)
     if max_R̂ > R̂_alert
         _print_title_once()
-        println(io, "ALERT max R̂ = $(max_R̂)\n  R̂ = $(round.(R̂, sigdigits = 3))" )
+        println(io, "ALERT some R̂ = $(_round.(R̂)) > $(_round(R̂_alert))" )
     end
     @test all(max_R̂ ≤ R̂_fail)
 
     min_τ = minimum(τ)
     if min_τ < τ_alert
         _print_title_once()
-        println(io, "ALERT min τ = $(min_τ)\n  τ = $(round.(τ, sigdigits = 3))" )
+        println(io, "ALERT some τ = $(_round.(τ)) < $(_round(τ_alert))" )
     end
     @test all(min_τ ≥ τ_fail)
 
     min_EBFMI = minimum(EBFMIs)
     if min_EBFMI < EBFMI_alert
         _print_title_once()
-        println(io, "ALERT min EBFMI = $(min_EBFMI)\n  EBFMI = $(round.(EBFMIs, sigdigits = 3))" )
+        println(io, "ALERT some EBFMI = $(_round.(EBFMIs)) > $(_round(EBFMI_alert))" )
     end
     @test all(min_EBFMI ≥ EBFMI_fail)
 
@@ -104,18 +106,12 @@ function NUTS_tests(rng, ℓ, title, N; K = 3, io = stdout, mcmc_args = NamedTup
     ϵ′ = jitter(rng, size(Z′, 2))
     for i in 1:d
         p_AD = pvalue(KSampleADTest(Z′[i, :], Z[i, :]))
-        p_KS = pvalue(ApproximateTwoSampleKSTest(Z′[i, :] .+ ϵ′, Z[i, :] .+ ϵ))
         if p_AD ≤ pd_alert
             _print_title_once()
-            println(io, "ALERT extreme Anderson-Darling p ≈ $(round(p_AD, sigdigits = 3))",
-                    " for coordinate $(i) of $(d)")
-        end
-        if p_KS ≤ pd_alert
-            _print_title_once()
-            println(io, "ALERT extreme Kolmogorov-Smirnov p ≈ $(round(p_KS, sigdigits = 3))",
+            println(io, "ALERT extreme Anderson-Darling ",
+                    "p ≈ $(round(p_AD, sigdigits = 3)) < $(round(pd_alert))",
                     " for coordinate $(i) of $(d)")
         end
         @test p_AD ≥ pd_fail
-        @test p_KS ≥ pd_fail
     end
 end

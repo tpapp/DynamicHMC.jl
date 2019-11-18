@@ -1,10 +1,12 @@
 # Unreleased
 
-- add example for skipping stepsize search
+- fix penalty sign in initial optimization (#97)
+
+- add example for skipping stepsize search (#104)
 
 # v2.1.0
 
-- add experimental “iterator” interface ([#94])
+- add experimental “iterator” interface (#94)
 
 - use `randexp` for Metropolis acceptance draws
 
