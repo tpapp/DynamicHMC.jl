@@ -128,7 +128,7 @@ Base.@kwdef struct FindLocalOptimum{T}
     Maximum number of iterations in the optimization algorithm. Recall that we don't need to
     find the mode, or even a local mode, just be in a reasonable region.
     """
-    iterations::Int = 50
+    iterations::Int = 20
     # FIXME allow custom algorithm, tolerance, etc
     # FIXME verify >0 of parameters in constructor
 end
