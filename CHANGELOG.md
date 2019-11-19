@@ -1,12 +1,14 @@
 # Unreleased
 
-- fix penalty sign in initial optimization (#97)
+- re-enable support for Julia 1.0 ([#107](https://github.com/tpapp/DynamicHMC.jl/pull/107))
 
-- add example for skipping stepsize search (#104)
+- fix penalty sign in initial optimization ([#97](https://github.com/tpapp/DynamicHMC.jl/pull/97))
+
+- add example for skipping stepsize search ([#104](https://github.com/tpapp/DynamicHMC.jl/pull/104))
 
 # v2.1.0
 
-- add experimental “iterator” interface (#94)
+- add experimental “iterator” interface ([#94](https://github.com/tpapp/DynamicHMC.jl/pull/94))
 
 - use `randexp` for Metropolis acceptance draws
 
