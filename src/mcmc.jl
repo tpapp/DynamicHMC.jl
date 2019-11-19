@@ -117,7 +117,7 @@ Find a local optimum (using quasi-Newton methods).
 It is recommended that this stage is applied so that the initial stepsize selection happens
 in a region which is at least plausible.
 """
-Base.@kwdef struct FindLocalOptimum{T}
+@with_kw struct FindLocalOptimum{T}
     """
     Add `-0.5 * magnitude_penalty * sum(abs2, q)` to the log posterior **when finding the local
     optimum**. This can help avoid getting into high-density edge areas of the posterior

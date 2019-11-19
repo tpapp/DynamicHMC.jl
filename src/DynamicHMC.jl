@@ -28,7 +28,7 @@ using LinearAlgebra
 using LinearAlgebra: checksquare, Diagonal, Symmetric
 using LogDensityProblems: capabilities, LogDensityOrder, dimension, logdensity_and_gradient
 import NLSolversBase, Optim # optimization step in mcmc
-using Parameters: @unpack
+using Parameters: @with_kw, @unpack
 using Random: AbstractRNG, randn, Random, randexp
 using Statistics: cov, mean, median, middle, quantile, var
 
