@@ -1,5 +1,7 @@
 # Unreleased
 
+# v2.1.1
+
 - re-enable support for Julia 1.0 ([#107](https://github.com/tpapp/DynamicHMC.jl/pull/107))
 
 - fix penalty sign in initial optimization ([#97](https://github.com/tpapp/DynamicHMC.jl/pull/97))
