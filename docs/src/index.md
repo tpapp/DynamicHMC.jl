@@ -48,14 +48,14 @@ Package versioning follows [Semantic Versioning 2.0](https://semver.org/). Only 
 
 ```toml
 [compat]
-DynamicHMC = "^2.0"
+DynamicHMC = "^2.1"
 ```
 
 Only symbols (functions and types) exported directly or indirectly from the `DynamicHMC` module are considered part of the interface. Importantly, the [`DynamicHMC.Diagnostics`](@ref Diagnostics) submodule is not considered part of the interface with respect to semantic versioning, and may be changed with just a minor version increment. The rationale for this is that a good generic diagnostics interface is much harder to get right, so some experimental improvements, occasionally reverted or redesigned, will be normal for this package in the medium run. If you depend on this explicitly in non-interactive code, use
 
 ```toml
 [compat]
-DynamicHMC = "~2.0"
+DynamicHMC = "~2.1"
 ```
 
 There is an actively maintained [CHANGELOG](https://github.com/tpapp/DynamicHMC.jl/blob/master/CHANGELOG.md) which is worth reading after every release, especially major ones.
