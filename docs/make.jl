@@ -6,10 +6,10 @@ makedocs(modules = [DynamicHMC],
          sitename = "DynamicHMC.jl",
          authors = "Tamás K. Papp",
          checkdocs = :exports,
-         push_preview = true,
          # strict = true,
          pages = ["Introduction" => "index.md",
                   "A worked example" => "worked_example.md",
                   "Documentation" => "interface.md"])
 
-deploydocs(repo = "github.com/tpapp/DynamicHMC.jl.git")
+deploydocs(repo = "github.com/tpapp/DynamicHMC.jl.git",
+           push_preview = true)
