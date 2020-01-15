@@ -1,5 +1,13 @@
 # Unreleased
 
+# v2.1.3
+
+- relax test bounds a bit ([#116](https://github.com/tpapp/DynamicHMC.jl/pull/116))
+
+# v2.1.2
+
+Technical release (compat version bounds extended).
+
 # v2.1.1
 
 - re-enable support for Julia 1.0 ([#107](https://github.com/tpapp/DynamicHMC.jl/pull/107))
