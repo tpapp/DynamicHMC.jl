@@ -1,5 +1,9 @@
 # Unreleased
 
+# v2.1.4
+
+- compat bumps extension
+
 # v2.1.3
 
 - relax test bounds a bit ([#116](https://github.com/tpapp/DynamicHMC.jl/pull/116))
