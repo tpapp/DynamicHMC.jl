@@ -27,7 +27,7 @@ using TransformVariables, LogDensityProblems, DynamicHMC,
 nothing # hide
 ```
 
-Generally, I would recommend defining defining an immutable composite type (ie `struct`) to hold the data and all parameters relevant for the log density (eg the prior). This allows you to test your code in a modular way before sampling. For this model, the number of draws equal to `1` is a sufficient statistic.
+Generally, I would recommend defining an immutable composite type (ie `struct`) to hold the data and all parameters relevant for the log density (eg the prior). This allows you to test your code in a modular way before sampling. For this model, the number of draws equal to `1` is a sufficient statistic.
 
 ```@example bernoulli
 struct BernoulliProblem
