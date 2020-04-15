@@ -32,7 +32,7 @@ I recommend that you use [TransformVariables.jl](https://github.com/tpapp/Transf
 
 This package has the following intended use cases:
 
-1. A robust and simple engine for MCMC. The intended audience is users who like to code their (log)posteriors directly, optimize and benchmark them them as Julia code, and at the same time want to have access detailed diagnostic information from the NUTS sampler.
+1. A robust and simple engine for MCMC. The intended audience is users who like to code their (log)posteriors directly, optimize and benchmark them as Julia code, and at the same time want to have access detailed diagnostic information from the NUTS sampler.
 
 2. A *backend* for another interface that needs a NUTS implementation.
 
