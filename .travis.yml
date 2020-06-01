@@ -23,7 +23,7 @@ git:
 jobs:
   include:
     - stage: Documentation
-      julia: 1.2
+      julia: 1.4
       os: linux
       script:
         - julia --project=docs -e 'using Pkg; Pkg.instantiate(); Pkg.develop(PackageSpec(path=pwd()))'
