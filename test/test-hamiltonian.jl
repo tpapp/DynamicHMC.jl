@@ -153,10 +153,13 @@ end
     end
 
     for _ in 1:100
-        @unpack H, z = rand_Hz(2)
+        @unpack H, z, Σ = rand_Hz(2)
         z1 = z
         N = 3
-        ϵ = 0.1
+
+        # use something near the stable stepsize to avoid numerical issue, but perturb it a
+        # bit for testing
+        ϵ = find_stable_ϵ(H.κ, Σ) * (0.5 + rand(RNG))
 
         # forward
         for _ in 1:N
