@@ -1,3 +1,5 @@
+import ProgressMeter
+
 #####
 ##### Reporting progress.
 #####
@@ -34,7 +36,7 @@ Return a reporter which can be used for progress reports with a known number of
 `total_steps`. May return the same reporter, or a related object. Will display `meta` as
 key-value pairs.
 """
-make_mcmc_reporter(reporter::NoProgressReport, total_steps; meta...) = reporter
+make_mcmc_reporter(reporter::NoProgressReport, total_steps; currently_warmup::Bool=false, meta...) = reporter
 
 """
 $(TYPEDEF)
@@ -98,7 +100,7 @@ function report(reporter::LogMCMCReport, message::AbstractString; meta...)
     nothing
 end
 
-function make_mcmc_reporter(reporter::LogProgressReport, total_steps::Integer; meta...)
+function make_mcmc_reporter(reporter::LogProgressReport, total_steps::Integer; currently_warmup::Bool=false, meta...)
     @info "Starting MCMC" total_steps = total_steps meta...
     LogMCMCReport(reporter, total_steps, -1, time_ns())
 end
@@ -122,6 +124,51 @@ function report(reporter::LogMCMCReport, step::Integer; meta...)
         reporter.last_reported_time_ns = t_ns
     end
     nothing
+end
+
+"""
+$(TYPEDEF)
+
+Report progress via a progress bar, using `ProgressMeter.jl`.
+
+# Fields
+
+$(FIELDS)
+"""
+struct ProgressMeterReport
+    log_warmup::Bool
+end
+
+ProgressMeterReport(; log_warmup::Bool = true) = ProgressMeterReport(log_warmup)
+
+struct ProgressMeterReportMCMC{T}
+    log_warmup::Bool
+    currently_warmup::Bool
+    progress_meter::T
+end
+
+function make_mcmc_reporter(reporter::ProgressMeterReport, total_steps::Integer; currently_warmup::Bool=false, meta...)
+    description = currently_warmup ? "Warmup: " : "MCMC: "
+    return ProgressMeterReportMCMC(reporter.log_warmup, currently_warmup, ProgressMeter.Progress(total_steps, 1, description))
+end
+
+function report(reporter::ProgressMeterReport, message::AbstractString; meta...)
+    return nothing
+end
+
+function report(reporter::ProgressMeterReportMCMC, message::AbstractString; meta...)
+    return nothing
+end
+
+function report(reporter::ProgressMeterReport, step::Integer; meta...)
+    return nothing
+end
+
+function report(reporter::ProgressMeterReportMCMC, step::Integer; meta...)
+    if ( reporter.log_warmup ) || ( !(reporter.currently_warmup) )
+        ProgressMeter.next!(reporter.progress_meter)
+    end
+    return nothing
 end
 
 """

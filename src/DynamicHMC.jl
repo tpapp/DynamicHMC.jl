@@ -17,7 +17,7 @@ export
     # NUTS
     TreeOptionsNUTS,
     # reporting
-    NoProgressReport, LogProgressReport,
+    NoProgressReport, LogProgressReport, ProgressMeterReport,
     # mcmc
     InitialStepsizeSearch, DualAveraging, FindLocalOptimum,
     TuningNUTS, mcmc_with_warmup, default_warmup_stages, fixed_stepsize_warmup_stages
