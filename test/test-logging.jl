@@ -5,8 +5,6 @@ Q = evaluate_ℓ(ℓ, [1.0])
 reporters_1 = [
     NoProgressReport(),
     ProgressMeterReport(),
-    ProgressMeterReport(; log_warmup = true),
-    ProgressMeterReport(; log_warmup = false),
 ]
 
 reporters_2 = [
