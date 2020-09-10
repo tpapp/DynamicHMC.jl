@@ -36,6 +36,10 @@ Return a reporter which can be used for progress reports with a known number of
 `total_steps`. May return the same reporter, or a related object. Will display `meta` as
 key-value pairs.
 
+## Arguments:
+- `reporter::NoProgressReport`: the original reporter
+- `total_steps`: total number of steps
+
 ## Keyword arguments:
 - `currently_warmup::Bool`: `true` if we are currently doing warmup; `false` if we are currently doing MCMC
 - `meta`: key-value pairs that will be displayed by the reporter
