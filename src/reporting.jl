@@ -131,25 +131,22 @@ $(TYPEDEF)
 
 Report progress via a progress bar, using `ProgressMeter.jl`.
 
-# Fields
-
-$(FIELDS)
+Example usage:
+```julia
+julia> ProgressMeterReport()
+```
 """
 struct ProgressMeterReport
-    log_warmup::Bool
 end
 
-ProgressMeterReport(; log_warmup::Bool = true) = ProgressMeterReport(log_warmup)
-
 struct ProgressMeterReportMCMC{T}
-    log_warmup::Bool
     currently_warmup::Bool
     progress_meter::T
 end
 
 function make_mcmc_reporter(reporter::ProgressMeterReport, total_steps::Integer; currently_warmup::Bool=false, meta...)
     description = currently_warmup ? "Warmup: " : "MCMC: "
-    return ProgressMeterReportMCMC(reporter.log_warmup, currently_warmup, ProgressMeter.Progress(total_steps, 1, description))
+    return ProgressMeterReportMCMC(currently_warmup, ProgressMeter.Progress(total_steps, 1, description))
 end
 
 function report(reporter::ProgressMeterReport, message::AbstractString; meta...)
@@ -165,9 +162,7 @@ function report(reporter::ProgressMeterReport, step::Integer; meta...)
 end
 
 function report(reporter::ProgressMeterReportMCMC, step::Integer; meta...)
-    if ( reporter.log_warmup ) || ( !(reporter.currently_warmup) )
-        ProgressMeter.next!(reporter.progress_meter)
-    end
+    ProgressMeter.next!(reporter.progress_meter)
     return nothing
 end
 
