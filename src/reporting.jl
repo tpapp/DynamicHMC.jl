@@ -40,7 +40,7 @@ key-value pairs.
 - `currently_warmup::Bool`: `true` if we are currently doing warmup; `false` if we are currently doing MCMC
 - `meta`: key-value pairs that will be displayed by the reporter
 """
-make_mcmc_reporter(reporter::NoProgressReport, total_steps; currently_warmup::Bool=false, meta...) = reporter
+make_mcmc_reporter(reporter::NoProgressReport, total_steps; currently_warmup::Bool = false, meta...) = reporter
 
 """
 $(TYPEDEF)
@@ -104,7 +104,7 @@ function report(reporter::LogMCMCReport, message::AbstractString; meta...)
     nothing
 end
 
-function make_mcmc_reporter(reporter::LogProgressReport, total_steps::Integer; currently_warmup::Bool=false, meta...)
+function make_mcmc_reporter(reporter::LogProgressReport, total_steps::Integer; currently_warmup::Bool = false, meta...)
     @info "Starting MCMC" total_steps = total_steps meta...
     LogMCMCReport(reporter, total_steps, -1, time_ns())
 end
