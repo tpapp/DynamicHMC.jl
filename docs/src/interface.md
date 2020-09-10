@@ -38,6 +38,7 @@ Progress reports can be explicit or silent.
 ```@docs
 NoProgressReport
 LogProgressReport
+ProgressMeterReport
 ```
 
 ## Algorithm and parameters

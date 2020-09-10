@@ -252,8 +252,9 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
     H = Hamiltonian(κ, ℓ)
     ϵ_state = initial_adaptation_state(stepsize_adaptation, ϵ)
     ϵs = Vector{Float64}(undef, N)
-    mcmc_reporter = make_mcmc_reporter(reporter, N; tuning = M ≡ Nothing ? "stepsize" :
-                                       "stepsize and $(M) metric")
+    mcmc_reporter = make_mcmc_reporter(reporter, N;
+                                       currently_warmup = true,
+                                       tuning = M ≡ Nothing ? "stepsize" : "stepsize and $(M) metric")
     for i in 1:N
         ϵ = current_ϵ(ϵ_state)
         ϵs[i] = ϵ
@@ -352,7 +353,7 @@ function mcmc(sampling_logdensity, N, warmup_state)
     @unpack Q = warmup_state
     chain = Vector{typeof(Q.q)}(undef, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
-    mcmc_reporter = make_mcmc_reporter(reporter, N)
+    mcmc_reporter = make_mcmc_reporter(reporter, N; currently_warmup = false)
     steps = mcmc_steps(sampling_logdensity, warmup_state)
     for i in 1:N
         Q, tree_statistics[i] = mcmc_next_step(steps, Q)

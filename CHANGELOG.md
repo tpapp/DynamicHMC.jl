@@ -1,5 +1,7 @@
 # Unreleased
 
+- add a progress bar ([#136](https://github.com/tpapp/DynamicHMC.jl/pull/136))
+
 # v2.1.4
 
 - compat bumps extension

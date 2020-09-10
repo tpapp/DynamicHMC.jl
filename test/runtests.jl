@@ -19,6 +19,7 @@ end
 @include_testset("test-stepsize.jl")
 @include_testset("test-mcmc.jl")
 @include_testset("test-diagnostics.jl")
+@include_testset("test-logging.jl")
 
 ####
 #### sample correctness tests
