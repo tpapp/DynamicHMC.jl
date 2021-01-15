@@ -54,6 +54,20 @@ end
     end
 end
 
+@testset "robust U-turn tests" begin
+    # Cf https://github.com/tpapp/DynamicHMC.jl/issues/115
+    function count_max_depth(rng, ℓ, max_depth; N = 1000)
+        results = mcmc_with_warmup(rng, ℓ, N;
+                                   algorithm = DynamicHMC.NUTS(max_depth = max_depth),
+                                   reporter = NoProgressReport())
+        sum(getfield.(results.tree_statistics, :depth) .≥ max_depth)
+    end
+    ℓ = multivariate_normal(zeros(200))
+    max_depth = 12
+    M = sum([count_max_depth(RNG, ℓ, max_depth) for _ in 1:20])
+    @test_broken M == 0
+end
+
 # @testset "tuner framework" begin
 #     s = StepsizeTuner(10)
 #     @test length(s) == 10
