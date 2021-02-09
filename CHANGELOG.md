@@ -1,6 +1,8 @@
 # Unreleased
 
-- get rid of `local_optimization` in warmup [FIXME PR LINK]
+# v3.0.0
+
+- get rid of `local_optimization` in warmup ([#146](https://github.com/tpapp/DynamicHMC.jl/pull/146))
 
 # v2.2.0
 
