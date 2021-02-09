@@ -1,5 +1,7 @@
 # Unreleased
 
+- get rid of `local_optimization` in warmup [FIXME PR LINK]
+
 # v2.2.0
 
 - add a progress bar ([#136](https://github.com/tpapp/DynamicHMC.jl/pull/136))
