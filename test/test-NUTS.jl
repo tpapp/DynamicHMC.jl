@@ -59,18 +59,19 @@ end
 
 @testset "low-level turn statistics" begin
     trajectory = TrajectoryNUTS(nothing, 0, 1, -1000, Val{:generalized})
-    n = 3
-    ρ₁ = ones(n)
-    ρ₂ = 2*ρ₁
-    p₁ = ρ₁
-    p₂ = -ρ₁
-    τ₁ = GeneralizedTurnStatistic(p₁, p₁, ρ₁)
-    τ₂ = GeneralizedTurnStatistic(p₂, p₂, ρ₂)
-    @test combine_turn_statistics(trajectory, τ₁, τ₂) ≂ GeneralizedTurnStatistic(p₁, p₂, ρ₁+ρ₂)
-    @test !is_turning(trajectory, GeneralizedTurnStatistic(p₁, copy(p₁), ρ₁))
-    @test is_turning(trajectory, GeneralizedTurnStatistic(p₁, p₂, ρ₁))
-    @test is_turning(trajectory, GeneralizedTurnStatistic(p₂, copy(p₂), ρ₁))
-    @test is_turning(trajectory, GeneralizedTurnStatistic(p₂, copy(p₂), ρ₁))
+    p = ones(3)                 # unit vector
+    c = 0.1                     # a constant, just for consistency checking of combination
+    # turn statistics constructed so that τ₁ + τ₂ won't be turning, τ₁ + τ₃ will be
+    τ₁ = GeneralizedTurnStatistic(p, p .- c, p, p .- c, p)
+    τ₂ = GeneralizedTurnStatistic(3 .* p, 3 .* p .+ c, 3 .* p, 3 .* p .+ c, 3 .* p)
+    τ₃ = GeneralizedTurnStatistic(2 .* p, 2 .* p .+ c, 2 .* p, 2 .* p .+ c, -2 .* p)
+    τ = combine_turn_statistics(trajectory, τ₁, τ₂)
+    # test mechanics of combination
+    @test τ ≂ GeneralizedTurnStatistic(τ₁.p₋, τ₁.p♯₋, τ₂.p₊, τ₂.p♯₊, τ₁.ρ .+ τ₂.ρ)
+    # test non-turning
+    @test !is_turning(trajectory, τ)
+    # test turning
+    @test is_turning(trajectory, combine_turn_statistics(trajectory, τ₁, τ₃))
 end
 
 @testset "low-level visited statistics" begin
@@ -114,6 +115,31 @@ end
     @test iszero(tree_statistics.acceptance_rate)
     @test iszero(tree_statistics.depth)
     @test tree_statistics.steps == 1
+end
+
+@testset "normal NUTS HMC transition mean and cov" begin
+    # A test for sample_tree with a fixed ϵ and κ, which is perfectly adapted and should
+    # provide excellent mixing
+    for _ in 1:10
+        K = rand(2:8)
+        N = 10000
+        μ = randn(K)
+        Σ = rand_Σ(K)
+        L = cholesky(Σ).L
+        ℓ = multivariate_normal(μ, L)
+        Q = evaluate_ℓ(ℓ, randn(K))
+        H = Hamiltonian(GaussianKineticEnergy(Σ), ℓ)
+        qs = Array{Float64}(undef, N, K)
+        ϵ = 0.5
+        algorithm = NUTS()
+        for i in 1:N
+            Q = first(sample_tree(RNG, algorithm, H, Q, ϵ))
+            qs[i, :] = Q.q
+        end
+        m, C = mean_and_cov(qs, 1)
+        @test vec(m) ≈ μ atol = 0.1 rtol = maximum(diag(C))*0.02 norm = x -> norm(x,1)
+        @test cov(qs, dims = 1) ≈ L*L' atol = 0.1 rtol = 0.1
+    end
 end
 
 ###

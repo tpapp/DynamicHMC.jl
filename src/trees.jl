@@ -58,6 +58,14 @@ function is_turning end
 
 Combine turn statistics on trajectory. Implementation can assume that the trees that
 correspond to the turn statistics have the same ordering.
+
+When
+```julia
+τ = combine_turn_statistics(trajectory, τ₁, τ₂)
+is_turning(trajectory, τ)
+```
+the combined turn statistic `τ` is guaranteed not to escape the caller, so it can eg change
+type.
 """
 function combine_turn_statistics end
 
@@ -106,7 +114,7 @@ The first value is either
 1. `nothing` for a divergent node,
 
 2. a tuple containing the proposal `ζ`, the log weight (probability) of the node `ω`, the
-turn statistics `τ` (never tested as with `is_turning` for leafs).
+turn statistics `τ` (never tested with `is_turning` for leaf nodes).
 
 The second value is the visited node information.
 """
@@ -124,7 +132,7 @@ otherwise after.
 
 Internal helper function.
 """
-function combine_turn_statistics_in_direction(trajectory, τ₁, τ₂, is_forward::Bool)
+@inline function combine_turn_statistics_in_direction(trajectory, τ₁, τ₂, is_forward::Bool)
     if is_forward
         combine_turn_statistics(trajectory, τ₁, τ₂)
     else
@@ -247,7 +255,8 @@ function adjacent_tree(rng, trajectory, z, i, depth, is_forward)
         is_turning(trajectory, τ) && return InvalidTree(i′, i₊), v
 
         # valid subtree, combine proposals
-        ζ, ω = combine_proposals_and_logweights(rng, trajectory, ζ₋, ζ₊, ω₋, ω₊, is_forward, false)
+        ζ, ω = combine_proposals_and_logweights(rng, trajectory, ζ₋, ζ₊, ω₋, ω₊,
+                                                is_forward, false)
         (ζ, ω, τ, z₊, i₊), v
     end
 end

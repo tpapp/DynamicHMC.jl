@@ -256,28 +256,3 @@ end
     @test vec(m) ≈ zeros(K) atol = 0.1
     @test C ≈ Matrix(Diagonal(ones(K))) atol = 0.1
 end
-
-@testset "normal NUTS HMC transition mean and cov" begin
-    # A test for sample_tree with a fixed ϵ and κ, which is perfectly adapted and should
-    # provide excellent mixing
-    for _ in 1:10
-        K = rand(2:8)
-        N = 10000
-        μ = randn(K)
-        Σ = rand_Σ(K)
-        L = cholesky(Σ).L
-        ℓ = multivariate_normal(μ, L)
-        Q = evaluate_ℓ(ℓ, randn(K))
-        H = Hamiltonian(GaussianKineticEnergy(Σ), ℓ)
-        qs = Array{Float64}(undef, N, K)
-        ϵ = 0.5
-        algorithm = NUTS()
-        for i in 1:N
-            Q = first(sample_tree(RNG, algorithm, H, Q, ϵ))
-            qs[i, :] = Q.q
-        end
-        m, C = mean_and_cov(qs, 1)
-        @test vec(m) ≈ μ atol = 0.1 rtol = maximum(diag(C))*0.02 norm = x -> norm(x,1)
-        @test cov(qs, dims = 1) ≈ L*L' atol = 0.1 rtol = 0.1
-    end
-end
