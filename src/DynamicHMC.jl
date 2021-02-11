@@ -26,7 +26,6 @@ using ArgCheck: @argcheck
 using DocStringExtensions: FIELDS, FUNCTIONNAME, SIGNATURES, TYPEDEF
 using LinearAlgebra: checksquare, cholesky, diag, dot, Diagonal, Symmetric, UniformScaling
 using LogDensityProblems: capabilities, LogDensityOrder, dimension, logdensity_and_gradient
-import NLSolversBase, Optim # optimization step in mcmc
 using Parameters: @with_kw, @unpack
 using Random: AbstractRNG, randn, Random, randexp
 using Statistics: cov, mean, median, middle, quantile, var
