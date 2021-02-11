@@ -90,29 +90,54 @@ combine_visited_statistics(::TrajectoryNUTS, v, w) = combine_acceptance_statisti
 ### turn analysis
 ###
 
-"Statistics for the identification of turning points. See Betancourt (2017, appendix)."
+"""
+Statistics for the identification of turning points. See Betancourt (2017, appendix), and
+subsequent discussion of improvements at
+<https://discourse.mc-stan.org/t/nuts-misses-u-turns-runs-in-circles-until-max-treedepth/9727/>.
+
+Momenta `p₋` and `p₊` are kept so that they can be added to `ρ` when combining turn
+statistics.
+
+Turn detection is always done by [`combine_turn_statistics`](@ref), which returns `nothing`
+in case of turning. A `GeneralizedTurnStatistic` should always correspond to a trajectory
+that is *not* turning (or a leaf node, where the concept does not apply).
+"""
 struct GeneralizedTurnStatistic{T}
+    "momentum at the left edge of the trajectory"
+    p₋::T
+    "p♯ at the left edge of the trajectory"
     p♯₋::T
+    "momentum at the right edge of the trajectory"
+    p₊::T
+    "p♯ at the right edge of the trajectory"
     p♯₊::T
+    "sum of momenta along trajectory"
     ρ::T
 end
 
 function leaf_turn_statistic(::Val{:generalized}, H, z)
     p♯ = calculate_p♯(H, z)
-    GeneralizedTurnStatistic(p♯, p♯, z.p)
+    GeneralizedTurnStatistic(z.p, p♯, z.p, p♯, z.p)
 end
+
+"""
+$(SIGNATURES)
+
+Internal test for turning. See Betancourt (2017, appendix).
+"""
+_is_turning(p♯₋, p♯₊, ρ) = dot(p♯₋, ρ) < 0 || dot(p♯₊, ρ) < 0
 
 function combine_turn_statistics(::TrajectoryNUTS,
                                  x::GeneralizedTurnStatistic, y::GeneralizedTurnStatistic)
-    GeneralizedTurnStatistic(x.p♯₋, y.p♯₊, x.ρ + y.ρ)
+    _is_turning(x.p♯₋, y.p♯₋, x.ρ + y.p₋) && return nothing
+    _is_turning(x.p♯₊, y.p♯₊, x.p₊ + y.ρ) && return nothing
+    ρ = x.ρ + y.ρ
+    _is_turning(x.p♯₋, y.p♯₊, ρ) && return nothing
+    GeneralizedTurnStatistic(x.p₋, x.p♯₋, y.p₊, y.p♯₊, ρ)
 end
 
-function is_turning(::TrajectoryNUTS, τ::GeneralizedTurnStatistic)
-    # Uses the generalized NUTS criterion from Betancourt (2017).
-    @unpack p♯₋, p♯₊, ρ = τ
-    @argcheck p♯₋ ≢ p♯₊ "internal error: is_turning called on a leaf"
-    dot(p♯₋, ρ) < 0 || dot(p♯₊, ρ) < 0
-end
+is_turning(::TrajectoryNUTS, ::GeneralizedTurnStatistic) = false
+is_turning(::TrajectoryNUTS, ::Nothing) = true
 
 ###
 ### leafs

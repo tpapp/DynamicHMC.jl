@@ -115,7 +115,7 @@ rand_D(K) = Diagonal(abs.(randn(K)))
 "Random Cholesky factor for correlation matrix."
 function rand_C(K)
     t = TransformVariables.CorrCholeskyFactor(K)
-    t(randn(TransformVariables.dimension(t)))
+    TransformVariables.transform(t, randn(TransformVariables.dimension(t)))
 end
 
 "Multivariate normal with `Σ = LL'`."

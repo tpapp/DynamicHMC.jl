@@ -65,7 +65,7 @@ end
     ℓ = multivariate_normal(zeros(200))
     max_depth = 12
     M = sum([count_max_depth(RNG, ℓ, max_depth) for _ in 1:20])
-    @test_broken M == 0
+    @test M == 0
 end
 
 # @testset "tuner framework" begin
