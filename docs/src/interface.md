@@ -25,7 +25,6 @@ fixed_stepsize_warmup_stages
 
 ```@docs
 InitialStepsizeSearch
-FindLocalOptimum
 DualAveraging
 TuningNUTS
 GaussianKineticEnergy
