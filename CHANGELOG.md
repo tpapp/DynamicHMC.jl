@@ -1,5 +1,9 @@
 # Unreleased
 
+# v3.1.1
+
+- minor doc and export list fixes (follow-up to ([#145](https://github.com/tpapp/DynamicHMC.jl/pull/145)))
+
 # v3.1.0
 
 - more robust U-turn checking ([#145](https://github.com/tpapp/DynamicHMC.jl/pull/145))
