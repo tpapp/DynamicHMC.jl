@@ -19,7 +19,7 @@ Consequently, this package requires that the user is comfortable with the basics
 
 The building blocks of the algorithm are implemented using a *functional* (non-modifying) approach whenever possible, allowing extensive unit testing of components, while at the same time also intended to serve as a transparent, pedagogical introduction to the low-level mechanics of current Hamiltonian Monte Carlo samplers, and as a platform for research into MCMC methods.
 
-Please start with the [documentation](https://tpapp.github.io/DynamicHMC.jl/latest).
+Please start with the [documentation](https://tamaspapp.eu/DynamicHMC.jl/dev/).
 
 ## Examples
 
