@@ -3,7 +3,7 @@
 !!! note
     An extended version of this example can be found [in the DynamicHMCExamples.jl package](https://github.com/tpapp/DynamicHMCExamples.jl/blob/master/src/example_independent_bernoulli.jl).
 
-Consider estimating estimating the parameter ``0 \le \alpha \le 1`` from ``n`` IID observations[^4]
+Consider estimating the parameter ``0 \le \alpha \le 1`` from ``n`` IID observations[^4]
 
 [^4]: Note that NUTS is not especially suitable for low-dimensional parameter spaces, but this example works fine.
 
