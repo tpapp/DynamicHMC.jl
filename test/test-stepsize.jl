@@ -101,7 +101,7 @@ end
     for _ in 1:2000
         A = adapt_stepsize(dual_averaging, A, dummy_acceptance_rate(current_ϵ(A), 2.0))
     end
-    @test mean_dummy_acceptance_rate(final_ϵ(A), 2.0) ≈ δ atol = 0.01
+    @test mean_dummy_acceptance_rate(final_ϵ(A), 2.0) ≈ δ atol = 0.03
 end
 
 @testset "fixed stepsize sanity checks" begin
