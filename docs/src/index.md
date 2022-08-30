@@ -26,7 +26,7 @@ While the NUTS algorithm operates on an *unrestricted* domain ``\mathbb{R}^k``, 
 
 [^3]: For nonlinear transformations, correcting with the logarithm of the determinant of the Jacobian is required.
 
-I recommend that you use [TransformVariables.jl](https://github.com/tpapp/TransformVariables.jl) in combination with LogdensityProblems.jl for this purpose: it has built-in transformations for common cases, and also allows decomposing vectors into tuples, named tuples, and arrays of parameters, combined with these transformations.
+It is recommended that you use [TransformVariables.jl](https://github.com/tpapp/TransformVariables.jl) in combination with [TransformedLogDensities.jl](https://github.com/tpapp/TransformedLogDensities.jl) for this purpose: it has built-in transformations for common cases, and also allows decomposing vectors into tuples, named tuples, and arrays of parameters, combined with these transformations.
 
 ## Use cases
 

@@ -22,7 +22,7 @@ We will code this with the help of TransformVariables.jl, and obtain the gradien
 First, we load the packages we use.
 
 ```@example bernoulli
-using TransformVariables, LogDensityProblems, DynamicHMC,
+using TransformVariables, TransformedLogDensities, LogDensityProblems, DynamicHMC,
     DynamicHMC.Diagnostics, Parameters, Statistics, Random
 nothing # hide
 ```
