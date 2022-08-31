@@ -18,7 +18,7 @@ p(x) \propto \exp(\ell(x))
 
 using the algorithm above.
 
-[^2]: For various techniques and a discussion of MCMC methods (eg domain transformations, or integrating out discrete parameters), you may find the [Stan Modeling Language manual](http://mc-stan.org/users/documentation/index.html) helpful. If you are unfamiliar with Bayesian methods, I would recommend [Bayesian Data Analysis](http://www.stat.columbia.edu/~gelman/book/) and [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/).
+[^2]: For various techniques and a discussion of MCMC methods (eg domain transformations, or integrating out discrete parameters), you may find the [Stan Modeling Language manual](https://mc-stan.org/users/documentation/index.html) helpful. If you are unfamiliar with Bayesian methods, I would recommend [Bayesian Data Analysis](http://www.stat.columbia.edu/~gelman/book/) and [Statistical Rethinking](https://xcelab.net/rm/statistical-rethinking/).
 
 The interface of DynamicHMC.jl expects that you code ``\ell(x), \nabla\ell(x)`` using the interface of the [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) package. The latter package also allows you to just code ``\ell(x)`` and obtain ``\nabla\ell(x)`` via [automatic differentiation](https://en.wikipedia.org/wiki/Automatic_differentiation).
 
@@ -42,7 +42,7 @@ If you have questions, feature requests, or bug reports, please [open an issue](
 
 ## Versioning and interface changes
 
-Package versioning follows [Semantic Versioning 2.0](https://semver.org/). Only major version increments change the API in a breaking manner, but there is no deprecation cycle. You are strongly advised to add a [compatibility section](https://julialang.github.io/Pkg.jl/dev/compatibility/) to your `Project.toml`, eg
+Package versioning follows [Semantic Versioning 2.0](https://semver.org/). Only major version increments change the API in a breaking manner, but there is no deprecation cycle. You are strongly advised to add a [compatibility section](https://pkgdocs.julialang.org/dev/compatibility/) to your `Project.toml`, eg
 
 ```toml
 [compat]
