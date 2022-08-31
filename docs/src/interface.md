@@ -1,5 +1,9 @@
 # User interface
 
+```@docs
+DynamicHMC
+```
+
 ## Sampling
 
 The main entry point for sampling is

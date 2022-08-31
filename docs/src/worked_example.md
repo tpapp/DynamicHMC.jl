@@ -106,7 +106,7 @@ ess_rhat(stack_posterior_matrices(results5))
 Use [`pool_posterior_matrices`](@ref) for a pooled sample:
 
 ```@example bernoulli
-posterior5 = transform.(trans, eachrow(pooled_posterior_matrices(results5)))
+posterior5 = transform.(trans, eachrow(pool_posterior_matrices(results5)))
 posterior5_α = first.(posterior5)
 mean(posterior5_α)
 ```
