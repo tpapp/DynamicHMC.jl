@@ -2,7 +2,6 @@
 ##### utilities for testing sample correctness
 #####
 
-using LazyStack: stack
 using MCMCDiagnosticTools: ess_rhat
 
 """
@@ -17,10 +16,8 @@ Keyword arguments are passed to `mcmc_with_warmup`.
 function run_chains(rng, ℓ, N, K; mcmc_args...)
     results = [mcmc_with_warmup(rng, ℓ, N; reporter = NoProgressReport(), mcmc_args...)
                for i in 1:K]
-    stacked_posterior_matrices = stack(r.posterior_matrix for r in results)
-    concat_posterior_matrices = reshape(PermutedDimsArray(stacked_posterior_matrices, (1,3,2)),
-                                        :, size(stacked_posterior_matrices, 2))
-    (stacked_posterior_matrices, concat_posterior_matrices,
+    (stacked_posterior_matrices = stack_posterior_matrices(results),
+     concat_posterior_matrices = pool_posterior_matrices(results),
      EBFMIs = map(r -> EBFMI(r.tree_statistics), results))
 end
 

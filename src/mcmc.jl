@@ -3,7 +3,8 @@
 #####
 
 export InitialStepsizeSearch, DualAveraging, TuningNUTS, mcmc_with_warmup,
-    default_warmup_stages, fixed_stepsize_warmup_stages
+    default_warmup_stages, fixed_stepsize_warmup_stages, stack_posterior_matrices,
+    pool_posterior_matrices
 
 "Significant digits to display for reporting."
 const REPORT_SIGDIGITS = 3
@@ -549,4 +550,34 @@ function mcmc_with_warmup(rng, ℓ, N; initialization = (),
                          reporter = reporter)
     @unpack κ, ϵ = final_warmup_state
     (; inference..., κ, ϵ)
+end
+
+####
+#### utilities
+####
+
+"""
+$(SIGNATURES)
+
+Given a vector of `results`, each containing a property `posterior_matrix` (eg obtained from
+[`mcmc_with_warmup`](@ref) with the same sample length), return a lazy view as an array
+indexed by `[draw_index, parameter_index, chain_index]`.
+
+This is useful as an input for eg `MCMCDiagnosticTools.ess_rhat`.
+"""
+function stack_posterior_matrices(results)
+    @cast _[i, j, k]:= results[k].posterior_matrix[i, j]
+end
+
+"""
+$(SIGNATURES)
+
+Given a vector of `results`, each containing a property `posterior_matrix` (eg obtained from
+[`mcmc_with_warmup`](@ref) with the same sample length), return a lazy view as an array
+indexed by `[pooled_draw_index, parameter_index]`.
+
+This is useful for posterior analysis after diagnostics (see eg `Base.eachrow`).
+"""
+function pool_posterior_matrices(results)
+    @cast _[j ⊗ i, k] := results[i].posterior_matrix[j, k]
 end

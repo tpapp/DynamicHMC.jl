@@ -62,7 +62,7 @@ end
 """
 $(SIGNATURES)
 
-Count termination reasons in `tree_statistics`.
+Count termination reasons in `tree_statistics`, return as a `NamedTuple`.
 """
 function count_terminations(tree_statistics)
     max_depth = 0
@@ -78,7 +78,7 @@ function count_terminations(tree_statistics)
             turning += 1
         end
     end
-    (max_depth, divergence, turning)
+    (; max_depth, divergence, turning)
 end
 
 """

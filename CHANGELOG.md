@@ -1,5 +1,7 @@
 # Unreleased
 
+- remove `position_matrix` [https://github.com/tpapp/DynamicHMC.jl/pull/165](#165), which is not technically a breaking change, read the manual for suggestions though
+
 # v3.1.1
 
 - minor doc and export list fixes (follow-up to ([#145](https://github.com/tpapp/DynamicHMC.jl/pull/145)))

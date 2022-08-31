@@ -8,6 +8,13 @@ The main entry point for sampling is
 mcmc_with_warmup
 ```
 
+## Utilities for working with the posterior
+
+```@docs
+stack_posterior_matrices
+pool_posterior_matrices
+```
+
 ## Warmup
 
 Warmup can be customized.

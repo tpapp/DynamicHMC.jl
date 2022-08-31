@@ -18,6 +18,7 @@ using LogDensityProblems: capabilities, LogDensityOrder, dimension, logdensity_a
 using Parameters: @with_kw, @unpack
 using Random: AbstractRNG, randn, Random, randexp
 using Statistics: cov, mean, median, middle, quantile, var
+using TensorCast
 
 # copy from StatsFuns.jl
 function logaddexp(x, y)
