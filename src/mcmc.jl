@@ -2,6 +2,9 @@
 ##### Sampling: high-level interface and building blocks
 #####
 
+export InitialStepsizeSearch, DualAveraging, TuningNUTS, mcmc_with_warmup,
+    default_warmup_stages, fixed_stepsize_warmup_stages, position_matrix
+
 "Significant digits to display for reporting."
 const REPORT_SIGDIGITS = 3
 

@@ -1,8 +1,10 @@
-import ProgressMeter
-
 #####
 ##### Reporting progress.
 #####
+
+import ProgressMeter
+
+export NoProgressReport, LogProgressReport, ProgressMeterReport
 
 """
 $(TYPEDEF)

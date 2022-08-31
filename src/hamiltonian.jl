@@ -3,6 +3,8 @@
 ##### integrator.
 #####
 
+export GaussianKineticEnergy
+
 ####
 #### kinetic energy
 ####

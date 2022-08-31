@@ -11,17 +11,6 @@ package, then
 """
 module DynamicHMC
 
-export
-    # kinetic energy
-    GaussianKineticEnergy,
-    # NUTS
-    TreeOptionsNUTS,
-    # reporting
-    NoProgressReport, LogProgressReport, ProgressMeterReport,
-    # mcmc
-    InitialStepsizeSearch, DualAveraging,
-    TuningNUTS, mcmc_with_warmup, default_warmup_stages, fixed_stepsize_warmup_stages
-
 using ArgCheck: @argcheck
 using DocStringExtensions: FIELDS, FUNCTIONNAME, SIGNATURES, TYPEDEF
 using LinearAlgebra: checksquare, cholesky, diag, dot, Diagonal, Symmetric, UniformScaling
