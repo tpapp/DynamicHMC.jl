@@ -3,10 +3,22 @@
 #####
 
 export InitialStepsizeSearch, DualAveraging, TuningNUTS, mcmc_with_warmup,
-    default_warmup_stages, fixed_stepsize_warmup_stages, position_matrix
+    default_warmup_stages, fixed_stepsize_warmup_stages
 
 "Significant digits to display for reporting."
 const REPORT_SIGDIGITS = 3
+
+####
+#### docstrings for reuse (not exported, internal)
+####
+
+const _DOC_POSTERIOR_MATRIX =
+    "`posterior_matrix`, a matrix of position vectors, indexes by `[draw_index, parameter_index]`"
+
+const _DOC_TREE_STATISTICS =
+    "`tree_statistics`, a vector of tree statistics for each sample"
+
+const _DOC_EPSILONS = "`ϵs`, a vector of step sizes for each sample"
 
 ####
 #### parts unaffected by warmup
@@ -139,11 +151,11 @@ the block. The method for the latter is determined by the type parameter `M`, wh
 
 A `NamedTuple` with the following fields:
 
-- `chain`, a vector of position vectors
+- $(_DOC_POSTERIOR_MATRIX)
 
-- `tree_statistics`, a vector of tree statistics for each sample
+- $(_DOC_TREE_STATISTICS)
 
-- `ϵs`, a vector of step sizes for each sample
+- $(_DOC_EPSILONS)
 
 # Fields
 
@@ -176,20 +188,13 @@ end
 """
 $(SIGNATURES)
 
-Form a matrix from positions (`q`), with each column containing a position.
-"""
-position_matrix(chain) = reduce(hcat, chain)
-
-"""
-$(SIGNATURES)
-
 Estimate the inverse metric from the chain.
 
 In most cases, this should be regularized, see [`regularize_M⁻¹`](@ref).
 """
-sample_M⁻¹(::Type{Diagonal}, chain) = Diagonal(vec(var(position_matrix(chain); dims = 2)))
+sample_M⁻¹(::Type{Diagonal}, posterior_matrix) = Diagonal(vec(var(posterior_matrix; dims = 1)))
 
-sample_M⁻¹(::Type{Symmetric}, chain) = Symmetric(cov(position_matrix(chain); dims = 2))
+sample_M⁻¹(::Type{Symmetric}, posterior_matrix) = Symmetric(cov(posterior_matrix; dims = 1))
 
 """
 $(SIGNATURES)
@@ -201,11 +206,34 @@ function regularize_M⁻¹(Σ::Union{Diagonal,Symmetric}, λ::Real)
     (1 - λ) * Σ + λ * UniformScaling(max(1e-3, median(diag(Σ))))
 end
 
+"""
+$(SIGNATURES)
+
+Create an empty posterior matrix, based on `Q` (a logdensity evaluated at a position).
+"""
+_empty_posterior_matrix(Q, N) = Matrix{eltype(Q.q)}(undef, N, length(Q.q))
+
+"""
+$(SIGNATURES)
+
+Perform a warmup on a given `sampling_logdensity`, using the specified `tuning`, starting
+from `warmup_state`.
+
+Return two values. The first is either `nothing`, or a `NamedTuple` of
+
+- $(_DOC_POSTERIOR_MATRIX)
+
+- $(_DOC_TREE_STATISTICS)
+
+- $(_DOC_EPSILONS)
+
+The second is the warmup state.
+"""
 function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where {M}
     @unpack rng, ℓ, algorithm, reporter = sampling_logdensity
     @unpack Q, κ, ϵ = warmup_state
     @unpack N, stepsize_adaptation, λ = tuning
-    chain = Vector{typeof(Q.q)}(undef, N)
+    posterior_matrix = _empty_posterior_matrix(Q, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
     H = Hamiltonian(κ, ℓ)
     ϵ_state = initial_adaptation_state(stepsize_adaptation, ϵ)
@@ -217,17 +245,16 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
         ϵ = current_ϵ(ϵ_state)
         ϵs[i] = ϵ
         Q, stats = sample_tree(rng, algorithm, H, Q, ϵ)
-        chain[i] = Q.q
+        posterior_matrix[i, :] = Q.q
         tree_statistics[i] = stats
         ϵ_state = adapt_stepsize(stepsize_adaptation, ϵ_state, stats.acceptance_rate)
         report(mcmc_reporter, i; ϵ = round(ϵ; sigdigits = REPORT_SIGDIGITS))
     end
     if M ≢ Nothing
-        κ = GaussianKineticEnergy(regularize_M⁻¹(sample_M⁻¹(M, chain), λ))
+        κ = GaussianKineticEnergy(regularize_M⁻¹(sample_M⁻¹(M, posterior_matrix), λ))
         report(mcmc_reporter, "adaptation finished", adapted_kinetic_energy = κ)
     end
-    ((chain = chain, tree_statistics = tree_statistics, ϵs = ϵs),
-     WarmupState(Q, κ, final_ϵ(ϵ_state)))
+    ((; posterior_matrix, tree_statistics, ϵs), WarmupState(Q, κ, final_ϵ(ϵ_state)))
 end
 
 """
@@ -302,23 +329,23 @@ Markov Chain Monte Carlo for `sampling_logdensity`, with the adapted `warmup_sta
 
 Return a `NamedTuple` of
 
-- `chain`, a vector of length `N` that contains the positions,
+- $(_DOC_POSTERIOR_MATRIX)
 
-- `tree_statistics`, a vector of length `N` with the tree statistics.
+- $(_DOC_TREE_STATISTICS)
 """
 function mcmc(sampling_logdensity, N, warmup_state)
     @unpack reporter = sampling_logdensity
     @unpack Q = warmup_state
-    chain = Vector{typeof(Q.q)}(undef, N)
+    posterior_matrix = _empty_posterior_matrix(Q, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
     mcmc_reporter = make_mcmc_reporter(reporter, N; currently_warmup = false)
     steps = mcmc_steps(sampling_logdensity, warmup_state)
     for i in 1:N
         Q, tree_statistics[i] = mcmc_next_step(steps, Q)
-        chain[i] = Q.q
+        posterior_matrix[i, :] = Q.q
         report(mcmc_reporter, i)
     end
-    (chain = chain, tree_statistics = tree_statistics)
+    (; posterior_matrix, tree_statistics)
 end
 
 """
@@ -448,7 +475,8 @@ Perform MCMC with NUTS, keeping the warmup results. Returns a `NamedTuple` of
 
 - `final_warmup_state`, which contains the final adaptation after all the warmup
 
-- `inference`, which has `chain` and `tree_statistics`, see [`mcmc_with_warmup`](@ref).
+- `inference`, which has `posterior_matrix` and `tree_statistics`, see
+  [`mcmc_with_warmup`](@ref).
 
 - `sampling_logdensity`, which contains information that is invariant to warmup
 
@@ -467,9 +495,8 @@ function mcmc_keep_warmup(rng::AbstractRNG, ℓ, N::Integer;
     initial_warmup_state = initialize_warmup_state(rng, ℓ; initialization...)
     warmup, warmup_state = _warmup(sampling_logdensity, warmup_stages, initial_warmup_state)
     inference = mcmc(sampling_logdensity, N, warmup_state)
-    (initial_warmup_state = initial_warmup_state, warmup = warmup,
-     final_warmup_state = warmup_state, inference = inference,
-     sampling_logdensity = sampling_logdensity)
+    (; initial_warmup_state, warmup, final_warmup_state = warmup_state, inference,
+     sampling_logdensity)
 end
 
 """
@@ -477,9 +504,9 @@ $(SIGNATURES)
 
 Perform MCMC with NUTS, including warmup which is not returned. Return a `NamedTuple` of
 
-- `chain`, a vector of positions from the posterior
+- $(_DOC_POSTERIOR_MATRIX)
 
-- `tree_statistics`, a vector of tree statistics
+- $(_DOC_TREE_STATISTICS)
 
 - `κ` and `ϵ`, the adapted metric and stepsize.
 

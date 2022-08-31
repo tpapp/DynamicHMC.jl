@@ -1,5 +1,7 @@
 #####
-##### statistics and diagnostics
+##### statistics and diagnostics for the NUTS-specific tree statistics.
+#####
+##### For `posterior_matrix`, use eg https://github.com/TuringLang/MCMCDiagnosticTools.jl/.
 #####
 
 module Diagnostics
