@@ -78,7 +78,7 @@ function count_terminations(tree_statistics)
             turning += 1
         end
     end
-    (max_depth = max_depth, divergence = divergence, turning = turning)
+    (max_depth, divergence, turning)
 end
 
 """

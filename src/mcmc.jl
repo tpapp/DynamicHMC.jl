@@ -419,7 +419,7 @@ function _warmup(sampling_logdensity, stages, initial_warmup_state)
     foldl(stages; init = ((), initial_warmup_state)) do acc, stage
         stages_and_results, warmup_state = acc
         results, warmup_state′ = warmup(sampling_logdensity, stage, warmup_state)
-        stage_information = (stage = stage, results = results, warmup_state = warmup_state′)
+        stage_information = (stage, results, warmup_state = warmup_state′)
         (stages_and_results..., stage_information), warmup_state′
     end
 end
@@ -548,5 +548,5 @@ function mcmc_with_warmup(rng, ℓ, N; initialization = (),
                          warmup_stages = warmup_stages, algorithm = algorithm,
                          reporter = reporter)
     @unpack κ, ϵ = final_warmup_state
-    (inference..., κ = κ, ϵ = ϵ)
+    (; inference..., κ, ϵ)
 end
