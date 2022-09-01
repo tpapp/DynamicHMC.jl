@@ -2,10 +2,13 @@
 ##### utilities for testing sample correctness
 #####
 
+using MCMCDiagnosticTools: ess_rhat
+
 """
 $(SIGNATURES)
 
-Run `K` chains of MCMC on `ℓ`, each for `N` samples, return a vector of position matrices
+Run `K` chains of MCMC on `ℓ`, each for `N` samples, return a posterior matrices stacked
+(indexed by `[draw, parameter, chain]`) and concatenated (indexed by `[draw, parameter]`),
 and EBFMI statistics as fields of a `NamedTuple`.
 
 Keyword arguments are passed to `mcmc_with_warmup`.
@@ -13,7 +16,8 @@ Keyword arguments are passed to `mcmc_with_warmup`.
 function run_chains(rng, ℓ, N, K; mcmc_args...)
     results = [mcmc_with_warmup(rng, ℓ, N; reporter = NoProgressReport(), mcmc_args...)
                for i in 1:K]
-    (position_matrices = map(r -> position_matrix(r.chain), results),
+    (stacked_posterior_matrices = stack_posterior_matrices(results),
+     concat_posterior_matrices = pool_posterior_matrices(results),
      EBFMIs = map(r -> EBFMI(r.tree_statistics), results))
 end
 
@@ -21,14 +25,11 @@ end
 $(SIGNATURES)
 
 `R̂` (within/between variance) and `τ` (effective sample size coefficient) statistics for
-position matrices, eg the output of `run_chains`.
+posterior matrices, eg the output of `run_chains`.
 """
-function mcmc_statistics(position_matrices)
-    K = size(first(position_matrices), 1)
-    R̂ = [potential_scale_reduction([mx[i, :] for mx in position_matrices]...) for i in 1:K]
-    τ = mean([vec(mapslices(first ∘ ess_factor_estimate, mx; dims = 2))
-              for mx in position_matrices])
-    (R̂ = R̂, τ = τ)
+function mcmc_statistics(stacked_posterior_matrices)
+    ess, R̂ = ess_rhat(stacked_posterior_matrices)
+    (R̂, τ = ess ./ size(stacked_posterior_matrices, 1))
 end
 
 """
@@ -72,10 +73,11 @@ function NUTS_tests(rng, ℓ, title, N; K = 3, io = stdout, mcmc_args = NamedTup
             title_printed = true
         end
     end
-    @unpack position_matrices, EBFMIs = run_chains(RNG, ℓ, N, K; mcmc_args...)
+    @unpack stacked_posterior_matrices, concat_posterior_matrices, EBFMIs =
+        run_chains(RNG, ℓ, N, K; mcmc_args...)
 
     # mixing and autocorrelation diagnostics
-    @unpack R̂, τ = mcmc_statistics(position_matrices)
+    @unpack R̂, τ = mcmc_statistics(stacked_posterior_matrices)
     max_R̂ = maximum(R̂)
     if max_R̂ > R̂_alert
         _print_title_once()
@@ -98,7 +100,7 @@ function NUTS_tests(rng, ℓ, title, N; K = 3, io = stdout, mcmc_args = NamedTup
     @test all(min_EBFMI ≥ EBFMI_fail)
 
     # distribution comparison tests
-    Z = reduce(hcat, position_matrices)
+    Z = concat_posterior_matrices
     Z′ = samples(ℓ, 1000)
     pd_alert = p_alert / d      # a simple Bonferroni correction
     pd_fail = p_fail / d

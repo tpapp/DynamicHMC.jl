@@ -1,7 +1,7 @@
 """
 Implementation of the No U-Turn Sampler for MCMC.
 
-Please [read the documentation](https://tamaspapp.eu/DynamicHMC.jl/latest/). For the
+Please [read the documentation](https://tamaspapp.eu/DynamicHMC.jl/dev/). For the
 impatient: you probably want to
 
 1. define a log density problem (eg for Bayesian inference) using the `LogDensityProblems`
@@ -11,17 +11,6 @@ package, then
 """
 module DynamicHMC
 
-export
-    # kinetic energy
-    GaussianKineticEnergy,
-    # NUTS
-    TreeOptionsNUTS,
-    # reporting
-    NoProgressReport, LogProgressReport, ProgressMeterReport,
-    # mcmc
-    InitialStepsizeSearch, DualAveraging,
-    TuningNUTS, mcmc_with_warmup, default_warmup_stages, fixed_stepsize_warmup_stages
-
 using ArgCheck: @argcheck
 using DocStringExtensions: FIELDS, FUNCTIONNAME, SIGNATURES, TYPEDEF
 using LinearAlgebra: checksquare, cholesky, diag, dot, Diagonal, Symmetric, UniformScaling
@@ -29,6 +18,7 @@ using LogDensityProblems: capabilities, LogDensityOrder, dimension, logdensity_a
 using Parameters: @with_kw, @unpack
 using Random: AbstractRNG, randn, Random, randexp
 using Statistics: cov, mean, median, middle, quantile, var
+using TensorCast
 
 # copy from StatsFuns.jl
 function logaddexp(x, y)

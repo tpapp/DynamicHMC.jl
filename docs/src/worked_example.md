@@ -3,6 +3,8 @@
 !!! note
     An extended version of this example can be found [in the DynamicHMCExamples.jl package](https://github.com/tpapp/DynamicHMCExamples.jl/blob/master/src/example_independent_bernoulli.jl).
 
+## Problem statement
+
 Consider estimating the parameter ``0 \le \alpha \le 1`` from ``n`` IID observations[^4]
 
 [^4]: Note that NUTS is not especially suitable for low-dimensional parameter spaces, but this example works fine.
@@ -18,6 +20,8 @@ We will code this with the help of TransformVariables.jl, and obtain the gradien
     x = randn(LogDensityProblems.dimension(∇P))
     @benchmark LogDensityProblems.logdensity_and_gradient($∇P, $x)
     ```
+
+## Coding up the log density
 
 First, we load the packages we use.
 
@@ -56,7 +60,7 @@ p = BernoulliProblem(20, 10)
 p((α = 0.5, )) # make sure that it works
 ```
 
-With TransformVariables.jl, we set up a *transformation* ``\mathbb{R} \to [0,1]`` for ``\alpha``, and use the convenience function `TransformedLogDensity` to obtain a log density in ``\mathbb{R}^1``. Finally, we obtain a log density that supports gradients using automatic differentiation.
+With [TransformVariables.jl](https://github.com/tpapp/TransformVariables.jl), we set up a *transformation* ``\mathbb{R} \to [0,1]`` for ``\alpha``, and use the convenience function `TransformedLogDensity` to obtain a log density in ``\mathbb{R}^1``. Finally, we obtain a log density that supports gradients using automatic differentiation.
 
 ```@example bernoulli
 trans = as((α = as𝕀,))
@@ -67,14 +71,14 @@ P = TransformedLogDensity(trans, p)
 Finally, we run MCMC with warmup. Note that you have to specify the *random number generator* explicitly — this is good practice for parallel code. The last parameter is the number of samples.
 
 ```@example bernoulli
-results = mcmc_with_warmup(Random.GLOBAL_RNG, ∇P, 1000; reporter = NoProgressReport())
+results = mcmc_with_warmup(Random.default_rng(), ∇P, 1000; reporter = NoProgressReport())
 nothing # hide
 ```
 
-The returned value is a `NamedTuple`. Most importantly, it contains the field `chain`, which is a vector of vectors. You should use the transformation you defined above to retrieve the parameters (here, only `α`). We display the mean here to check that it was recovered correctly.
+The returned value is a `NamedTuple`. Most importantly, it contains the field `posterior_matrix`. You should use the transformation you defined above to retrieve the parameters (here, only `α`). We display the mean here to check that it was recovered correctly.
 
 ```@example bernoulli
-posterior = transform.(trans, results.chain)
+posterior = transform.(trans, eachcol(results.posterior_matrix))
 posterior_α = first.(posterior)
 mean(posterior_α)
 ```
@@ -85,5 +89,24 @@ Using the [`DynamicHMC.Diagnostics`](@ref Diagnostics) submodule, you can obtain
 summarize_tree_statistics(results.tree_statistics)
 ```
 
-!!! note
-    Usually one would run parallel chains and check convergence and mixing using generic MCMC diagnostics not specific to NUTS. See [MCMCDiagnostics.jl](https://github.com/tpapp/MCMCDiagnostics.jl) for an implementation of ``\hat{R}`` and effective sample size calculations.
+## Parallel chains and diagnostics
+
+Usually one would run multiple chains and check convergence and mixing using generic MCMC diagnostics not specific to NUTS.
+
+The specifics of running multiple chains is up to the user: various forms of [parallel computing](https://docs.julialang.org/en/v1/manual/parallel-computing/) can be utilized depending on the problem scale and the hardware available. In the example below we use [multi-threading](https://docs.julialang.org/en/v1/manual/multi-threading), using [ThreadTools.jl](https://github.com/baggepinnen/ThreadTools.jl); other excellent packages are available for threading.
+
+It is easy to obtain posterior results for use with [MCMCDiagnosticsTools.jl](https://github.com/TuringLang/MCMCDiagnosticTools.jl/) with [`stack_posterior_matrices`](@ref):
+
+```@example bernoulli
+using ThreadTools, MCMCDiagnosticTools
+results5 = tmap1(_ -> mcmc_with_warmup(Random.default_rng(), ∇P, 1000; reporter = NoProgressReport()), 1:5)
+ess_rhat(stack_posterior_matrices(results5))
+```
+
+Use [`pool_posterior_matrices`](@ref) for a pooled sample:
+
+```@example bernoulli
+posterior5 = transform.(trans, eachcol(pool_posterior_matrices(results5)))
+posterior5_α = first.(posterior5)
+mean(posterior5_α)
+```

@@ -1,8 +1,10 @@
-import ProgressMeter
-
 #####
 ##### Reporting progress.
 #####
+
+import ProgressMeter
+
+export NoProgressReport, LogProgressReport, ProgressMeterReport
 
 """
 $(TYPEDEF)
@@ -75,7 +77,7 @@ Currently, it adds `chain_id` *iff* it is not `nothing`.
 """
 _log_meta(chain_id::Nothing, meta) = meta
 
-_log_meta(chain_id, meta) = (chain_id = chain_id, meta...)
+_log_meta(chain_id, meta) = (; chain_id, meta...)
 
 function report(reporter::LogProgressReport, message::AbstractString; meta...)
     @info message _log_meta(reporter.chain_id, meta)...
@@ -123,7 +125,7 @@ function report(reporter::LogMCMCReport, step::Integer; meta...)
     Δ_time_s = (t_ns - last_reported_time_ns) / 1_000_000_000
     if last_reported_step < 0 || Δ_steps ≥ step_interval || Δ_time_s ≥ time_interval_s
         seconds_per_step = Δ_time_s / Δ_steps
-        meta_progress = (step = step,
+        meta_progress = (step,
                          seconds_per_step = round(seconds_per_step; sigdigits = 2),
                          estimated_seconds_left = round((total_steps - step) *
                                                         seconds_per_step; sigdigits = 2))

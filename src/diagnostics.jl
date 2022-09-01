@@ -1,6 +1,7 @@
 #####
-##### statistics and diagnostics
+##### statistics and diagnostics for the NUTS-specific tree statistics.
 #####
+##### For general posterior diagnostics, see `stack_posterior_matrices`.
 
 module Diagnostics
 
@@ -60,7 +61,7 @@ end
 """
 $(SIGNATURES)
 
-Count termination reasons in `tree_statistics`.
+Count termination reasons in `tree_statistics`, return as a `NamedTuple`.
 """
 function count_terminations(tree_statistics)
     max_depth = 0
@@ -76,7 +77,7 @@ function count_terminations(tree_statistics)
             turning += 1
         end
     end
-    (max_depth = max_depth, divergence = divergence, turning = turning)
+    (; max_depth, divergence, turning)
 end
 
 """

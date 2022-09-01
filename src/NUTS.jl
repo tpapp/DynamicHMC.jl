@@ -2,6 +2,8 @@
 ##### NUTS tree sampler implementation.
 #####
 
+export TreeOptionsNUTS
+
 ####
 #### Trajectory and implementation
 ####

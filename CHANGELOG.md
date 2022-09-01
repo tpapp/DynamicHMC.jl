@@ -1,5 +1,21 @@
 # Unreleased
 
+# v3.3.0
+
+- remove `position_matrix` [https://github.com/tpapp/DynamicHMC.jl/pull/165](#165), add utility functions for posterior matrices
+
+# v3.2.1
+
+- compat version bumps
+
+# v3.2.0
+
+- compat version bumps
+
+# v3.1.2
+
+- compat version bumps
+
 # v3.1.1
 
 - minor doc and export list fixes (follow-up to ([#145](https://github.com/tpapp/DynamicHMC.jl/pull/145)))

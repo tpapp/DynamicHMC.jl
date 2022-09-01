@@ -1,11 +1,22 @@
 # User interface
 
+```@docs
+DynamicHMC
+```
+
 ## Sampling
 
 The main entry point for sampling is
 
 ```@docs
 mcmc_with_warmup
+```
+
+## Utilities for working with the posterior
+
+```@docs
+stack_posterior_matrices
+pool_posterior_matrices
 ```
 
 ## Warmup
