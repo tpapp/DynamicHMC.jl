@@ -14,7 +14,7 @@ const REPORT_SIGDIGITS = 3
 ####
 
 const _DOC_POSTERIOR_MATRIX =
-    "`posterior_matrix`, a matrix of position vectors, indexes by `[draw_index, parameter_index]`"
+    "`posterior_matrix`, a matrix of position vectors, indexes by `[parameter_index, draw_index]`"
 
 const _DOC_TREE_STATISTICS =
     "`tree_statistics`, a vector of tree statistics for each sample"
@@ -193,9 +193,9 @@ Estimate the inverse metric from the chain.
 
 In most cases, this should be regularized, see [`regularize_M⁻¹`](@ref).
 """
-sample_M⁻¹(::Type{Diagonal}, posterior_matrix) = Diagonal(vec(var(posterior_matrix; dims = 1)))
+sample_M⁻¹(::Type{Diagonal}, posterior_matrix) = Diagonal(vec(var(posterior_matrix; dims = 2)))
 
-sample_M⁻¹(::Type{Symmetric}, posterior_matrix) = Symmetric(cov(posterior_matrix; dims = 1))
+sample_M⁻¹(::Type{Symmetric}, posterior_matrix) = Symmetric(cov(posterior_matrix; dims = 2))
 
 """
 $(SIGNATURES)
@@ -212,7 +212,7 @@ $(SIGNATURES)
 
 Create an empty posterior matrix, based on `Q` (a logdensity evaluated at a position).
 """
-_empty_posterior_matrix(Q, N) = Matrix{eltype(Q.q)}(undef, N, length(Q.q))
+_empty_posterior_matrix(Q, N) = Matrix{eltype(Q.q)}(undef, length(Q.q), N)
 
 """
 $(SIGNATURES)
@@ -246,7 +246,7 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
         ϵ = current_ϵ(ϵ_state)
         ϵs[i] = ϵ
         Q, stats = sample_tree(rng, algorithm, H, Q, ϵ)
-        posterior_matrix[i, :] = Q.q
+        posterior_matrix[:, i] = Q.q
         tree_statistics[i] = stats
         ϵ_state = adapt_stepsize(stepsize_adaptation, ϵ_state, stats.acceptance_rate)
         report(mcmc_reporter, i; ϵ = round(ϵ; sigdigits = REPORT_SIGDIGITS))
@@ -343,7 +343,7 @@ function mcmc(sampling_logdensity, N, warmup_state)
     steps = mcmc_steps(sampling_logdensity, warmup_state)
     for i in 1:N
         Q, tree_statistics[i] = mcmc_next_step(steps, Q)
-        posterior_matrix[i, :] = Q.q
+        posterior_matrix[:, i] = Q.q
         report(mcmc_reporter, i)
     end
     (; posterior_matrix, tree_statistics)
@@ -566,7 +566,7 @@ indexed by `[draw_index, parameter_index, chain_index]`.
 This is useful as an input for eg `MCMCDiagnosticTools.ess_rhat`.
 """
 function stack_posterior_matrices(results)
-    @cast _[i, j, k]:= results[k].posterior_matrix[i, j]
+    @cast _[i, j, k]:= results[k].posterior_matrix[j, i]
 end
 
 """
@@ -574,10 +574,10 @@ $(SIGNATURES)
 
 Given a vector of `results`, each containing a property `posterior_matrix` (eg obtained from
 [`mcmc_with_warmup`](@ref) with the same sample length), return a lazy view as an array
-indexed by `[pooled_draw_index, parameter_index]`.
+indexed by `[parameter_index, pooled_draw_index]`.
 
-This is useful for posterior analysis after diagnostics (see eg `Base.eachrow`).
+This is useful for posterior analysis after diagnostics (see eg `Base.eachcol`).
 """
 function pool_posterior_matrices(results)
-    @cast _[j ⊗ i, k] := results[i].posterior_matrix[j, k]
+    @cast _[i, j ⊗ k] := results[k].posterior_matrix[i, j]
 end

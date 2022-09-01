@@ -18,8 +18,8 @@ end
     @testset "default warmup" begin
         results = mcmc_with_warmup(RNG, ℓ, 10000)
         Z = results.posterior_matrix
-        @test norm(mean(Z; dims = 1) .- ones(5), Inf) < 0.03
-        @test norm(std(Z; dims = 1) .- ones(5), Inf) < 0.025
+        @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.03
+        @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.025
         @test mean(x -> x.acceptance_rate, results.tree_statistics) ≥ 0.8
         @test 0.5 ≤ results.ϵ ≤ 2
     end
@@ -29,8 +29,8 @@ end
                                    initialization = (ϵ = 1.0, ),
                                    warmup_stages = fixed_stepsize_warmup_stages())
         Z = results.posterior_matrix
-        @test norm(mean(Z; dims = 1) .- ones(5), Inf) < 0.03
-        @test norm(std(Z; dims = 1) .- ones(5), Inf) < 0.03
+        @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.03
+        @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.03
         @test mean(x -> x.acceptance_rate, results.tree_statistics) ≥ 0.7
     end
 
@@ -39,8 +39,8 @@ end
                                    initialization = (ϵ = 1.0, ),
                                    warmup_stages = default_warmup_stages(; stepsize_search = nothing))
         Z = results.posterior_matrix
-        @test norm(mean(Z; dims = 1) .- ones(5), Inf) < 0.03
-        @test norm(std(Z; dims = 1) .- ones(5), Inf) < 0.03
+        @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.03
+        @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.03
         @test mean(x -> x.acceptance_rate, results.tree_statistics) ≥ 0.7
     end
 
@@ -66,6 +66,14 @@ end
     max_depth = 12
     M = sum([count_max_depth(RNG, ℓ, max_depth) for _ in 1:20])
     @test M == 0
+end
+
+@testset "posterior accessors sanity checks" begin
+    D, N, K = 5, 100, 7
+    ℓ = multivariate_normal(ones(5))
+    results = fill(mcmc_with_warmup(RNG, ℓ, N), K)
+    @test size(stack_posterior_matrices(results)) == (N, D, K)
+    @test size(pool_posterior_matrices(results)) == (D, N * K)
 end
 
 # @testset "tuner framework" begin

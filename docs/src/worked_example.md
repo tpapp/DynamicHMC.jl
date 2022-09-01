@@ -78,7 +78,7 @@ nothing # hide
 The returned value is a `NamedTuple`. Most importantly, it contains the field `posterior_matrix`. You should use the transformation you defined above to retrieve the parameters (here, only `α`). We display the mean here to check that it was recovered correctly.
 
 ```@example bernoulli
-posterior = transform.(trans, eachrow(results.posterior_matrix))
+posterior = transform.(trans, eachcol(results.posterior_matrix))
 posterior_α = first.(posterior)
 mean(posterior_α)
 ```
@@ -106,7 +106,7 @@ ess_rhat(stack_posterior_matrices(results5))
 Use [`pool_posterior_matrices`](@ref) for a pooled sample:
 
 ```@example bernoulli
-posterior5 = transform.(trans, eachrow(pool_posterior_matrices(results5)))
+posterior5 = transform.(trans, eachcol(pool_posterior_matrices(results5)))
 posterior5_α = first.(posterior5)
 mean(posterior5_α)
 ```

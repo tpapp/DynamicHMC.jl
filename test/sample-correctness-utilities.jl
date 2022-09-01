@@ -100,7 +100,7 @@ function NUTS_tests(rng, ℓ, title, N; K = 3, io = stdout, mcmc_args = NamedTup
     @test all(min_EBFMI ≥ EBFMI_fail)
 
     # distribution comparison tests
-    Z = PermutedDimsArray(concat_posterior_matrices, (2, 1))
+    Z = concat_posterior_matrices
     Z′ = samples(ℓ, 1000)
     pd_alert = p_alert / d      # a simple Bonferroni correction
     pd_fail = p_fail / d
