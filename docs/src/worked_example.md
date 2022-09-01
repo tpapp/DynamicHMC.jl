@@ -60,7 +60,7 @@ p = BernoulliProblem(20, 10)
 p((α = 0.5, )) # make sure that it works
 ```
 
-With TransformVariables.jl, we set up a *transformation* ``\mathbb{R} \to [0,1]`` for ``\alpha``, and use the convenience function `TransformedLogDensity` to obtain a log density in ``\mathbb{R}^1``. Finally, we obtain a log density that supports gradients using automatic differentiation.
+With [TransformVariables.jl](https://github.com/tpapp/TransformVariables.jl), we set up a *transformation* ``\mathbb{R} \to [0,1]`` for ``\alpha``, and use the convenience function `TransformedLogDensity` to obtain a log density in ``\mathbb{R}^1``. Finally, we obtain a log density that supports gradients using automatic differentiation.
 
 ```@example bernoulli
 trans = as((α = as𝕀,))
@@ -93,7 +93,7 @@ summarize_tree_statistics(results.tree_statistics)
 
 Usually one would run multiple chains and check convergence and mixing using generic MCMC diagnostics not specific to NUTS.
 
-The specifics of running multiple chains is up to the user: various forms of [parallel computing](https://docs.julialang.org/en/v1/manual/parallel-computing/) can be utilized depending on the problem scale and the hardware available. In the example below we use [multi-threading](https://docs.julialang.org/en/v1/manual/multi-threading), using [ThreadTools.jl](https://github.com/baggepinnen/ThreadTools.jl), other excellent packages are available for threading.
+The specifics of running multiple chains is up to the user: various forms of [parallel computing](https://docs.julialang.org/en/v1/manual/parallel-computing/) can be utilized depending on the problem scale and the hardware available. In the example below we use [multi-threading](https://docs.julialang.org/en/v1/manual/multi-threading), using [ThreadTools.jl](https://github.com/baggepinnen/ThreadTools.jl); other excellent packages are available for threading.
 
 It is easy to obtain posterior results for use with [MCMCDiagnosticsTools.jl](https://github.com/TuringLang/MCMCDiagnosticTools.jl/) with [`stack_posterior_matrices`](@ref):
 
