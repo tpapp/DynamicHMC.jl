@@ -1,4 +1,6 @@
-isinteractive() && include("common.jl")
+using DynamicHMC: TrajectoryNUTS, rand_bool_logprob, GeneralizedTurnStatistic,
+    AcceptanceStatistic, leaf_acceptance_statistic, acceptance_rate, TreeStatisticsNUTS,
+    NUTS, sample_tree, combine_turn_statistics, combine_visited_statistics
 
 ####
 #### utilities

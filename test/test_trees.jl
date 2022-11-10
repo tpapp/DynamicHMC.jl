@@ -1,4 +1,5 @@
-isinteractive() && include("common.jl")
+using DynamicHMC: Directions, next_direction, biased_progressive_logprob2, adjacent_tree,
+    sample_trajectory, InvalidTree, is_turning
 
 ####
 #### test directions mechanism
@@ -41,31 +42,28 @@ end
 
 Base.empty!(trajectory) = empty(trajectory.visited)
 
-move(::DummyTrajectory, z, is_forward) = z + (is_forward ? 1 : -1)
+DynamicHMC.move(::DummyTrajectory, z, is_forward) = z + (is_forward ? 1 : -1)
 
-function is_turning(::DummyTrajectory, τ)
+function DynamicHMC.is_turning(::DummyTrajectory, τ)
     turn_flag, positions = τ
     @test length(positions) > 1 # not called on a leaf
     turn_flag
 end
 
-function combine_turn_statistics(::DummyTrajectory, τ₁, τ₂)
+function DynamicHMC.combine_turn_statistics(::DummyTrajectory, τ₁, τ₂)
     turn_flag1, positions1 = τ₁
     turn_flag2, positions2 = τ₂
     @test last(positions1) + 1 == first(positions2) # adjacency and order
     (turn_flag1 && turn_flag2, first(positions1):last(positions2))
 end
 
-function combine_visited_statistics(::DummyTrajectory, v₁, v₂)
+function DynamicHMC.combine_visited_statistics(::DummyTrajectory, v₁, v₂)
     a1, s1 = v₁
     a2, s2 = v₂
     (a1 + a2, s1 + s2)
 end
 
-# copyied from StatsFuns.jl
-log1mexp(x::Real) = x < log(0.5) ? log1p(-exp(x)) : log(-expm1(x))
-
-function combine_proposals(_, ::DummyTrajectory, zeta1, zeta2, logprob2, is_forward)
+function DynamicHMC.combine_proposals(_, ::DummyTrajectory, zeta1, zeta2, logprob2, is_forward)
     lp2 = logprob2 > 0 ? 0.0 : logprob2
     lp1 = logprob2 > 0 ? oftype(lp2, -Inf) : log1mexp(lp2)
     if !is_forward
@@ -79,11 +77,11 @@ function combine_proposals(_, ::DummyTrajectory, zeta1, zeta2, logprob2, is_forw
     (first(z1):last(z2), vcat(p1 .+ lp1, p2 .+ lp2))
 end
 
-function calculate_logprob2(::DummyTrajectory, is_doubling, ω₁, ω₂, ω)
+function DynamicHMC.calculate_logprob2(::DummyTrajectory, is_doubling, ω₁, ω₂, ω)
     biased_progressive_logprob2(is_doubling, ω₁, ω₂, ω)
 end
 
-function leaf(trajectory::DummyTrajectory, z, is_initial)
+function DynamicHMC.leaf(trajectory::DummyTrajectory, z, is_initial)
     @unpack turning, divergent, ℓ, visited = trajectory
     d = z ∈ divergent
     is_initial && @argcheck !d                              # don't start with divergent
