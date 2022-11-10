@@ -26,3 +26,5 @@ end
 ####
 
 @include_testset("sample-correctness-tests.jl")
+
+include("jet.jl")
