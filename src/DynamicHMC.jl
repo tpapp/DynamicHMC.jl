@@ -19,7 +19,7 @@ using LogExpFunctions: logaddexp
 using Parameters: @with_kw, @unpack
 using Random: AbstractRNG, randn, Random, randexp
 using Statistics: cov, mean, median, middle, quantile, var
-using TensorCast
+using TensorCast: @cast, TensorCast
 
 include("trees.jl")
 include("hamiltonian.jl")
