@@ -19,7 +19,7 @@ end
         results = mcmc_with_warmup(RNG, ℓ, 10000)
         Z = results.posterior_matrix
         @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.03
-        @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.025
+        @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.03
         @test mean(x -> x.acceptance_rate, results.tree_statistics) ≥ 0.8
         @test 0.5 ≤ results.ϵ ≤ 2
     end
