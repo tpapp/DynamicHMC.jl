@@ -13,6 +13,7 @@ module DynamicHMC
 
 using ArgCheck: @argcheck
 using DocStringExtensions: FIELDS, FUNCTIONNAME, SIGNATURES, TYPEDEF
+using FillArrays: Fill
 using LinearAlgebra: checksquare, cholesky, diag, dot, Diagonal, Symmetric, UniformScaling
 using LogDensityProblems: capabilities, LogDensityOrder, dimension, logdensity_and_gradient
 using LogExpFunctions: logaddexp

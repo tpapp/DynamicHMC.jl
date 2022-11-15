@@ -110,7 +110,7 @@ end
 
     @testset "leapfrog on invalid values" begin
         p = randn(n)
-        q = fill(NaN, n)
+        q = Fill(NaN, n)
         Q = evaluate_ℓ(ℓ, q)
         err = ArgumentError("Internal error: leapfrog called from non-finite log density")
         @test_throws err leapfrog(H, PhasePoint(Q, p), 0.01)
