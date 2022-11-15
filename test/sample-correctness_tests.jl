@@ -1,5 +1,4 @@
-isinteractive() && include("common.jl")
-include("sample-correctness-utilities.jl")
+include("sample-correctness_utilities.jl")
 
 #####
 ##### sample correctness tests

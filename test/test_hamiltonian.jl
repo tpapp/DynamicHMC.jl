@@ -1,4 +1,6 @@
-isinteractive() && include("common.jl")
+using DynamicHMC: GaussianKineticEnergy, kinetic_energy, ∇kinetic_energy, rand_p,
+    Hamiltonian, EvaluatedLogDensity, evaluate_ℓ, PhasePoint, logdensity, leapfrog,
+    calculate_p♯, logdensity, find_initial_stepsize
 
 ####
 #### utility functions

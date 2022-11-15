@@ -2,7 +2,9 @@
 ##### Stepsize and adaptation tests
 #####
 
-isinteractive() && include("common.jl")
+using DynamicHMC: find_crossing_stepsize, bisect_stepsize, find_initial_stepsize,
+    InitialStepsizeSearch, DualAveraging, initial_adaptation_state, adapt_stepsize,
+    current_ϵ, final_ϵ, FixedStepsize
 
 @testset "stepsize general rootfinding" begin
     Δ = 3.0                   # shift exponential so that ϵ = 1 is not in interval

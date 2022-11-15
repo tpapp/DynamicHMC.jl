@@ -1,4 +1,4 @@
-isinteractive() && include("common.jl")
+using DynamicHMC: mcmc_steps, mcmc_next_step, mcmc_keep_warmup, WarmupState
 
 #####
 ##### Test building blocks of MCMC
@@ -16,7 +16,7 @@ end
     ℓ = multivariate_normal(ones(5))
 
     @testset "default warmup" begin
-        results = mcmc_with_warmup(RNG, ℓ, 10000)
+        results = mcmc_with_warmup(RNG, ℓ, 10000; reporter = NoProgressReport())
         Z = results.posterior_matrix
         @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.03
         @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.03
@@ -27,6 +27,7 @@ end
     @testset "fixed stepsize" begin
         results = mcmc_with_warmup(RNG, ℓ, 10000;
                                    initialization = (ϵ = 1.0, ),
+                                   reporter = NoProgressReport(),
                                    warmup_stages = fixed_stepsize_warmup_stages())
         Z = results.posterior_matrix
         @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.03
@@ -37,6 +38,7 @@ end
     @testset "explicitly provided initial stepsize" begin
         results = mcmc_with_warmup(RNG, ℓ, 10000;
                                    initialization = (ϵ = 1.0, ),
+                                   reporter = NoProgressReport(),
                                    warmup_stages = default_warmup_stages(; stepsize_search = nothing))
         Z = results.posterior_matrix
         @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.03
@@ -71,7 +73,7 @@ end
 @testset "posterior accessors sanity checks" begin
     D, N, K = 5, 100, 7
     ℓ = multivariate_normal(ones(5))
-    results = fill(mcmc_with_warmup(RNG, ℓ, N), K)
+    results = fill(mcmc_with_warmup(RNG, ℓ, N; reporter = NoProgressReport()), K)
     @test size(stack_posterior_matrices(results)) == (N, D, K)
     @test size(pool_posterior_matrices(results)) == (D, N * K)
 end
