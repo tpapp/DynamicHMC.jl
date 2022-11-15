@@ -1,6 +1,7 @@
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 HypothesisTests = "09f84164-cd44-5f33-b23f-e6b0d136a0d5"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"

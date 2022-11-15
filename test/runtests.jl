@@ -8,6 +8,7 @@ using DynamicHMC.Diagnostics
 using DynamicHMC.Diagnostics: ACCEPTANCE_QUANTILES
 using LogDensityProblems: logdensity_and_gradient, dimension, LogDensityProblems
 using LogDensityTestSuite
+using FillArrays: Fill
 
 ###
 ### general test environment

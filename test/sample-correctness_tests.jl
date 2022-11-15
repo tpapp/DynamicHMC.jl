@@ -19,13 +19,13 @@ include("sample-correctness_utilities.jl")
 end
 
 @testset "NUTS tests with specific normal distributions" begin
-    ℓ = multivariate_normal([0.0], fill(5e8, 1, 1))
+    ℓ = multivariate_normal([0.0], Fill(5e8, 1, 1))
     NUTS_tests(RNG, ℓ, "univariate huge variance", 1000)
 
-    ℓ = multivariate_normal([1.0], fill(5e8, 1, 1))
+    ℓ = multivariate_normal([1.0], Fill(5e8, 1, 1))
     NUTS_tests(RNG, ℓ, "univariate huge variance, offset", 1000)
 
-    ℓ = multivariate_normal([1.0], fill(5e-8, 1, 1))
+    ℓ = multivariate_normal([1.0], Fill(5e-8, 1, 1))
     NUTS_tests(RNG, ℓ, "univariate tiny variance, offset", 1000)
 
     ℓ = multivariate_normal([1.0, 2.0, 3.0], Diagonal([1.0, 2.0, 3.0]))
@@ -61,7 +61,7 @@ end
 
 @testset "NUTS tests with mixtures" begin
     ℓ1 = multivariate_normal(zeros(3), 1.0)
-    D2 = Diagonal(fill(0.4, 3))
+    D2 = Diagonal(Fill(0.4, 3))
     C2 = [1.0 -0.48058358598852935 0.39971148270854306;
           0.0 0.876948924897229 -0.5361348433365906;
           0.0 0.0 0.7434985947205197]
