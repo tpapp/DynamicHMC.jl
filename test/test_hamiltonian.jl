@@ -109,7 +109,9 @@ end
     end
 
     @testset "invalid values" begin
-        @test_throws DomainError evaluate_ℓ(ℓ, Fill(NaN, n))
+        n = 3
+        ℓ = multivariate_normal(randn(n), I)
+        @test_throws DomainError evaluate_ℓ(ℓ, fill(NaN, n))
     end
 end
 

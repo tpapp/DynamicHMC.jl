@@ -53,7 +53,7 @@ end
 multivariate_normal(μ, L) = shift(μ, linear(L, StandardMultivariateNormal(length(μ))))
 
 "Multivariate normal with diagonal `Σ` (constant `v` variance)."
-multivariate_normal(μ, v::Real = 1) = multivariate_normal(μ, Diagonal(Fill(v, length(μ))))
+multivariate_normal(μ, v::Real = 1) = multivariate_normal(μ, I * v)
 
 ###
 ### Hamiltonian test helper functions
