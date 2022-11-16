@@ -52,6 +52,13 @@ struct InitialStepsizeSearch
     end
 end
 
+"Error while searching for initial stepsize."
+Base.@kwdef struct InitialStepsizeError <: Exception
+    message::String
+    max_iter::Int
+    debug_information::NamedTuple
+end
+
 """
 $(SIGNATURES)
 
@@ -75,19 +82,23 @@ function find_crossing_stepsize(parameters, A, ϵ₀, Aϵ₀ = A(ϵ₀))
     if s < 0                    # when A(ϵ) < a,
         C = 1/C                 # decrease ϵ
     end
+    ϵ, Aϵ = ϵ₀, Aϵ₀
     for _ in 1:maxiter_crossing
-        ϵ = ϵ₀ * C
-        Aϵ = A(ϵ)
-        if s*(Aϵ - a) ≤ 0
-            return ϵ₀, Aϵ₀, ϵ, Aϵ
+        ϵ′ = ϵ * C
+        Aϵ′ = A(ϵ′)
+        if s*(Aϵ′ - a) ≤ 0
+            return ϵ, Aϵ, ϵ′, Aϵ′
         else
-            ϵ₀ = ϵ
-            Aϵ₀ = Aϵ
+            ϵ = ϵ′
+            Aϵ = Aϵ′
         end
     end
     # should never each this, miscoded log density?
     dir = s > 0 ? "below" : "above"
-    error("Reached maximum number of iterations searching for ϵ from $(dir).")
+    message = "Reached maximum number of iterations searching for ϵ from $(dir)."
+    err = InitialStepsizeError(; message, max_iter = maxiter_crossing,
+                               debug_information = (; ϵ₀, Aϵ₀, ϵ, Aϵ))
+    throw(err)
 end
 
 """
@@ -122,7 +133,10 @@ function bisect_stepsize(parameters, A, ϵ₀, ϵ₁, Aϵ₀ = A(ϵ₀), Aϵ₁ 
         end
     end
     # should never each this, miscoded log density?
-    error("Reached maximum number of iterations while bisecting interval for ϵ.")
+    throw(InitialStepsizeError(;
+                               message = "Reached maximum number of iterations while bisecting interval for ϵ.",
+                               max_iter = maxiter_bisect,
+                               debug_information = (ϵ₀, Aϵ₀, ϵ₁, Aϵ₁)))
 end
 
 """
@@ -177,13 +191,23 @@ Note that the ratio is not capped by `1`, so it is not a valid probability *per 
 """
 function local_acceptance_ratio(H, z)
     target = logdensity(H, z)
-    isfinite(target) ||
-        throw(DomainError(z.p, "Starting point has non-finite density."))
-    ϵ -> exp(logdensity(H, leapfrog(H, z, ϵ)) - target)
+    @argcheck(isfinite(target),
+              DomainError((log_density = target, position = z.p),
+                          "Starting point has non-finite density."))
+    function(ϵ)
+        z′ = leapfrog(H, z, ϵ)
+        p′ = logdensity(H, z′)
+        exp(p′ - target)
+    end
 end
 
 function find_initial_stepsize(parameters::InitialStepsizeSearch, H, z)
-    find_initial_stepsize(parameters, local_acceptance_ratio(H, z))
+    try
+        find_initial_stepsize(parameters, local_acceptance_ratio(H, z))
+    catch e
+        @info "error at position" z
+        rethrow(e)
+    end
 end
 
 """

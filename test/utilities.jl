@@ -89,7 +89,7 @@ A `NamedTuple` that contains
 - a random `K × K` covariance matrix `Σ`,
 
 - a random Hamiltonian `H` with `ℓ` corresponding to a multivariate normal with `μ`, `Σ`,
-  and a random Gaussian kinetic energy (unrelated to `ℓ`)
+  and a random Gaussian kinetic energy (unrelated to `ℓ`).
 
 - a random phasepoint `z`.
 
@@ -101,6 +101,10 @@ function rand_Hz(K)
     L = cholesky(Σ).L
     κ = GaussianKineticEnergy(inv(rand_Σ(Diagonal, K)))
     H = Hamiltonian(κ, multivariate_normal(μ, L))
-    z = PhasePoint(evaluate_ℓ(H.ℓ, μ .+ L * randn(K)), rand_p(RNG, κ))
+    # FIXME: change line below when
+    # https://github.com/tpapp/LogDensityTestSuite.jl/issues/15 is fixed
+    q = μ .+ L * randn(K)
+    p = rand_p(RNG, κ)
+    z = PhasePoint(evaluate_ℓ(H.ℓ, q), rand_p(RNG, κ))
     (μ = μ, Σ = Σ, H = H, z = z)
 end

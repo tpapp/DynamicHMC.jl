@@ -190,13 +190,29 @@ $(SIGNATURES)
 
 Evaluate log density and gradient and save with the position. Preferred interface for
 creating `EvaluatedLogDensity` instances.
+
+Non-finite elements in `q` always throw an error.
+
+Non-finite and not `-Inf` elements in the log density throw an error if `strict`, otherwise
+replace the log density with `-Inf`.
+
+Non-finite elements in the gradient throw an error if `strict`, otherwise replace
+the log density with `-Inf`.
 """
-function evaluate_ℓ(ℓ, q)
+function evaluate_ℓ(ℓ, q; strict::Bool = true)
+    @argcheck all(isfinite, q) DomainError((; q), "Position vector has non-finite elements.")
     ℓq, ∇ℓq = logdensity_and_gradient(ℓ, q)
-    if isfinite(ℓq)
+    if (isfinite(ℓq) && all(isfinite, ∇ℓq)) || ℓq == -Inf
+        # everything is finite, or log density is -Inf, which will be rejected
         EvaluatedLogDensity(q, ℓq, ∇ℓq)
+    elseif !strict
+        # something went wrong, but proceed and replace log density with -Inf, so it is
+        # rejected.
+        EvaluatedLogDensity(q, oftype(ℓq, -Inf), ∇ℓq) # somew
+    elseif isfinite(ℓq)
+        throw(DomainError((; q, ∇ℓq), "Gradient has non-finite elements."))
     else
-        EvaluatedLogDensity(q, oftype(ℓq, -Inf), q) # second q used just as a placeholder
+        throw(DomainError((; q, ℓq), "Invalid log posterior."))
     end
 end
 

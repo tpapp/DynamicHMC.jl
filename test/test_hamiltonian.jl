@@ -108,12 +108,8 @@ end
         end
     end
 
-    @testset "leapfrog on invalid values" begin
-        p = randn(n)
-        q = Fill(NaN, n)
-        Q = evaluate_ℓ(ℓ, q)
-        err = ArgumentError("Internal error: leapfrog called from non-finite log density")
-        @test_throws err leapfrog(H, PhasePoint(Q, p), 0.01)
+    @testset "invalid values" begin
+        @test_throws DomainError evaluate_ℓ(ℓ, Fill(NaN, n))
     end
 end
 
@@ -126,7 +122,7 @@ end
             z = leapfrog(H, z, ϵ)
             Δ = logdensity(H, z) - π₀
             if abs(Δ) ≥ atol && !warned
-                @warn "Hamiltonian invariance violated: step $(i) of $(L), Δ = $(Δ)"
+                @warn "Hamiltonian invariance violated" step = i L Δ
                 show(H)
                 show(z)
                 warned = true
@@ -138,7 +134,7 @@ end
     for _ in 1:100
         @unpack H, z = rand_Hz(rand(2:5))
         ϵ = find_initial_stepsize(InitialStepsizeSearch(), H, z)
-        test_hamiltonian_invariance(H, z, 100, ϵ/100; atol = 0.5)
+        test_hamiltonian_invariance(H, z, 10, ϵ/100; atol = 0.5)
     end
 end
 
