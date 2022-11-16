@@ -100,10 +100,9 @@ function rand_Hz(K)
     Σ = rand_Σ(K)
     L = cholesky(Σ).L
     κ = GaussianKineticEnergy(inv(rand_Σ(Diagonal, K)))
-    H = Hamiltonian(κ, multivariate_normal(μ, L))
-    # FIXME: change line below when
-    # https://github.com/tpapp/LogDensityTestSuite.jl/issues/15 is fixed
-    q = μ .+ L * randn(K)
+    ℓ = multivariate_normal(μ, L)
+    H = Hamiltonian(κ, ℓ)
+    q = rand(RNG, ℓ)
     p = rand_p(RNG, κ)
     z = PhasePoint(evaluate_ℓ(H.ℓ, q), rand_p(RNG, κ))
     (μ = μ, Σ = Σ, H = H, z = z)
