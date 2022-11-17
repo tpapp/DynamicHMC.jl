@@ -199,8 +199,8 @@ replace the log density with `-Inf`.
 Non-finite elements in the gradient throw an error if `strict`, otherwise replace
 the log density with `-Inf`.
 """
-function evaluate_ℓ(ℓ, q; strict::Bool = true)
-    @argcheck all(isfinite, q) DomainError((; q), "Position vector has non-finite elements.")
+function evaluate_ℓ(ℓ, q; strict::Bool = false)
+    all(isfinite, q) || _error("Position vector has non-finite elements."; q)
     ℓq, ∇ℓq = logdensity_and_gradient(ℓ, q)
     if (isfinite(ℓq) && all(isfinite, ∇ℓq)) || ℓq == -Inf
         # everything is finite, or log density is -Inf, which will be rejected
@@ -210,9 +210,9 @@ function evaluate_ℓ(ℓ, q; strict::Bool = true)
         # rejected.
         EvaluatedLogDensity(q, oftype(ℓq, -Inf), ∇ℓq) # somew
     elseif isfinite(ℓq)
-        throw(DomainError((; q, ∇ℓq), "Gradient has non-finite elements."))
+        _error("Gradient has non-finite elements."; q, ∇ℓq)
     else
-        throw(DomainError((; q, ℓq), "Invalid log posterior."))
+        _error("Invalid log posterior."; q, ℓq)
     end
 end
 

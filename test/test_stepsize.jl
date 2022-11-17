@@ -4,7 +4,7 @@
 
 using DynamicHMC: find_crossing_stepsize, bisect_stepsize, find_initial_stepsize,
     InitialStepsizeSearch, DualAveraging, initial_adaptation_state, adapt_stepsize,
-    current_ϵ, final_ϵ, FixedStepsize, InitialStepsizeError
+    current_ϵ, final_ϵ, FixedStepsize
 
 @testset "stepsize general rootfinding" begin
     Δ = 3.0                   # shift exponential so that ϵ = 1 is not in interval
@@ -29,12 +29,12 @@ using DynamicHMC: find_crossing_stepsize, bisect_stepsize, find_initial_stepsize
     ϵ₀, Aϵ₀, ϵ₁, Aϵ₁ = find_crossing_stepsize(params, A, invA(params.a_min-0.1))
     @test ϵ₀ ≥ invA(params.a_min) ≥ ϵ₁
     @test Aϵ₀ ≤ params.a_min ≤ Aϵ₁
-    @test_throws InitialStepsizeError find_crossing_stepsize(params, constantA, 100.0)
+    @test_throws DynamicHMCError find_crossing_stepsize(params, constantA, 100.0)
     # crossing from above
     ϵ₀, Aϵ₀, ϵ₁, Aϵ₁ = find_crossing_stepsize(params, A, invA(params.a_max+0.1))
     @test ϵ₀ ≤ invA(params.a_max) ≤ ϵ₁
     @test Aϵ₀ ≥ params.a_max ≥ Aϵ₁
-    @test_throws InitialStepsizeError find_crossing_stepsize(params, constantA, 0.1)
+    @test_throws DynamicHMCError find_crossing_stepsize(params, constantA, 0.1)
     # bisection
     ϵ = bisect_stepsize(params, A, invA(params.a_max + 0.1), invA(params.a_min - 0.1))
     @test params.a_min ≤ A(ϵ) ≤ params.a_max
@@ -129,5 +129,5 @@ end
     p = InitialStepsizeSearch()
     @unpack H, z = rand_Hz(2)
     z = DynamicHMC.PhasePoint(z.Q, [NaN, NaN])
-    @test_throws DomainError find_initial_stepsize(p, H, z)
+    @test_throws DynamicHMCError find_initial_stepsize(p, H, z)
 end

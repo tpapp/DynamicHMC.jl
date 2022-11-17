@@ -22,6 +22,7 @@ using Random: AbstractRNG, randn, Random, randexp
 using Statistics: cov, mean, median, middle, quantile, var
 using TensorCast: @cast, TensorCast
 
+include("utilities.jl")
 include("trees.jl")
 include("hamiltonian.jl")
 include("stepsize.jl")

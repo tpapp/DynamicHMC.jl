@@ -1,6 +1,6 @@
 using DynamicHMC: GaussianKineticEnergy, kinetic_energy, ∇kinetic_energy, rand_p,
     Hamiltonian, EvaluatedLogDensity, evaluate_ℓ, PhasePoint, logdensity, leapfrog,
-    calculate_p♯, logdensity, find_initial_stepsize
+    calculate_p♯, logdensity, find_initial_stepsize, DynamicHMCError
 
 ####
 #### utility functions
@@ -111,7 +111,7 @@ end
     @testset "invalid values" begin
         n = 3
         ℓ = multivariate_normal(randn(n), I)
-        @test_throws DomainError evaluate_ℓ(ℓ, fill(NaN, n))
+        @test_throws DynamicHMCError evaluate_ℓ(ℓ, fill(NaN, n))
     end
 end
 
