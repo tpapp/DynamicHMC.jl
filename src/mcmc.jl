@@ -122,7 +122,7 @@ $(DOC_INITIAL_WARMUP_ARGS)
 """
 function initialize_warmup_state(rng, ℓ; q = random_position(rng, dimension(ℓ)),
                                  κ = GaussianKineticEnergy(dimension(ℓ)), ϵ = nothing)
-    WarmupState(evaluate_ℓ(ℓ, q), κ, ϵ)
+    WarmupState(evaluate_ℓ(ℓ, q; strict = true), κ, ϵ)
 end
 
 function warmup(sampling_logdensity, stepsize_search::InitialStepsizeSearch, warmup_state)

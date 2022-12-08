@@ -53,7 +53,7 @@ end
 multivariate_normal(μ, L) = shift(μ, linear(L, StandardMultivariateNormal(length(μ))))
 
 "Multivariate normal with diagonal `Σ` (constant `v` variance)."
-multivariate_normal(μ, v::Real = 1) = multivariate_normal(μ, Diagonal(Fill(v, length(μ))))
+multivariate_normal(μ, v::Real = 1) = multivariate_normal(μ, I * v)
 
 ###
 ### Hamiltonian test helper functions
@@ -89,7 +89,7 @@ A `NamedTuple` that contains
 - a random `K × K` covariance matrix `Σ`,
 
 - a random Hamiltonian `H` with `ℓ` corresponding to a multivariate normal with `μ`, `Σ`,
-  and a random Gaussian kinetic energy (unrelated to `ℓ`)
+  and a random Gaussian kinetic energy (unrelated to `ℓ`).
 
 - a random phasepoint `z`.
 
@@ -100,7 +100,10 @@ function rand_Hz(K)
     Σ = rand_Σ(K)
     L = cholesky(Σ).L
     κ = GaussianKineticEnergy(inv(rand_Σ(Diagonal, K)))
-    H = Hamiltonian(κ, multivariate_normal(μ, L))
-    z = PhasePoint(evaluate_ℓ(H.ℓ, μ .+ L * randn(K)), rand_p(RNG, κ))
+    ℓ = multivariate_normal(μ, L)
+    H = Hamiltonian(κ, ℓ)
+    q = rand(RNG, ℓ)
+    p = rand_p(RNG, κ)
+    z = PhasePoint(evaluate_ℓ(H.ℓ, q), rand_p(RNG, κ))
     (μ = μ, Σ = Σ, H = H, z = z)
 end

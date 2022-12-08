@@ -1,5 +1,3 @@
-isinteractive() && include("common.jl")
-
 #####
 ##### test diagnostics
 #####

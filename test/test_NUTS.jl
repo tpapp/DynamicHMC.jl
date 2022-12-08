@@ -99,15 +99,15 @@ function LogDensityProblems.capabilities(::Type{AlwaysDivergentTest})
 end
 LogDensityProblems.dimension(d::AlwaysDivergentTest) = d.K
 function LogDensityProblems.logdensity_and_gradient(d::AlwaysDivergentTest, x)
+    ∇ = ones(length(x))
     if all(iszero.(x))
-        0.0, zeros(length(x))
+        0.0, ∇
     else
-        -Inf, nothing
+        -Inf, ∇
     end
 end
 
 @testset "unconditional divergence" begin
-
     # test NUTS sampler where all movements are divergent
     K = 3
     ℓ = AlwaysDivergentTest(K)

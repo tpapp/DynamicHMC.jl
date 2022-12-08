@@ -75,19 +75,21 @@ function find_crossing_stepsize(parameters, A, ϵ₀, Aϵ₀ = A(ϵ₀))
     if s < 0                    # when A(ϵ) < a,
         C = 1/C                 # decrease ϵ
     end
+    ϵ, Aϵ = ϵ₀, Aϵ₀
     for _ in 1:maxiter_crossing
-        ϵ = ϵ₀ * C
-        Aϵ = A(ϵ)
-        if s*(Aϵ - a) ≤ 0
-            return ϵ₀, Aϵ₀, ϵ, Aϵ
+        ϵ′ = ϵ * C
+        Aϵ′ = A(ϵ′)
+        if s*(Aϵ′ - a) ≤ 0
+            return ϵ, Aϵ, ϵ′, Aϵ′
         else
-            ϵ₀ = ϵ
-            Aϵ₀ = Aϵ
+            ϵ = ϵ′
+            Aϵ = Aϵ′
         end
     end
     # should never each this, miscoded log density?
     dir = s > 0 ? "below" : "above"
-    error("Reached maximum number of iterations searching for ϵ from $(dir).")
+    _error("Initial stepsize search reached maximum number of iterations from $(dir).";
+           maxiter_crossing, ϵ₀, Aϵ₀, ϵ, Aϵ)
 end
 
 """
@@ -122,7 +124,8 @@ function bisect_stepsize(parameters, A, ϵ₀, ϵ₁, Aϵ₀ = A(ϵ₀), Aϵ₁ 
         end
     end
     # should never each this, miscoded log density?
-    error("Reached maximum number of iterations while bisecting interval for ϵ.")
+    _error("Initial stepsize search reached maximum number of iterations while bisecting.";
+           maxiter_bisect, ϵ₀, Aϵ₀, ϵ₁, Aϵ₁)
 end
 
 """
@@ -154,17 +157,6 @@ end
 """
 $(SIGNATURES)
 
-Uncapped log acceptance ratio of a Langevin step.
-"""
-function log_acceptance_ratio(H, z, ϵ)
-    target = logdensity(H, z)
-    isfinite(target) || throw(DomainError(z, "Starting point has non-finite density."))
-    logdensity(H, leapfrog(H, z, ϵ)) - target
-end
-
-"""
-$(SIGNATURES)
-
 Return a function of the stepsize (``ϵ``) that calculates the local acceptance
 ratio for a single leapfrog step around `z` along the Hamiltonian `H`. Formally,
 let
@@ -176,10 +168,15 @@ A(ϵ) = exp(logdensity(H, leapfrog(H, z, ϵ)) - logdensity(H, z))
 Note that the ratio is not capped by `1`, so it is not a valid probability *per se*.
 """
 function local_acceptance_ratio(H, z)
-    target = logdensity(H, z)
-    isfinite(target) ||
-        throw(DomainError(z.p, "Starting point has non-finite density."))
-    ϵ -> exp(logdensity(H, leapfrog(H, z, ϵ)) - target)
+    ℓ0 = logdensity(H, z)
+    isfinite(ℓ0) ||
+        _error("Starting point has non-finite density.";
+               hamiltonian_logdensity = ℓ0, logdensity = z.Q.ℓq, position = z.Q.q)
+    function(ϵ)
+        z1 = leapfrog(H, z, ϵ)
+        ℓ1 = logdensity(H, z1)
+        exp(ℓ1 - ℓ0)
+    end
 end
 
 function find_initial_stepsize(parameters::InitialStepsizeSearch, H, z)
