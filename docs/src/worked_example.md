@@ -26,8 +26,8 @@ We will code this with the help of TransformVariables.jl, and obtain the gradien
 First, we load the packages we use.
 
 ```@example bernoulli
-using TransformVariables, TransformedLogDensities, LogDensityProblems, DynamicHMC,
-    DynamicHMC.Diagnostics, Parameters, Statistics, Random
+using TransformVariables, TransformedLogDensities, LogDensityProblems, LogDensityProblemsAD,
+    DynamicHMC, DynamicHMC.Diagnostics, Parameters, Statistics, Random
 nothing # hide
 ```
 
@@ -60,7 +60,7 @@ p = BernoulliProblem(20, 10)
 p((α = 0.5, )) # make sure that it works
 ```
 
-With [TransformVariables.jl](https://github.com/tpapp/TransformVariables.jl), we set up a *transformation* ``\mathbb{R} \to [0,1]`` for ``\alpha``, and use the convenience function `TransformedLogDensity` to obtain a log density in ``\mathbb{R}^1``. Finally, we obtain a log density that supports gradients using automatic differentiation.
+With [TransformVariables.jl](https://github.com/tpapp/TransformVariables.jl), we set up a *transformation* ``\mathbb{R} \to [0,1]`` for ``\alpha``, and use the convenience function `TransformedLogDensity` to obtain a log density in ``\mathbb{R}^1``. Finally, we obtain a log density that supports gradients using automatic differentiation, with [LogDensityProblemsAD.jl](https://github.com/tpapp/LogDensityProblemsAD.jl).
 
 ```@example bernoulli
 trans = as((α = as𝕀,))
