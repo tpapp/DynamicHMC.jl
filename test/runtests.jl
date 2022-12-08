@@ -43,4 +43,6 @@ include("sample-correctness_tests.jl")
 #### statis analysis
 ####
 
-include("jet.jl")
+if isempty(VERSION.prerelease)  # do not test on nightly
+    include("jet.jl")
+end
