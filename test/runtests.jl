@@ -43,6 +43,7 @@ include("sample-correctness_tests.jl")
 #### statis analysis
 ####
 
-if isempty(VERSION.prerelease)  # do not test on nightly
+# do not test on older Julia versions and nightly
+if VERSION >= v"1.7" && isempty(VERSION.prerelease)
     include("jet.jl")
 end
