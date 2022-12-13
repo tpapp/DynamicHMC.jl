@@ -74,7 +74,7 @@ end
     D, N, K = 5, 100, 7
     ℓ = multivariate_normal(ones(5))
     results = fill(mcmc_with_warmup(RNG, ℓ, N; reporter = NoProgressReport()), K)
-    @test size(stack_posterior_matrices(results)) == (N, D, K)
+    @test size(stack_posterior_matrices(results)) == (N, K, D)
     @test size(pool_posterior_matrices(results)) == (D, N * K)
 end
 
