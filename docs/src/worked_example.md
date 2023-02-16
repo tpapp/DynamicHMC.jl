@@ -93,7 +93,7 @@ summarize_tree_statistics(results.tree_statistics)
 
 Usually one would run multiple chains and check convergence and mixing using generic MCMC diagnostics not specific to NUTS.
 
-The specifics of running multiple chains is up to the user: various forms of [parallel computing](https://docs.julialang.org/en/v1/manual/parallel-computing/) can be utilized depending on the problem scale and the hardware available. In the example below we use [multi-threading](https://docs.julialang.org/en/v1/manual/multi-threading), using [ThreadTools.jl](https://github.com/baggepinnen/ThreadTools.jl); other excellent packages are available for threading.
+The specifics of running multiple chains is up to the user: various forms of [parallel computing](https://docs.julialang.org/en/v1/manual/parallel-computing/) can be utilized depending on the problem scale and the hardware available. In the example below we use [multi-threading](https://docs.julialang.org/en/v1/manual/multi-threading/), using [ThreadTools.jl](https://github.com/baggepinnen/ThreadTools.jl); other excellent packages are available for threading.
 
 It is easy to obtain posterior results for use with [MCMCDiagnosticsTools.jl](https://github.com/TuringLang/MCMCDiagnosticTools.jl/) with [`stack_posterior_matrices`](@ref):
 
