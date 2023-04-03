@@ -16,13 +16,10 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 TensorCast = "02d47bb6-7ce6-556a-be16-bb1710789e2b"
 
-[extras]
-MCMCDiagnosticTools = "be115224-59cd-429b-ad48-344e309966f0"
-
 [compat]
 ArgCheck = "1, 2"
 DocStringExtensions = "0.8, 0.9"
-FillArrays = "0.13"
+FillArrays = "0.13, 1"
 LogDensityProblems = "1, 2"
 LogExpFunctions = "0.3"
 MCMCDiagnosticTools = "0.2"
@@ -30,3 +27,6 @@ Parameters = "0.11, 0.12"
 ProgressMeter = "1"
 TensorCast = "0.4"
 julia = "1.6"
+
+[extras]
+MCMCDiagnosticTools = "be115224-59cd-429b-ad48-344e309966f0"
