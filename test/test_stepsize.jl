@@ -4,7 +4,7 @@
 
 using DynamicHMC: find_crossing_stepsize, bisect_stepsize, find_initial_stepsize,
     InitialStepsizeSearch, DualAveraging, initial_adaptation_state, adapt_stepsize,
-    current_ϵ, final_ϵ, FixedStepsize
+    current_ϵ, final_ϵ, FixedStepsize, local_acceptance_ratio
 
 @testset "stepsize general rootfinding" begin
     Δ = 3.0                   # shift exponential so that ϵ = 1 is not in interval
@@ -119,7 +119,7 @@ end
     p = InitialStepsizeSearch()
     for _ in 1:100
         @unpack H, z = rand_Hz(rand(3:5))
-        ϵ = find_initial_stepsize(p, H, z)
+        ϵ = find_initial_stepsize(p, local_acceptance_ratio(H, z))
         logA = logdensity(H, leapfrog(H, z, ϵ)) - logdensity(H, z)
         @test p.a_min ≤ exp(logA) ≤ p.a_max
     end
@@ -129,5 +129,5 @@ end
     p = InitialStepsizeSearch()
     @unpack H, z = rand_Hz(2)
     z = DynamicHMC.PhasePoint(z.Q, [NaN, NaN])
-    @test_throws DynamicHMCError find_initial_stepsize(p, H, z)
+    @test_throws DynamicHMCError find_initial_stepsize(p, local_acceptance_ratio(H, z))
 end

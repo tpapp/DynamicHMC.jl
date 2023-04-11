@@ -67,8 +67,11 @@ Representation of a warmup state. Not part of the API.
 $(FIELDS)
 """
 struct WarmupState{TQ <: EvaluatedLogDensity,Tκ <: KineticEnergy, Tϵ <: Union{Real,Nothing}}
+    "phasepoint"
     Q::TQ
+    "kinetic energy"
     κ::Tκ
+    "stepsize"
     ϵ::Tϵ
 end
 
@@ -130,10 +133,15 @@ function warmup(sampling_logdensity, stepsize_search::InitialStepsizeSearch, war
     @unpack Q, κ, ϵ = warmup_state
     @argcheck ϵ ≡ nothing "stepsize ϵ manually specified, won't perform initial search"
     z = PhasePoint(Q, rand_p(rng, κ))
-    ϵ = find_initial_stepsize(stepsize_search, local_acceptance_ratio(Hamiltonian(κ, ℓ), z))
-    report(reporter, "found initial stepsize",
-           ϵ = round(ϵ; sigdigits = REPORT_SIGDIGITS))
-    nothing, WarmupState(Q, κ, ϵ)
+    try
+        ϵ = find_initial_stepsize(stepsize_search, local_acceptance_ratio(Hamiltonian(κ, ℓ), z))
+        report(reporter, "found initial stepsize",
+               ϵ = round(ϵ; sigdigits = REPORT_SIGDIGITS))
+        nothing, WarmupState(Q, κ, ϵ)
+    catch e
+        @info "failed to find initial stepsize" z Q κ
+        rethrow(e)
+    end
 end
 
 """
