@@ -139,7 +139,7 @@ function warmup(sampling_logdensity, stepsize_search::InitialStepsizeSearch, war
                ϵ = round(ϵ; sigdigits = REPORT_SIGDIGITS))
         nothing, WarmupState(Q, κ, ϵ)
     catch e
-        @info "failed to find initial stepsize" z Q κ
+        @info "failed to find initial stepsize" q = z.Q.q p = z.p κ
         rethrow(e)
     end
 end
