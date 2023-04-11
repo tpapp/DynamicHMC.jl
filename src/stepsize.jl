@@ -179,10 +179,6 @@ function local_acceptance_ratio(H, z)
     end
 end
 
-function find_initial_stepsize(parameters::InitialStepsizeSearch, H, z)
-    find_initial_stepsize(parameters, local_acceptance_ratio(H, z))
-end
-
 """
 $(TYPEDEF)
 
