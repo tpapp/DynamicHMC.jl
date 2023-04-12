@@ -11,121 +11,28 @@ $(TYPEDEF)
 
 Parameters for the search algorithm for the initial stepsize.
 
-The algorithm finds an initial stepsize ``ϵ`` so that the local acceptance ratio
-``A(ϵ)`` satisfies
-
-```math
-a_\\text{min} ≤ A(ϵ) ≤ a_\\text{max}
-```
-
-This is achieved by an initial bracketing, then bisection.
+The algorithm finds an initial stepsize ``ϵ`` so that the local log acceptance ratio
+``A(ϵ)`` is near `params.log_threshold`.
 
 $FIELDS
 
-!!! note
+!!! NOTE
 
-    Cf. Hoffman and Gelman (2014), which does not ensure bounds for the
-    acceptance ratio, just that it has crossed a threshold. This version seems
-    to work better for some tricky posteriors with high curvature.
+    The algorithm is from Hoffman and Gelman (2014), default threshold modified to `0.8` following later practice in Stan.
 """
 struct InitialStepsizeSearch
-    "Lowest local acceptance rate."
-    a_min::Float64
-    "Highest local acceptance rate."
-    a_max::Float64
-    "Initial stepsize."
-    ϵ₀::Float64
-    "Scale factor for initial bracketing, > 1. *Default*: `2.0`."
-    C::Float64
-    "Maximum number of iterations for initial bracketing."
+    "The stepsize where the search is started."
+    initial_ϵ::Float64
+    "Log of the threshold that needs to be crossed."
+    log_threshold::Float64
+    "Maximum number of iterations for crossing the threshold."
     maxiter_crossing::Int
-    "Maximum number of iterations for bisection."
-    maxiter_bisect::Int
-    function InitialStepsizeSearch(; a_min = 0.25, a_max = 0.75, ϵ₀ = 1.0, C = 2.0,
-                                   maxiter_crossing = 400, maxiter_bisect = 400)
-        @argcheck 0 < a_min < a_max < 1
-        @argcheck 0 < ϵ₀
-        @argcheck 1 < C
+    function InitialStepsizeSearch(; log_threshold::Float64 = log(0.8), initial_ϵ = 0.1, maxiter_crossing = 400)
+        @argcheck isfinite(log_threshold) && log_threshold < 0
+        @argcheck isfinite(initial_ϵ) && 0 < initial_ϵ
         @argcheck maxiter_crossing ≥ 50
-        @argcheck maxiter_bisect ≥ 50
-        new(a_min, a_max, ϵ₀, C, maxiter_crossing, maxiter_bisect)
+        new(initial_ϵ, log_threshold, maxiter_crossing)
     end
-end
-
-"""
-$(SIGNATURES)
-
-Find the stepsize for which the local acceptance rate `A(ϵ)` crosses `a`.
-
-Return `ϵ₀, A(ϵ₀), ϵ₁`, A(ϵ₁)`, where `ϵ₀` and `ϵ₁` are stepsizes before and
-after crossing `a` with `A(ϵ)`, respectively.
-
-Assumes that ``A(ϵ₀) ∉ (a_\\text{min}, a_\\text{max})``, where the latter are
-defined in `parameters`.
-
-- `parameters`: parameters for the iteration.
-
-- `A`: local acceptance ratio (uncapped), a function of stepsize `ϵ`
-
-- `ϵ₀`, `Aϵ₀`: initial value of `ϵ`, and `A(ϵ₀)`
-"""
-function find_crossing_stepsize(parameters, A, ϵ₀, Aϵ₀ = A(ϵ₀))
-    @unpack a_min, a_max, C, maxiter_crossing = parameters
-    s, a = Aϵ₀ > a_max ? (1.0, a_max) : (-1.0, a_min)
-    if s < 0                    # when A(ϵ) < a,
-        C = 1/C                 # decrease ϵ
-    end
-    ϵ, Aϵ = ϵ₀, Aϵ₀
-    for _ in 1:maxiter_crossing
-        ϵ′ = ϵ * C
-        Aϵ′ = A(ϵ′)
-        if s*(Aϵ′ - a) ≤ 0
-            return ϵ, Aϵ, ϵ′, Aϵ′
-        else
-            ϵ = ϵ′
-            Aϵ = Aϵ′
-        end
-    end
-    # should never each this, miscoded log density?
-    dir = s > 0 ? "below" : "above"
-    _error("Initial stepsize search reached maximum number of iterations from $(dir).";
-           maxiter_crossing, ϵ₀, Aϵ₀, ϵ, Aϵ)
-end
-
-"""
-$(SIGNATURES)
-
-Return the desired stepsize `ϵ` by bisection.
-
-- `parameters`: algorithm parameters, see [`InitialStepsizeSearch`](@ref)
-
-- `A`: local acceptance ratio (uncapped), a function of stepsize `ϵ`
-
-- `ϵ₀`, `ϵ₁`, `Aϵ₀`, `Aϵ₁`: stepsizes and acceptance rates (latter optional).
-
-This function assumes that ``ϵ₀ < ϵ₁``, the stepsize is not yet acceptable, and
-the cached `A` values have the correct ordering.
-"""
-function bisect_stepsize(parameters, A, ϵ₀, ϵ₁, Aϵ₀ = A(ϵ₀), Aϵ₁ = A(ϵ₁))
-    @unpack a_min, a_max, maxiter_bisect = parameters
-    @argcheck ϵ₀ < ϵ₁
-    @argcheck Aϵ₀ > a_max && Aϵ₁ < a_min
-    for _ in 1:maxiter_bisect
-        ϵₘ = middle(ϵ₀, ϵ₁)
-        Aϵₘ = A(ϵₘ)
-        if a_min ≤ Aϵₘ ≤ a_max  # in
-            return ϵₘ
-        elseif Aϵₘ < a_min      # above
-            ϵ₁ = ϵₘ
-            Aϵ₁ = Aϵₘ
-        else                    # below
-            ϵ₀ = ϵₘ
-            Aϵ₀ = Aϵₘ
-        end
-    end
-    # should never each this, miscoded log density?
-    _error("Initial stepsize search reached maximum number of iterations while bisecting.";
-           maxiter_bisect, ϵ₀, Aϵ₀, ϵ₁, Aϵ₁)
 end
 
 """
@@ -134,40 +41,38 @@ $(SIGNATURES)
 Find an initial stepsize that matches the conditions of `parameters` (see
 [`InitialStepsizeSearch`](@ref)).
 
-`A` is the local acceptance ratio (uncapped). When given a Hamiltonian `H` and a
-phasepoint `z`, it will be calculated using [`local_acceptance_ratio`](@ref).
+`A` is the local log acceptance ratio (uncapped). Cf [`local_log_acceptance_ratio`](@ref).
 """
 function find_initial_stepsize(parameters::InitialStepsizeSearch, A)
-    @unpack a_min, a_max, ϵ₀ = parameters
-    Aϵ₀ = A(ϵ₀)
-    if a_min ≤ Aϵ₀ ≤ a_max
-        ϵ₀
-    else
-        ϵ₀, Aϵ₀, ϵ₁, Aϵ₁ = find_crossing_stepsize(parameters, A, ϵ₀, Aϵ₀)
-        if a_min ≤ Aϵ₁ ≤ a_max  # in interval
-            ϵ₁
-        elseif ϵ₀ < ϵ₁          # order as necessary
-            bisect_stepsize(parameters, A, ϵ₀, ϵ₁, Aϵ₀, Aϵ₁)
-        else
-            bisect_stepsize(parameters, A, ϵ₁, ϵ₀, Aϵ₁, Aϵ₀)
-        end
+    @unpack initial_ϵ, log_threshold, maxiter_crossing = parameters
+    ϵ = initial_ϵ
+    Aϵ = A(ϵ)
+    double = Aϵ > log_threshold # do we double?
+    for _ in 1:maxiter_crossing
+        ϵ′ = double ? 2 * ϵ : ϵ / 2
+        Aϵ′ = A(ϵ′)
+        (double ? Aϵ′ < log_threshold : Aϵ′ > log_threshold) && return ϵ′
+        ϵ = ϵ′
     end
+    dir = double ? "below" : "above"
+    _error("Initial stepsize search reached maximum number of iterations from $(dir) without crossing.";
+           maxiter_crossing, initial_ϵ, ϵ)
 end
 
 """
 $(SIGNATURES)
 
-Return a function of the stepsize (``ϵ``) that calculates the local acceptance
+Return a function of the stepsize (``ϵ``) that calculates the local log acceptance
 ratio for a single leapfrog step around `z` along the Hamiltonian `H`. Formally,
 let
 
 ```julia
-A(ϵ) = exp(logdensity(H, leapfrog(H, z, ϵ)) - logdensity(H, z))
+A(ϵ) = logdensity(H, leapfrog(H, z, ϵ)) - logdensity(H, z)
 ```
 
-Note that the ratio is not capped by `1`, so it is not a valid probability *per se*.
+Note that the ratio is not capped by `0`, so it is not a valid (log) probability *per se*.
 """
-function local_acceptance_ratio(H, z)
+function local_log_acceptance_ratio(H, z)
     ℓ0 = logdensity(H, z)
     isfinite(ℓ0) ||
         _error("Starting point has non-finite density.";
@@ -175,7 +80,7 @@ function local_acceptance_ratio(H, z)
     function(ϵ)
         z1 = leapfrog(H, z, ϵ)
         ℓ1 = logdensity(H, z1)
-        exp(ℓ1 - ℓ0)
+        ℓ1 - ℓ0
     end
 end
 

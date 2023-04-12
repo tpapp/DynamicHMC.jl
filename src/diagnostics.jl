@@ -9,7 +9,7 @@ export EBFMI, summarize_tree_statistics, explore_log_acceptance_ratios, leapfrog
     InvalidTree, REACHED_MAX_DEPTH, is_divergent
 
 using DynamicHMC: GaussianKineticEnergy, Hamiltonian, evaluate_ℓ, InvalidTree,
-    REACHED_MAX_DEPTH, is_divergent, local_acceptance_ratio, PhasePoint, rand_p, leapfrog,
+    REACHED_MAX_DEPTH, is_divergent, local_log_acceptance_ratio, PhasePoint, rand_p, leapfrog,
     logdensity, MAX_DIRECTIONS_DEPTH
 
 using ArgCheck: @argcheck
@@ -148,7 +148,7 @@ function explore_log_acceptance_ratios(ℓ, q, log2ϵs;
                                        N = 20, ps = [rand_p(rng, κ) for _ in 1:N])
     H = Hamiltonian(κ, ℓ)
     Q = evaluate_ℓ(ℓ, q)
-    As = [local_acceptance_ratio(H, PhasePoint(Q, p)) for p in ps]
+    As = [local_log_acceptance_ratio(H, PhasePoint(Q, p)) for p in ps]
     [A(2.0^log2ϵ) for log2ϵ in log2ϵs, A in As]
 end
 

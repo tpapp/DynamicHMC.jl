@@ -134,7 +134,7 @@ function warmup(sampling_logdensity, stepsize_search::InitialStepsizeSearch, war
     @argcheck ϵ ≡ nothing "stepsize ϵ manually specified, won't perform initial search"
     z = PhasePoint(Q, rand_p(rng, κ))
     try
-        ϵ = find_initial_stepsize(stepsize_search, local_acceptance_ratio(Hamiltonian(κ, ℓ), z))
+        ϵ = find_initial_stepsize(stepsize_search, local_log_acceptance_ratio(Hamiltonian(κ, ℓ), z))
         report(reporter, "found initial stepsize",
                ϵ = round(ϵ; sigdigits = REPORT_SIGDIGITS))
         nothing, WarmupState(Q, κ, ϵ)
