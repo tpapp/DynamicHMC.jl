@@ -15,7 +15,7 @@ using DynamicHMC: GaussianKineticEnergy, Hamiltonian, evaluate_ℓ, InvalidTree,
 using ArgCheck: @argcheck
 using DocStringExtensions: FIELDS, SIGNATURES, TYPEDEF
 using LogDensityProblems: dimension
-using Parameters: @unpack
+using SimpleUnPack: @unpack
 import Random
 using Statistics: mean, quantile, var
 

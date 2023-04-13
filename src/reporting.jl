@@ -59,7 +59,7 @@ For the information reported, a *step* is a NUTS transition, not a leapfrog step
 
 $(FIELDS)
 """
-@with_kw struct LogProgressReport{T}
+Base.@kwdef struct LogProgressReport{T}
     "ID of chain. Can be an arbitrary object, eg `nothing`."
     chain_id::T = nothing
     "Always report progress past `step_interval` of the last report."

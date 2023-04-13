@@ -1,5 +1,5 @@
 using DynamicHMC, Test, ArgCheck, DocStringExtensions, HypothesisTests, LinearAlgebra,
-    UnPack, Random, Statistics
+    SimpleUnPack, Random, Statistics
 using LogExpFunctions: logaddexp, log1mexp
 using StatsBase: mean_and_cov
 using Logging: with_logger, NullLogger
