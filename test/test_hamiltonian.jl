@@ -1,6 +1,6 @@
 using DynamicHMC: GaussianKineticEnergy, kinetic_energy, ∇kinetic_energy, rand_p,
     Hamiltonian, EvaluatedLogDensity, evaluate_ℓ, PhasePoint, logdensity, leapfrog,
-    calculate_p♯, logdensity, find_initial_stepsize, DynamicHMCError, local_acceptance_ratio
+    calculate_p♯, logdensity, find_initial_stepsize, DynamicHMCError, local_log_acceptance_ratio
 
 ####
 #### utility functions
@@ -135,7 +135,7 @@ end
 
     for _ in 1:100
         @unpack H, z = rand_Hz(rand(2:5))
-        ϵ = find_initial_stepsize(InitialStepsizeSearch(), local_acceptance_ratio(H, z))
+        ϵ = find_initial_stepsize(InitialStepsizeSearch(), local_log_acceptance_ratio(H, z))
         test_hamiltonian_invariance(H, z, 10, ϵ/100; atol = 0.5)
     end
 end

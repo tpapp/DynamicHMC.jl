@@ -2,62 +2,26 @@
 ##### Stepsize and adaptation tests
 #####
 
-using DynamicHMC: find_crossing_stepsize, bisect_stepsize, find_initial_stepsize,
-    InitialStepsizeSearch, DualAveraging, initial_adaptation_state, adapt_stepsize,
-    current_ϵ, final_ϵ, FixedStepsize, local_acceptance_ratio
+using DynamicHMC: find_initial_stepsize, InitialStepsizeSearch, DualAveraging,
+    initial_adaptation_state, adapt_stepsize, current_ϵ, final_ϵ, FixedStepsize,
+    local_log_acceptance_ratio
 
 @testset "stepsize general rootfinding" begin
-    Δ = 3.0                   # shift exponential so that ϵ = 1 is not in interval
-    A = ϵ -> exp(-ϵ*Δ)
-    invA = A -> -log(A) / Δ
-    @test 0.1 ≈ invA(A(0.1)) atol = 1e-10 # inverse is OK
+    A = ϵ -> -ϵ*3.0
     params = InitialStepsizeSearch()
-    @test A(params.ϵ₀) ≤ params.a_min || A(params.ϵ₀) ≥ params.a_max # outside interval
-    constantA(ϵ) = params.a_max + 0.1
-    # parameters and defaults
-    @test params.a_min == 0.25
-    @test params.a_max ≤ 1.0
-    @test params.ϵ₀ == 1.0
-    @test params.C == 2.0
-    @test params.maxiter_crossing == 400
-    @test params.maxiter_bisect == 400
-    @test_throws ArgumentError InitialStepsizeSearch(; a_min = 0.9, a_max = 0.1) # not <
-    @test_throws ArgumentError InitialStepsizeSearch(; C = 0.5) # not > 1
-    @test_throws ArgumentError InitialStepsizeSearch(; maxiter_crossing = 2)
-    @test_throws ArgumentError InitialStepsizeSearch(; maxiter_bisect = 2)
-    # crossing from below
-    ϵ₀, Aϵ₀, ϵ₁, Aϵ₁ = find_crossing_stepsize(params, A, invA(params.a_min-0.1))
-    @test ϵ₀ ≥ invA(params.a_min) ≥ ϵ₁
-    @test Aϵ₀ ≤ params.a_min ≤ Aϵ₁
-    @test_throws DynamicHMCError find_crossing_stepsize(params, constantA, 100.0)
-    # crossing from above
-    ϵ₀, Aϵ₀, ϵ₁, Aϵ₁ = find_crossing_stepsize(params, A, invA(params.a_max+0.1))
-    @test ϵ₀ ≤ invA(params.a_max) ≤ ϵ₁
-    @test Aϵ₀ ≥ params.a_max ≥ Aϵ₁
-    @test_throws DynamicHMCError find_crossing_stepsize(params, constantA, 0.1)
-    # bisection
-    ϵ = bisect_stepsize(params, A, invA(params.a_max + 0.1), invA(params.a_min - 0.1))
-    @test params.a_min ≤ A(ϵ) ≤ params.a_max
-    @test_throws ArgumentError bisect_stepsize(params, A, 0.4, 0.3) # order
-    @test_throws ArgumentError bisect_stepsize(params, A, # already in interval
-                                               invA(params.a_max - 0.1),
-                                               invA(params.a_min + 0.1))
-    # combined algorithm - single test
+    # parameters consistency
+    @test_throws ArgumentError InitialStepsizeSearch(; log_threshold = NaN) # not finite
+    @test_throws ArgumentError InitialStepsizeSearch(; log_threshold = 1.0) # too large
+    @test_throws ArgumentError InitialStepsizeSearch(; initial_ϵ = -0.5) # not > 0
+    @test_throws ArgumentError InitialStepsizeSearch(; maxiter_crossing = 2) # too small
+    # crossing
     ϵ = find_initial_stepsize(params, A)
-    @test params.a_min ≤ A(ϵ) ≤ params.a_max
-    # combined algorithm - random tests
-    for _ in 1:1000
-        α = abs(randn())
-        β = -abs(randn())
-        A = ϵ -> exp(-(α*ϵ+β)*ϵ)  # A(0)=1, has a hump, goes to A(∞)→0
-        Aϵ₀ = A(params.ϵ₀)
-        # uncomment line belows for coverage debugging or inverse
-        # println("α = $α, β = $β")
-        # println(Aϵ₀ ≤ params.a_min ? "below" : (Aϵ₀ ≥ params.a_max ? "above" : "in"))
-        # invA(A) = -(log(A)+β)/A
+    @test A(ϵ) > params.log_threshold > A(params.initial_ϵ)
+    let params = InitialStepsizeSearch(; initial_ϵ = 0.01)
         ϵ = find_initial_stepsize(params, A)
-        @test params.a_min ≤ A(ϵ) ≤ params.a_max
+        @test A(ϵ) < params.log_threshold < A(params.initial_ϵ)
     end
+    @test_throws DynamicHMCError find_initial_stepsize(params, ϵ -> 1) # constant
 end
 
 """
@@ -117,11 +81,12 @@ end
 
 @testset "find reasonable stepsize - random H, z" begin
     p = InitialStepsizeSearch()
+    _bkt(A, ϵ, C) = (A(ϵ) - p.log_threshold) * (A(ϵ * C) - p.log_threshold) ≤ 0
     for _ in 1:100
         @unpack H, z = rand_Hz(rand(3:5))
-        ϵ = find_initial_stepsize(p, local_acceptance_ratio(H, z))
-        logA = logdensity(H, leapfrog(H, z, ϵ)) - logdensity(H, z)
-        @test p.a_min ≤ exp(logA) ≤ p.a_max
+        A = local_log_acceptance_ratio(H, z)
+        ϵ = find_initial_stepsize(p, A)
+        @test _bkt(A, ϵ, 0.5) || _bkt(A, ϵ, 2.0)
     end
 end
 
@@ -129,5 +94,5 @@ end
     p = InitialStepsizeSearch()
     @unpack H, z = rand_Hz(2)
     z = DynamicHMC.PhasePoint(z.Q, [NaN, NaN])
-    @test_throws DynamicHMCError find_initial_stepsize(p, local_acceptance_ratio(H, z))
+    @test_throws DynamicHMCError find_initial_stepsize(p, local_log_acceptance_ratio(H, z))
 end
