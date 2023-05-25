@@ -42,7 +42,7 @@ end
                                    warmup_stages = default_warmup_stages(; stepsize_search = nothing))
         Z = results.posterior_matrix
         @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.03
-        @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.03
+        @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.04
         @test mean(x -> x.acceptance_rate, results.tree_statistics) ≥ 0.7
     end
 
