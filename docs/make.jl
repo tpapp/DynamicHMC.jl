@@ -8,7 +8,7 @@ makedocs(modules = [DynamicHMC],
          checkdocs = :exports,
          strict = true,
          linkcheck = true,
-         linkcheck_ignore = [r"^.*xcelab\.net.*$"],
+         linkcheck_ignore = [r"^.*xcelab\.net.*$", r"^.*stat\.columbia\.edu.*$"],
          pages = ["Introduction" => "index.md",
                   "A worked example" => "worked_example.md",
                   "Documentation" => "interface.md"])
