@@ -438,7 +438,7 @@ const DOC_MCMC_ARGS =
 """
 # Arguments
 
-- `rng`: the random number generator, eg `Random.GLOBAL_RNG`.
+- `rng`: the random number generator, eg `Random.default_rng()`.
 
 - `ℓ`: the log density, supporting the API of the `LogDensityProblems` package
 

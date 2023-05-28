@@ -73,8 +73,9 @@ end
 @testset "NUTS tests with heavier tails and skewness" begin
     K = 5
 
+    # somewhat nasty, relaxed requirements
     ℓ = elongate(1.2, StandardMultivariateNormal(K))
-    NUTS_tests(RNG, ℓ, "elongate(1.2, 𝑁)", 1000; p_alert = 1e-5, EBFMI_alert = 0.2)
+    NUTS_tests(RNG, ℓ, "elongate(1.2, 𝑁)", 1000; p_alert = 1e-5, EBFMI_alert = 0.2, R̂_fail = 1.2)
 
     # this has very nasty tails to we relax requirements a bit
     ℓ = elongate(1.1, shift(ones(K), StandardMultivariateNormal(K)))

@@ -143,7 +143,7 @@ From an initial position, calculate the uncapped log acceptance ratio for the gi
 stepsizes and momentums `ps`, `N` of which are generated randomly by default.
 """
 function explore_log_acceptance_ratios(ℓ, q, log2ϵs;
-                                       rng = Random.GLOBAL_RNG,
+                                       rng = Random.default_rng(),
                                        κ = GaussianKineticEnergy(dimension(ℓ)),
                                        N = 20, ps = [rand_p(rng, κ) for _ in 1:N])
     H = Hamiltonian(κ, ℓ)
@@ -213,7 +213,7 @@ Returns a vector of `NamedTuple`s, each containin
 - `Δ`, the log density + the kinetic energy relative to position `0`.
 """
 function leapfrog_trajectory(ℓ, q, ϵ, positions::UnitRange{<:Integer};
-                             rng = Random.GLOBAL_RNG,
+                             rng = Random.default_rng(),
                              κ = GaussianKineticEnergy(dimension(ℓ)), p = rand_p(rng, κ))
     A, B = first(positions), last(positions)
     @argcheck A ≤ 0 ≤ B "Positions has to contain `0`."

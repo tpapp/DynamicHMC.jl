@@ -13,7 +13,7 @@ using LogDensityTestSuite
 ### general test environment
 ###
 
-const RNG = Random.GLOBAL_RNG   # shorthand
+const RNG = Random.default_rng()   # shorthand
 Random.seed!(RNG, UInt32[0x23ef614d, 0x8332e05c, 0x3c574111, 0x121aa2f4])
 
 "Tolerant testing in a CI environment."

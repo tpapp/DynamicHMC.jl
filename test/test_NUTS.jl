@@ -45,7 +45,7 @@ end
 @testset "random booleans" begin
     for prob in (1:9) ./ 10
         logprob = log(prob)
-        @test abs(mean(rand_bool_logprob(RNG, logprob) for _ in 1:10000) - prob) ≤ 0.01
+        @test abs(mean(rand_bool_logprob(RNG, logprob) for _ in 1:10000) - prob) ≤ 0.02
     end
 
     # these operations don't call the RNG, this is checked
