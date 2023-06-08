@@ -40,10 +40,16 @@ include("test_logging.jl")
 include("sample-correctness_tests.jl")
 
 ####
-#### statis analysis
+#### static analysis and QA
 ####
 
 # do not test on older Julia versions and nightly
 if VERSION >= v"1.7" && isempty(VERSION.prerelease)
     include("jet.jl")
+end
+
+@testset "Aqua" begin
+    import Aqua
+    Aqua.test_all(DynamicHMC; ambiguities = false)
+    Aqua.test_ambiguities(DynamicHMC)
 end
