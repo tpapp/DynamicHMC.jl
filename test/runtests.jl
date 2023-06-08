@@ -51,5 +51,6 @@ end
 @testset "Aqua" begin
     import Aqua
     Aqua.test_all(DynamicHMC; ambiguities = false)
+    # testing separately, cf https://github.com/JuliaTesting/Aqua.jl/issues/77
     Aqua.test_ambiguities(DynamicHMC)
 end
