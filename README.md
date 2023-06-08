@@ -8,6 +8,7 @@ Implementation of robust dynamic Hamiltonian Monte Carlo methods in Julia.
 [![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://tpapp.github.io/DynamicHMC.jl/stable)
 [![Documentation](https://img.shields.io/badge/docs-master-blue.svg)](https://tpapp.github.io/DynamicHMC.jl/dev)
 [![DOI](https://zenodo.org/badge/93741413.svg)](https://zenodo.org/badge/latestdoi/93741413)
+[![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
 ## Overview
 

@@ -2,7 +2,7 @@
 ##### NUTS tree sampler implementation.
 #####
 
-export TreeOptionsNUTS
+export NUTS
 
 ####
 #### Trajectory and implementation
