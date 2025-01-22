@@ -12,8 +12,14 @@ using DynamicHMC: TrajectoryNUTS, rand_bool_logprob, GeneralizedTurnStatistic,
 Recursive comparison by fields; types and values should match by `==`.
 """
 function ≂(x::T, y::T) where T
-    fn = fieldnames(T)
-    isempty(fn) ? x == y : all(getfield(x, f) ≂ getfield(y, f) for f in fn)
+    if T <: AbstractVector
+        x == y
+    elseif isstructtype(T)
+        fn = fieldnames(T)
+        isempty(fn) ? x == y : all(getfield(x, f) ≂ getfield(y, f) for f in fn)
+    else
+        x == y
+    end
 end
 
 ≂(x, y) = x == y
@@ -36,7 +42,6 @@ end
     @test !(Foo(1,2) ≂ Foo(1,3))
     @test !(Foo{Any}(1,2) ≂ Foo(1,2))
 end
-
 
 ###
 ### random booleans

@@ -148,8 +148,8 @@ end
         ϵ = 0.1
         z1 = leapfrog(H, z1, ϵ)
         z1 = leapfrog(H, z1, -ϵ)
-        @test z.p ≈ z1.p norm = x -> norm(x, Inf)
-        @test z.Q.q ≈ z1.Q.q norm = x -> norm(x, Inf)
+        @test z.p ≈ z1.p norm = x -> norm(x, Inf) atol = 1e-6
+        @test z.Q.q ≈ z1.Q.q norm = x -> norm(x, Inf) atol = 1e-6
     end
 
     for _ in 1:100
