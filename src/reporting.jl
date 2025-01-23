@@ -116,9 +116,8 @@ function make_mcmc_reporter(reporter::LogProgressReport, total_steps::Integer; c
 end
 
 function report(reporter::LogMCMCReport, step::Integer; meta...)
-    @unpack (log_progress_report, total_steps, last_reported_step,
-             last_reported_time_ns) = reporter
-    @unpack chain_id, step_interval, time_interval_s = log_progress_report
+    (log_progress_report, total_steps, last_reported_step, last_reported_time_ns) = reporter
+    (; chain_id, step_interval, time_interval_s) = log_progress_report
     @argcheck 1 ≤ step ≤ total_steps
     Δ_steps = step - last_reported_step
     t_ns = time_ns()

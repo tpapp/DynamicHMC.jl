@@ -18,7 +18,6 @@ using LinearAlgebra: checksquare, cholesky, diag, dot, Diagonal, Symmetric, Unif
 using LogDensityProblems: capabilities, LogDensityOrder, dimension, logdensity_and_gradient
 using LogExpFunctions: logaddexp
 using Random: AbstractRNG, randn, Random, randexp
-using SimpleUnPack: @unpack
 using Statistics: cov, mean, median, middle, quantile, var
 using TensorCast: @cast, TensorCast
 

@@ -29,7 +29,7 @@ Return the next direction flag and the new state of directions. Results are unde
 more than [`MAX_DIRECTIONS_DEPTH`](@ref) updates.
 """
 function next_direction(directions::Directions)
-    @unpack flags = directions
+    (; flags) = directions
     Bool(flags & 0x01), Directions(flags >>> 1)
 end
 
@@ -192,7 +192,7 @@ function Base.show(io::IO, invalid_tree::InvalidTree)
     elseif invalid_tree == REACHED_MAX_DEPTH
         "reached maximum depth without divergence or turning"
     else
-        @unpack left, right = invalid_tree
+        (; left, right) = invalid_tree
         "turning at positions $(left):$(right)"
     end
     print(io, msg)

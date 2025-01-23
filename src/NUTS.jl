@@ -26,7 +26,7 @@ struct TrajectoryNUTS{TH,Tf,S}
 end
 
 function move(trajectory::TrajectoryNUTS, z, fwd)
-    @unpack H, ϵ = trajectory
+    (; H, ϵ) = trajectory
     leapfrog(H, z, fwd ? ϵ : -ϵ)
 end
 
@@ -146,7 +146,7 @@ is_turning(::TrajectoryNUTS, ::Nothing) = true
 ###
 
 function leaf(trajectory::TrajectoryNUTS, z, is_initial)
-    @unpack H, π₀, min_Δ, turn_statistic_configuration = trajectory
+    (; H, π₀, min_Δ, turn_statistic_configuration) = trajectory
     Δ = is_initial ? zero(π₀) : logdensity(H, z) - π₀
     isdiv = Δ < min_Δ
     v = leaf_acceptance_statistic(Δ, is_initial)
@@ -231,7 +231,7 @@ Return two values, the new evaluated log density position, and tree statistics.
 """
 function sample_tree(rng, algorithm::NUTS, H::Hamiltonian, Q::EvaluatedLogDensity, ϵ;
                           p = rand_p(rng, H.κ), directions = rand(rng, Directions))
-    @unpack max_depth, min_Δ, turn_statistic_configuration = algorithm
+    (; max_depth, min_Δ, turn_statistic_configuration) = algorithm
     z = PhasePoint(Q, p)
     trajectory = TrajectoryNUTS(H, logdensity(H, z), ϵ, min_Δ, turn_statistic_configuration)
     ζ, v, termination, depth = sample_trajectory(rng, trajectory, z, max_depth, directions)

@@ -73,11 +73,11 @@ function NUTS_tests(rng, ℓ, title, N; K = 3, io = stdout, mcmc_args = NamedTup
             title_printed = true
         end
     end
-    @unpack stacked_posterior_matrices, concat_posterior_matrices, EBFMIs =
+    (; stacked_posterior_matrices, concat_posterior_matrices, EBFMIs) =
         run_chains(RNG, ℓ, N, K; mcmc_args...)
 
     # mixing and autocorrelation diagnostics
-    @unpack R̂, τ = mcmc_statistics(stacked_posterior_matrices)
+    (; R̂, τ) = mcmc_statistics(stacked_posterior_matrices)
     max_R̂ = maximum(R̂)
     if max_R̂ > R̂_alert
         _print_title_once()

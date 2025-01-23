@@ -82,7 +82,7 @@ function DynamicHMC.calculate_logprob2(::DummyTrajectory, is_doubling, ω₁, ω
 end
 
 function DynamicHMC.leaf(trajectory::DummyTrajectory, z, is_initial)
-    @unpack turning, divergent, ℓ, visited = trajectory
+    (; turning, divergent, ℓ, visited) = trajectory
     d = z ∈ divergent
     is_initial && @argcheck !d                              # don't start with divergent
     Δ = ℓ(z)
@@ -233,7 +233,7 @@ calculated using `visited_log_probabilities` and `transition_log_probability`.
 (We use logs for more accurate calculation.)
 """
 function test_detailed_balance(trajectory, z, depth; atol = √eps())
-    @unpack ℓ = trajectory
+    (; ℓ) = trajectory
     ℓz = ℓ(z)
     for (z′, π) in pairs(visited_log_probabilities(trajectory, z, depth))
         π′ = transition_log_probability(trajectory, z′, z, depth)
