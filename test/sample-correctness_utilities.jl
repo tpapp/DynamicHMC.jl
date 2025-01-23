@@ -28,8 +28,8 @@ $(SIGNATURES)
 posterior matrices, eg the output of `run_chains`.
 """
 function mcmc_statistics(stacked_posterior_matrices)
-    (; ess, R̂) = ess_rhat(stacked_posterior_matrices)
-    (R̂, τ = ess ./ size(stacked_posterior_matrices, 1))
+    (; ess, rhat) = ess_rhat(stacked_posterior_matrices)
+    (R̂ = rhat, τ = ess ./ size(stacked_posterior_matrices, 1))
 end
 
 """
