@@ -4,7 +4,7 @@ Implementation of robust dynamic Hamiltonian Monte Carlo methods in Julia.
 
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![build](https://github.com/tpapp/DynamicHMC.jl/workflows/CI/badge.svg)](https://github.com/tpapp/DynamicHMC.jl/actions?query=workflow%3ACI)
-[![codecov.io](http://codecov.io/github/tpapp/DynamicHMC.jl/coverage.svg?branch=master)](http://codecov.io/github/tpapp/DynamicHMC.jl?branch=master)
+[![codecov](https://codecov.io/github/tpapp/DynamicHMC.jl/graph/badge.svg?token=idfCiPzxjL)](https://codecov.io/github/tpapp/DynamicHMC.jl)
 [![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://tpapp.github.io/DynamicHMC.jl/stable)
 [![Documentation](https://img.shields.io/badge/docs-master-blue.svg)](https://tpapp.github.io/DynamicHMC.jl/dev)
 [![DOI](https://zenodo.org/badge/93741413.svg)](https://zenodo.org/badge/latestdoi/93741413)
