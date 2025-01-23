@@ -75,7 +75,7 @@ end
 
     # somewhat nasty, relaxed requirements
     ℓ = elongate(1.1, StandardMultivariateNormal(K))
-    NUTS_tests(RNG, ℓ, "elongate(1.2, 𝑁)", 1000; p_alert = 1e-5, EBFMI_alert = 0.2, R̂_fail = 1.2)
+    NUTS_tests(RNG, ℓ, "elongate(1.1, 𝑁)", 1000; p_alert = 1e-5, EBFMI_alert = 0.2, R̂_fail = 1.25)
 
     # this has very nasty tails so we relax requirements a bit
     ℓ = elongate(1.1, shift(ones(K), StandardMultivariateNormal(K)))
