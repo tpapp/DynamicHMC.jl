@@ -249,7 +249,7 @@ if
 mixed in the leapfrog step, leading to an invalid position).
 """
 function logdensity(H::Hamiltonian{<:EuclideanKineticEnergy}, z::PhasePoint)
-    @unpack ℓq = z.Q
+    (; ℓq) = z.Q
     isfinite(ℓq) || return oftype(ℓq, -Inf)
     K = kinetic_energy(H.κ, z.p)
     ℓq - (isfinite(K) ? K : oftype(K, Inf))
@@ -271,8 +271,8 @@ this is not finite, the momentum won't be either, `logdensity` above will catch 
 return an `-Inf`, making the point divergent.
 """
 function leapfrog(H::Hamiltonian{<: EuclideanKineticEnergy}, z::PhasePoint, ϵ)
-    @unpack ℓ, κ = H
-    @unpack p, Q = z
+    (; ℓ, κ) = H
+    (; p, Q) = z
     @argcheck isfinite(Q.ℓq) "Internal error: leapfrog called from non-finite log density"
     pₘ = p + ϵ/2 * Q.∇ℓq
     q′ = Q.q + ϵ * ∇kinetic_energy(κ, pₘ)

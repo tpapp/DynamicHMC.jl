@@ -15,7 +15,6 @@ using DynamicHMC: GaussianKineticEnergy, Hamiltonian, evaluate_ℓ, InvalidTree,
 using ArgCheck: @argcheck
 using DocStringExtensions: FIELDS, SIGNATURES, TYPEDEF
 using LogDensityProblems: dimension
-using SimpleUnPack: @unpack
 import Random
 using Statistics: mean, quantile, var
 
@@ -107,7 +106,7 @@ function summarize_tree_statistics(tree_statistics)
 end
 
 function Base.show(io::IO, stats::TreeStatisticsSummary)
-    @unpack N, a_mean, a_quantiles, termination_counts, depth_counts = stats
+    (; N, a_mean, a_quantiles, termination_counts, depth_counts) = stats
     println(io, "Hamiltonian Monte Carlo sample of length $(N)")
     print(io, "  acceptance rate mean: $(round(a_mean; digits = 2)), 5/25/50/75/95%:")
     for aq in a_quantiles
@@ -175,7 +174,7 @@ end
 Base.IteratorSize(::Type{<:LeapfrogTrajectory}) = Base.SizeUnknown()
 
 function Base.iterate(lft::LeapfrogTrajectory, zi = (lft.z₀, 0))
-    @unpack H, ϵ, π₀ = lft
+    (; H, ϵ, π₀) = lft
     z, i = zi
     if isfinite(z.Q.ℓq)
         z′ = leapfrog(H, z, ϵ)
@@ -193,7 +192,7 @@ Position information returned by [`leapfrog_trajectory`](@ref), see documentatio
 Internal function.
 """
 function _position_information(lft::LeapfrogTrajectory, z, i)
-    @unpack H, π₀ = lft
+    (; H, π₀) = lft
     (z = z, position = i, Δ = logdensity(H, z) - π₀)
 end
 

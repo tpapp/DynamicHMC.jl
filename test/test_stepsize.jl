@@ -83,7 +83,7 @@ end
     p = InitialStepsizeSearch()
     _bkt(A, ϵ, C) = (A(ϵ) - p.log_threshold) * (A(ϵ * C) - p.log_threshold) ≤ 0
     for _ in 1:100
-        @unpack H, z = rand_Hz(rand(3:5))
+        (; H, z) = rand_Hz(rand(3:5))
         A = local_log_acceptance_ratio(H, z)
         ϵ = find_initial_stepsize(p, A)
         @test _bkt(A, ϵ, 0.5) || _bkt(A, ϵ, 2.0)
@@ -92,7 +92,7 @@ end
 
 @testset "error for non-finite initial density" begin
     p = InitialStepsizeSearch()
-    @unpack H, z = rand_Hz(2)
+    (; H, z) = rand_Hz(2)
     z = DynamicHMC.PhasePoint(z.Q, [NaN, NaN])
     @test_throws DynamicHMCError find_initial_stepsize(p, local_log_acceptance_ratio(H, z))
 end

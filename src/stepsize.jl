@@ -44,7 +44,7 @@ Find an initial stepsize that matches the conditions of `parameters` (see
 `A` is the local log acceptance ratio (uncapped). Cf [`local_log_acceptance_ratio`](@ref).
 """
 function find_initial_stepsize(parameters::InitialStepsizeSearch, A)
-    @unpack initial_ϵ, log_threshold, maxiter_crossing = parameters
+    (; initial_ϵ, log_threshold, maxiter_crossing) = parameters
     ϵ = initial_ϵ
     Aϵ = A(ϵ)
     double = Aϵ > log_threshold # do we double?
@@ -146,8 +146,8 @@ over the whole visited trajectory, using the dual averaging algorithm of Gelman 
 """
 function adapt_stepsize(parameters::DualAveraging, A::DualAveragingState, a)
     @argcheck 0 ≤ a ≤ 1
-    @unpack δ, γ, κ, t₀ = parameters
-    @unpack μ, m, H̄, logϵ, logϵ̄ = A
+    (; δ, γ, κ, t₀) = parameters
+    (; μ, m, H̄, logϵ, logϵ̄) = A
     m += 1
     H̄ += (δ - a - H̄) / (m + t₀)
     logϵ = μ - √m/γ * H̄

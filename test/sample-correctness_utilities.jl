@@ -28,8 +28,8 @@ $(SIGNATURES)
 posterior matrices, eg the output of `run_chains`.
 """
 function mcmc_statistics(stacked_posterior_matrices)
-    ess, R̂ = ess_rhat(stacked_posterior_matrices)
-    (R̂, τ = ess ./ size(stacked_posterior_matrices, 1))
+    (; ess, rhat) = ess_rhat(stacked_posterior_matrices)
+    (R̂ = rhat, τ = ess ./ size(stacked_posterior_matrices, 1))
 end
 
 """
@@ -52,7 +52,7 @@ Output is sent to `io`. Specifically, `title` is printed for the first alert.
 
 `mcmc_args` are passed down to `mcmc_with_warmup`.
 """
-function NUTS_tests(rng, ℓ, title, N; K = 3, io = stdout, mcmc_args = NamedTuple(),
+function NUTS_tests(rng, ℓ, title, N; K = 5, io = stdout, mcmc_args = NamedTuple(),
                     R̂_alert = 1.05, R̂_fail = 2 * (R̂_alert - 1) + 1,
                     τ_alert = 0.2, τ_fail = τ_alert * 0.5,
                     p_alert = 0.001, p_fail = p_alert * 0.1,
@@ -73,11 +73,11 @@ function NUTS_tests(rng, ℓ, title, N; K = 3, io = stdout, mcmc_args = NamedTup
             title_printed = true
         end
     end
-    @unpack stacked_posterior_matrices, concat_posterior_matrices, EBFMIs =
+    (; stacked_posterior_matrices, concat_posterior_matrices, EBFMIs) =
         run_chains(RNG, ℓ, N, K; mcmc_args...)
 
     # mixing and autocorrelation diagnostics
-    @unpack R̂, τ = mcmc_statistics(stacked_posterior_matrices)
+    (; R̂, τ) = mcmc_statistics(stacked_posterior_matrices)
     max_R̂ = maximum(R̂)
     if max_R̂ > R̂_alert
         _print_title_once()

@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.6' # Replace this with the minimum Julia version that your package supports. E.g. if your package requires Julia 1.9 or higher, change this to '1.9'.
+          - '1.10' # Replace this with the minimum Julia version that your package supports. E.g. if your package requires Julia 1.9 or higher, change this to '1.9'.
           - '1' # Leave this line unchanged. '1' will automatically expand to the latest stable 1.x release of Julia.
           # NOTE: CI on nightly is not enabled by default, uncomment if you need it. Cf the discussion at
           # https://discourse.julialang.org/t/why-do-packages-run-continuous-integration-tests-on-julia-nightly/101208/3

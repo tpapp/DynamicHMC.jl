@@ -1,5 +1,5 @@
 using DynamicHMC, Test, ArgCheck, DocStringExtensions, HypothesisTests, LinearAlgebra,
-    SimpleUnPack, Random, Statistics
+    Random, Statistics
 using LogExpFunctions: logaddexp, log1mexp
 using StatsBase: mean_and_cov
 using Logging: with_logger, NullLogger
@@ -43,9 +43,9 @@ include("sample-correctness_tests.jl")
 #### static analysis and QA
 ####
 
-# do not test on older Julia versions and nightly
-if VERSION >= v"1.7" && isempty(VERSION.prerelease)
-    include("jet.jl")
+@testset "static analysis with JET.jl" begin
+    using JET
+    @test isempty(JET.get_reports(report_package(DynamicHMC, target_modules=(DynamicHMC,))))
 end
 
 @testset "Aqua" begin

@@ -27,7 +27,7 @@ First, we load the packages we use.
 
 ```@example bernoulli
 using TransformVariables, TransformedLogDensities, LogDensityProblems, LogDensityProblemsAD,
-    DynamicHMC, DynamicHMC.Diagnostics, SimpleUnPack, Statistics, Random
+    DynamicHMC, DynamicHMC.Diagnostics, Statistics, Random
 nothing # hide
 ```
 
@@ -46,8 +46,8 @@ Then we make this problem *callable* with the parameters. Here, we have a single
 
 ```@example bernoulli
 function (problem::BernoulliProblem)(θ)
-    @unpack α = θ               # extract the parameters
-    @unpack n, s = problem       # extract the data
+    (; α) = θ               # extract the parameters
+    (; n, s) = problem       # extract the data
     # log likelihood, with constant terms dropped
     s * log(α) + (n-s) * log(1-α)
 end

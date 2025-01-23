@@ -76,7 +76,7 @@ struct WarmupState{TQ <: EvaluatedLogDensity,Tκ <: KineticEnergy, Tϵ <: Union{
 end
 
 function Base.show(io::IO, warmup_state::WarmupState)
-    @unpack κ, ϵ = warmup_state
+    (; κ, ϵ) = warmup_state
     ϵ_display = ϵ ≡ nothing ? "unspecified" : "≈ $(round(ϵ; sigdigits = REPORT_SIGDIGITS))"
     print(io, "adapted sampling parameters: stepsize (ϵ) $(ϵ_display), $(κ)")
 end
@@ -129,8 +129,8 @@ function initialize_warmup_state(rng, ℓ; q = random_position(rng, dimension(�
 end
 
 function warmup(sampling_logdensity, stepsize_search::InitialStepsizeSearch, warmup_state)
-    @unpack rng, ℓ, reporter = sampling_logdensity
-    @unpack Q, κ, ϵ = warmup_state
+    (; rng, ℓ, reporter) = sampling_logdensity
+    (; Q, κ, ϵ) = warmup_state
     @argcheck ϵ ≡ nothing "stepsize ϵ manually specified, won't perform initial search"
     z = PhasePoint(Q, rand_p(rng, κ))
     try
@@ -190,7 +190,7 @@ struct TuningNUTS{M,D}
 end
 
 function Base.show(io::IO, tuning::TuningNUTS{M}) where {M}
-    @unpack N, stepsize_adaptation, λ = tuning
+    (; N, stepsize_adaptation, λ) = tuning
     print(io, "Stepsize and metric tuner, $(N) samples, $(M) metric, regularization $(λ)")
 end
 
@@ -239,9 +239,9 @@ Return two values. The first is either `nothing`, or a `NamedTuple` of
 The second is the warmup state.
 """
 function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where {M}
-    @unpack rng, ℓ, algorithm, reporter = sampling_logdensity
-    @unpack Q, κ, ϵ = warmup_state
-    @unpack N, stepsize_adaptation, λ = tuning
+    (; rng, ℓ, algorithm, reporter) = sampling_logdensity
+    (; Q, κ, ϵ) = warmup_state
+    (; N, stepsize_adaptation, λ) = tuning
     posterior_matrix = _empty_posterior_matrix(Q, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
     H = Hamiltonian(κ, ℓ)
@@ -316,8 +316,8 @@ Q.q
 mcmc_steps(rng, algorithm, κ, ℓ, ϵ) = MCMCSteps(rng, algorithm, Hamiltonian(κ, ℓ), ϵ)
 
 function mcmc_steps(sampling_logdensity::SamplingLogDensity, warmup_state)
-    @unpack rng, ℓ, algorithm = sampling_logdensity
-    @unpack κ, ϵ = warmup_state
+    (; rng, ℓ, algorithm) = sampling_logdensity
+    (; κ, ϵ) = warmup_state
     mcmc_steps(rng, algorithm, κ, ℓ, ϵ)
 end
 
@@ -327,7 +327,7 @@ $(SIGNATURES)
 Given `Q` (an evaluated log density at a position), return the next `Q` and tree statistics.
 """
 function mcmc_next_step(mcmc_steps::MCMCSteps, Q::EvaluatedLogDensity)
-    @unpack rng, algorithm, H, ϵ = mcmc_steps
+    (; rng, algorithm, H, ϵ) = mcmc_steps
     sample_tree(rng, algorithm, H, Q, ϵ)
 end
 
@@ -343,8 +343,8 @@ Return a `NamedTuple` of
 - $(_DOC_TREE_STATISTICS)
 """
 function mcmc(sampling_logdensity, N, warmup_state)
-    @unpack reporter = sampling_logdensity
-    @unpack Q = warmup_state
+    (; reporter) = sampling_logdensity
+    (; Q) = warmup_state
     posterior_matrix = _empty_posterior_matrix(Q, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
     mcmc_reporter = make_mcmc_reporter(reporter, N; currently_warmup = false)
@@ -552,11 +552,11 @@ mcmc_with_warmup(rng, ℓ, N;
 function mcmc_with_warmup(rng, ℓ, N; initialization = (),
                           warmup_stages = default_warmup_stages(),
                           algorithm = NUTS(), reporter = default_reporter())
-    @unpack final_warmup_state, inference =
+    (; final_warmup_state, inference) =
         mcmc_keep_warmup(rng, ℓ, N; initialization = initialization,
                          warmup_stages = warmup_stages, algorithm = algorithm,
                          reporter = reporter)
-    @unpack κ, ϵ = final_warmup_state
+    (; κ, ϵ) = final_warmup_state
     (; inference..., κ, ϵ)
 end
 

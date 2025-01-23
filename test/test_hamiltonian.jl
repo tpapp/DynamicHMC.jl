@@ -22,7 +22,7 @@ end
         K = rand(2:10)
         Σ = rand_Σ(Symmetric, K)
         κ = GaussianKineticEnergy(inv(Σ))
-        @unpack M⁻¹, W = κ
+        (; M⁻¹, W) = κ
         @test W isa LowerTriangular
         @test M⁻¹ * W * W' ≈ Diagonal(ones(K))
         m, C = simulated_meancov(()->rand_p(RNG, κ), 10000)
@@ -36,7 +36,7 @@ end
         K = rand(2:10)
         Σ = rand_Σ(Diagonal, K)
         κ = GaussianKineticEnergy(inv(Σ))
-        @unpack M⁻¹, W = κ
+        (; M⁻¹, W) = κ
         @test W isa Diagonal
         # FIXME workaround for https://github.com/JuliaLang/julia/issues/28869
         @test M⁻¹ * (W * W') ≈ Diagonal(ones(K))
@@ -51,13 +51,13 @@ end
     @test fieldnames(PhasePoint) == (:Q, :p)
     "Test the consistency of cached values."
     function test_consistency(H, z)
-        @unpack q, ℓq, ∇ℓq = z.Q
-        @unpack ℓ = H
+        (; q, ℓq, ∇ℓq) = z.Q
+        (; ℓ) = H
         ℓ2, ∇ℓ2 = logdensity_and_gradient(ℓ, q)
         @test ℓ2 == ℓq
         @test ∇ℓ2 == ∇ℓq
     end
-    @unpack H, z, Σ = rand_Hz(rand(3:10))
+    (; H, z, Σ ) = rand_Hz(rand(3:10))
     test_consistency(H, z)
     ϵ = find_stable_ϵ(H.κ, Σ)
     for _ in 1:10
@@ -134,7 +134,7 @@ end
     end
 
     for _ in 1:100
-        @unpack H, z = rand_Hz(rand(2:5))
+        (; H, z) = rand_Hz(rand(2:5))
         ϵ = find_initial_stepsize(InitialStepsizeSearch(), local_log_acceptance_ratio(H, z))
         test_hamiltonian_invariance(H, z, 10, ϵ/100; atol = 0.5)
     end
@@ -142,7 +142,7 @@ end
 
 @testset "leapfrog back and forth" begin
     for _ in 1:1000
-        @unpack H, z = rand_Hz(5)
+        (; H, z) = rand_Hz(5)
         z1 = z
         N = 5
         ϵ = 0.1
@@ -153,7 +153,7 @@ end
     end
 
     for _ in 1:100
-        @unpack H, z, Σ = rand_Hz(2)
+        (; H, z, Σ) = rand_Hz(2)
         z1 = z
         N = 3
 
