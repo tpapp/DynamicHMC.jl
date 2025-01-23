@@ -28,7 +28,7 @@ $(SIGNATURES)
 posterior matrices, eg the output of `run_chains`.
 """
 function mcmc_statistics(stacked_posterior_matrices)
-    ess, R̂ = ess_rhat(stacked_posterior_matrices)
+    (; ess, R̂) = ess_rhat(stacked_posterior_matrices)
     (R̂, τ = ess ./ size(stacked_posterior_matrices, 1))
 end
 
@@ -52,7 +52,7 @@ Output is sent to `io`. Specifically, `title` is printed for the first alert.
 
 `mcmc_args` are passed down to `mcmc_with_warmup`.
 """
-function NUTS_tests(rng, ℓ, title, N; K = 3, io = stdout, mcmc_args = NamedTuple(),
+function NUTS_tests(rng, ℓ, title, N; K = 5, io = stdout, mcmc_args = NamedTuple(),
                     R̂_alert = 1.05, R̂_fail = 2 * (R̂_alert - 1) + 1,
                     τ_alert = 0.2, τ_fail = τ_alert * 0.5,
                     p_alert = 0.001, p_fail = p_alert * 0.1,
