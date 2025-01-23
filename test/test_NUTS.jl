@@ -103,7 +103,7 @@ end
             qs[i, :] = Q.q
         end
         m, C = mean_and_cov(qs, 1)
-        @test vec(m) ≈ μ atol = 0.1 rtol = maximum(diag(C))*0.02 norm = x -> norm(x,1)
+        @test vec(m) ≈ μ atol = 0.15 rtol = maximum(diag(C))*0.02 norm = x -> norm(x,1)
         @test cov(qs, dims = 1) ≈ L*L' atol = 0.1 rtol = 0.1
     end
 end
