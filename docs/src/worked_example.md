@@ -27,7 +27,7 @@ First, we load the packages we use.
 
 ```@example bernoulli
 using TransformVariables, TransformedLogDensities, LogDensityProblems, LogDensityProblemsAD,
-    DynamicHMC, DynamicHMC.Diagnostics, SimpleUnPack, Statistics, Random
+    DynamicHMC, DynamicHMC.Diagnostics, Statistics, Random
 nothing # hide
 ```
 
