@@ -86,6 +86,7 @@ mean(posterior_α)
 Using the [`DynamicHMC.Diagnostics`](@ref Diagnostics) submodule, you can obtain various useful diagnostics. The *tree statistics* in particular contain a lot of useful information about turning, divergence, acceptance rates, and tree depths for each step of the chain. Here we just obtain a summary.
 
 ```@example bernoulli
+using DynamicHMC.Diagnostics
 summarize_tree_statistics(results.tree_statistics)
 ```
 
