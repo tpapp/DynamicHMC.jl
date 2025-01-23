@@ -43,9 +43,9 @@ include("sample-correctness_tests.jl")
 #### static analysis and QA
 ####
 
-# do not test on older Julia versions and nightly
-if VERSION >= v"1.7" && isempty(VERSION.prerelease)
-    include("jet.jl")
+@testset "static analysis with JET.jl" begin
+    using JET
+    @test isempty(JET.get_reports(report_package(DynamicHMC, target_modules=(DynamicHMC,))))
 end
 
 @testset "Aqua" begin
