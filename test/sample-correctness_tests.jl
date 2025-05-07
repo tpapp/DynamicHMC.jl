@@ -17,7 +17,8 @@ const MCMC_ARGS2 = (warmup_stages = default_warmup_stages(; M = Symmetric),)
         C = rand_C(K)
         ℓ = multivariate_normal(μ, Diagonal(d) * C)
         title = "multivariate normal μ = $(μ) d = $(d) C = $(C)"
-        NUTS_tests(RNG, ℓ, title, 1000; mcmc_args = MCMC_ARGS2)
+        NUTS_tests(RNG, ℓ, title, 1000; mcmc_args = MCMC_ARGS2,
+                   R̂_alert = 1.02, τ_alert = 0.7)
     end
 end
 
@@ -101,7 +102,7 @@ end
 
     # somewhat nasty, relaxed requirements
     ℓ = elongate(1.1, StandardMultivariateNormal(K))
-    NUTS_tests(RNG, ℓ, "elongate(1.1, 𝑁)", 1000; p_alert = 1e-5, EBFMI_alert = 0.2, R̂_fail = 1.25)
+    NUTS_tests(RNG, ℓ, "elongate(1.1, 𝑁)", 10000; p_alert = 1e-5, EBFMI_alert = 0.2, R̂_fail = 1.2)
 
     # this has very nasty tails so we relax requirements a bit
     ℓ = elongate(1.1, shift(ones(K), StandardMultivariateNormal(K)))
