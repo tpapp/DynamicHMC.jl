@@ -4,7 +4,7 @@ $(SIGNATURES)
 Random positive definite matrix of size `n` x `n` (for testing).
 """
 function rand_Σ(::Type{Symmetric}, n)
-    A = randn(n, n)
+    A = randn(RNG, n, n)
     Symmetric(A'*A .+ 0.01)
 end
 

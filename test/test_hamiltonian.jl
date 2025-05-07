@@ -19,7 +19,7 @@ end
 
 @testset "Gaussian KE full" begin
     for _ in 1:100
-        K = rand(2:10)
+        K = rand(RNG, 2:10)
         Σ = rand_Σ(Symmetric, K)
         κ = GaussianKineticEnergy(inv(Σ))
         (; M⁻¹, W) = κ
@@ -27,13 +27,13 @@ end
         @test M⁻¹ * W * W' ≈ Diagonal(ones(K))
         m, C = simulated_meancov(()->rand_p(RNG, κ), 10000)
         @test Matrix(Σ) ≈ C rtol = 0.1
-        test_KE_gradient(κ, randn(K))
+        test_KE_gradient(κ, randn(RNG, K))
     end
 end
 
 @testset "Gaussian KE diagonal" begin
     for _ in 1:100
-        K = rand(2:10)
+        K = rand(RNG, 2:10)
         Σ = rand_Σ(Diagonal, K)
         κ = GaussianKineticEnergy(inv(Σ))
         (; M⁻¹, W) = κ
@@ -42,7 +42,7 @@ end
         @test M⁻¹ * (W * W') ≈ Diagonal(ones(K))
         m, C = simulated_meancov(()->rand_p(RNG, κ), 10000)
         @test Matrix(Σ) ≈ C rtol = 0.1
-        test_KE_gradient(κ, randn(K))
+        test_KE_gradient(κ, randn(RNG, K))
     end
 end
 
@@ -57,7 +57,7 @@ end
         @test ℓ2 == ℓq
         @test ∇ℓ2 == ∇ℓq
     end
-    (; H, z, Σ ) = rand_Hz(rand(3:10))
+    (; H, z, Σ ) = rand_Hz(rand(RNG, 3:10))
     test_consistency(H, z)
     ϵ = find_stable_ϵ(H.κ, Σ)
     for _ in 1:10
@@ -81,10 +81,10 @@ end
     M = rand_Σ(Diagonal, n)
     m = diag(M)
     κ = GaussianKineticEnergy(inv(M))
-    q = randn(n)
-    p = randn(n)
+    q = randn(RNG, n)
+    p = randn(RNG, n)
     Σ = rand_Σ(n)
-    ℓ = multivariate_normal(randn(n), cholesky(Σ).L)
+    ℓ = multivariate_normal(randn(RNG, n), cholesky(Σ).L)
     H = Hamiltonian(κ, ℓ)
     ϵ = find_stable_ϵ(H.κ, Σ)
     z = PhasePoint(evaluate_ℓ(ℓ, q), p)
@@ -110,7 +110,7 @@ end
 
     @testset "invalid values" begin
         n = 3
-        ℓ = multivariate_normal(randn(n), I)
+        ℓ = multivariate_normal(randn(RNG, n), I)
         @test_throws DynamicHMCError evaluate_ℓ(ℓ, fill(NaN, n))
     end
 end
@@ -134,7 +134,7 @@ end
     end
 
     for _ in 1:100
-        (; H, z) = rand_Hz(rand(2:5))
+        (; H, z) = rand_Hz(rand(RNG, 2:5))
         ϵ = find_initial_stepsize(InitialStepsizeSearch(), local_log_acceptance_ratio(H, z))
         test_hamiltonian_invariance(H, z, 10, ϵ/100; atol = 0.5)
     end
@@ -226,7 +226,7 @@ function HMC_transition(H, z::PhasePoint, ϵ, L)
         z′ = leapfrog(H, z′, ϵ)
     end
     Δ = logdensity(H, z′) - π₀
-    accept = Δ > 0 || (rand() < exp(Δ))
+    accept = Δ > 0 || (rand(RNG) < exp(Δ))
     accept ? z′ : z
 end
 
@@ -249,7 +249,7 @@ end
     # Tests the leapfrog and Hamiltonian code with HMC.
     K = 2
     ℓ = multivariate_normal(zeros(K), Diagonal(ones(K)))
-    q = randn(K)
+    q = randn(RNG, K)
     H = Hamiltonian(GaussianKineticEnergy(Diagonal(ones(K))), ℓ)
     qs = HMC_sample(H, q, 10000, find_stable_ϵ(H.κ, Diagonal(ones(K))) / 5)
     m, C = mean_and_cov(qs, 1)

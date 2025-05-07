@@ -30,7 +30,7 @@ $(SIGNATURES)
 A parametric random acceptance rate that depends on the stepsize. For unit
 testing acceptance rate tuning.
 """
-dummy_acceptance_rate(ϵ, σ = 0.05) = min(1/ϵ * exp(randn()*σ - σ^2/2), 1)
+dummy_acceptance_rate(ϵ, σ = 0.05) = min(1/ϵ * exp(randn(RNG)*σ - σ^2/2), 1)
 
 mean_dummy_acceptance_rate(ϵ, σ = 0.05) = mean(dummy_acceptance_rate(ϵ, σ) for _ in 1:10000)
 
@@ -83,7 +83,7 @@ end
     p = InitialStepsizeSearch()
     _bkt(A, ϵ, C) = (A(ϵ) - p.log_threshold) * (A(ϵ * C) - p.log_threshold) ≤ 0
     for _ in 1:100
-        (; H, z) = rand_Hz(rand(3:5))
+        (; H, z) = rand_Hz(rand(RNG, 3:5))
         A = local_log_acceptance_ratio(H, z)
         ϵ = find_initial_stepsize(p, A)
         @test _bkt(A, ϵ, 0.5) || _bkt(A, ϵ, 2.0)
