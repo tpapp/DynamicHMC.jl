@@ -8,7 +8,7 @@ function rand_Σ(::Type{Symmetric}, n)
     Symmetric(A'*A .+ 0.01)
 end
 
-rand_Σ(::Type{Diagonal}, n) = Diagonal(randn(n).^2 .+ 0.01)
+rand_Σ(::Type{Diagonal}, n) = Diagonal(randn(RNG, n).^2 .+ 0.01)
 
 rand_Σ(n::Int) = rand_Σ(Symmetric, n)
 
@@ -31,7 +31,7 @@ end
 @testset "simulated meancov" begin
     μ = [2, 1.2]
     D = [2.0, 0.7]
-    m, C = simulated_meancov(()-> randn(2) .* D .+ μ, 10000)
+    m, C = simulated_meancov(()-> randn(RNG, 2) .* D .+ μ, 10000)
     @test m ≈ μ atol = 0.05 rtol = 0.1
     @test C ≈ Diagonal(abs2.(D)) atol = 0.05 rtol = 0.1
 end

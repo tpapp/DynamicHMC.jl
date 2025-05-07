@@ -94,7 +94,7 @@ end
           0.0 0.0 0.7434985947205197]
     ℓ2 = multivariate_normal(ones(3), D2 * C2)
     ℓ = mix(0.2, ℓ1, ℓ2)
-    NUTS_tests(RNG, ℓ, "mixture of two normals", 1000; τ_alert = 0.15)
+    NUTS_tests(RNG, ℓ, "mixture of two normals", 1000; τ_alert = 0.15, p_alert = 0.005)
 end
 
 @testset "NUTS tests with heavier tails and skewness" begin
