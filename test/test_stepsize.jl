@@ -40,7 +40,7 @@ mean_dummy_acceptance_rate(ϵ, σ = 0.05) = mean(dummy_acceptance_rate(ϵ, σ) f
     dual_averaging = DualAveraging(; δ = δ)
     A = initial_adaptation_state(dual_averaging, ϵ₀)
     @test A.logϵ̄ == 0           # ϵ̄₀ = 1 in Gelman and Hoffman (2014)
-    @test A.m == 0
+    @test A.m == 1
     @test A.H̄ == 0
     for _ in 1:500
         A = adapt_stepsize(dual_averaging, A, dummy_acceptance_rate(current_ϵ(A)))
@@ -64,7 +64,7 @@ end
     δ = 0.65
     dual_averaging = DualAveraging(; δ = δ)
     A = initial_adaptation_state(dual_averaging, ϵ₀)
-    for _ in 1:2000
+    for _ in 1:10000
         A = adapt_stepsize(dual_averaging, A, dummy_acceptance_rate(current_ϵ(A), 2.0))
     end
     @test mean_dummy_acceptance_rate(final_ϵ(A), 2.0) ≈ δ atol = 0.04

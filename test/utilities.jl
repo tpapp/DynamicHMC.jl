@@ -37,25 +37,6 @@ end
 end
 
 ###
-### Multivariate normal ℓ for testing
-###
-
-"Random (positive) diagonal matrix."
-rand_D(K) = Diagonal(abs.(randn(K)))
-
-"Random Cholesky factor for correlation matrix."
-function rand_C(K)
-    t = TransformVariables.CorrCholeskyFactor(K)
-    TransformVariables.transform(t, randn(TransformVariables.dimension(t)))
-end
-
-"Multivariate normal with `Σ = LL'`."
-multivariate_normal(μ, L) = shift(μ, linear(L, StandardMultivariateNormal(length(μ))))
-
-"Multivariate normal with diagonal `Σ` (constant `v` variance)."
-multivariate_normal(μ, v::Real = 1) = multivariate_normal(μ, I * v)
-
-###
 ### Hamiltonian test helper functions
 ###
 
@@ -78,6 +59,12 @@ When ``Σ⁻¹=M=WW'``, this the variance of `q̃` is ``W' Σ W=W' W'⁻¹W⁻¹
 thus decorrelates the density perfectly.
 """
 find_stable_ϵ(κ::GaussianKineticEnergy, Σ) = √eigmin(κ.W'*Σ*κ.W)
+
+"Multivariate normal with `Σ = LL'`."
+multivariate_normal(μ, L) = shift(μ, linear(L, StandardMultivariateNormal(length(μ))))
+
+"Multivariate normal with diagonal `Σ` (constant `v` variance)."
+multivariate_normal(μ, v::Real = 1) = multivariate_normal(μ, I * v)
 
 """
 $(SIGNATURES)
