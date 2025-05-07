@@ -11,9 +11,9 @@ const MCMC_ARGS2 = (warmup_stages = default_warmup_stages(; M = Symmetric),)
 
 @testset "NUTS tests with random normal" begin
     for _ in 1:10
-        K = rand(3:10)
-        μ = randn(K)
-        d = abs.(randn(K))
+        K = rand(RNG, 3:10)
+        μ = randn(RNG, K)
+        d = abs.(randn(RNG, K))
         C = rand_C(K)
         ℓ = multivariate_normal(μ, Diagonal(d) * C)
         title = "multivariate normal μ = $(μ) d = $(d) C = $(C)"
@@ -94,7 +94,7 @@ end
           0.0 0.0 0.7434985947205197]
     ℓ2 = multivariate_normal(ones(3), D2 * C2)
     ℓ = mix(0.2, ℓ1, ℓ2)
-    NUTS_tests(RNG, ℓ, "mixture of two normals", 1000; τ_alert = 0.15)
+    NUTS_tests(RNG, ℓ, "mixture of two normals", 1000; τ_alert = 0.15, p_alert = 0.005)
 end
 
 @testset "NUTS tests with heavier tails and skewness" begin

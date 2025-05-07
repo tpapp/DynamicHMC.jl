@@ -6,16 +6,16 @@
     N = 1000
     directions = Directions(UInt32(0))
     function rand_invalidtree()
-        if rand() < 0.1
+        if rand(RNG) < 0.1
             REACHED_MAX_DEPTH
         else
-            left = rand(-5:5)
-            right = left + rand(0:5)
+            left = rand(RNG, -5:5)
+            right = left + rand(RNG, 0:5)
             InvalidTree(left, right)
         end
     end
-    tree_statistics = [TreeStatisticsNUTS(randn(), rand(0:5), rand_invalidtree(), rand(),
-                                          rand(1:30), directions) for _ in 1:N]
+    tree_statistics = [TreeStatisticsNUTS(randn(RNG), rand(RNG, 0:5), rand_invalidtree(),
+                                          rand(RNG), rand(RNG, 1:30), directions) for _ in 1:N]
     stats = summarize_tree_statistics(tree_statistics)
     # acceptance rates
     @test stats.N == N

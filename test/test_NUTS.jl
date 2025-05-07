@@ -1,6 +1,7 @@
 using DynamicHMC: TrajectoryNUTS, rand_bool_logprob, GeneralizedTurnStatistic,
     AcceptanceStatistic, leaf_acceptance_statistic, acceptance_rate, TreeStatisticsNUTS,
-    NUTS, sample_tree, combine_turn_statistics, combine_visited_statistics
+    NUTS, sample_tree, combine_turn_statistics, combine_visited_statistics, evaluate_ℓ,
+    Hamiltonian
 
 ###
 ### random booleans
@@ -87,13 +88,13 @@ end
     # A test for sample_tree with a fixed ϵ and κ, which is perfectly adapted and should
     # provide excellent mixing
     for _ in 1:10
-        K = rand(2:8)
+        K = rand(RNG, 2:8)
         N = 10000
-        μ = randn(K)
+        μ = randn(RNG, K)
         Σ = rand_Σ(K)
         L = cholesky(Σ).L
         ℓ = multivariate_normal(μ, L)
-        Q = evaluate_ℓ(ℓ, randn(K))
+        Q = evaluate_ℓ(ℓ, randn(RNG, K))
         H = Hamiltonian(GaussianKineticEnergy(Σ), ℓ)
         qs = Array{Float64}(undef, N, K)
         ϵ = 0.5
@@ -103,7 +104,8 @@ end
             qs[i, :] = Q.q
         end
         m, C = mean_and_cov(qs, 1)
-        @test vec(m) ≈ μ atol = 0.15 rtol = maximum(diag(C))*0.02 norm = x -> norm(x,1)
+        tol = maximum(diag(C)) / 50
+        @test vec(m) ≈ μ atol = tol rtol = tol  norm = x -> norm(x,1)
         @test cov(qs, dims = 1) ≈ L*L' atol = 0.1 rtol = 0.1
     end
 end
