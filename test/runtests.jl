@@ -1,5 +1,6 @@
 using DynamicHMC, Test, ArgCheck, DocStringExtensions, HypothesisTests, LinearAlgebra,
     Random, Statistics
+import OhMyThreads
 using LogExpFunctions: logaddexp, log1mexp
 using StatsBase: mean_and_cov
 using Logging: with_logger, NullLogger

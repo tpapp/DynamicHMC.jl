@@ -29,7 +29,7 @@ const _DOC_EPSILONS = "`ϵs`, a vector of step sizes for each sample"
 $(TYPEDEF)
 
 A log density bundled with an RNG and options for sampling. Contains the parts of the
-problem which are not changed during warmup.
+problem which are **not changed during warmup** (and thus the whole sampling).
 
 # Fields
 
@@ -210,10 +210,12 @@ $(SIGNATURES)
 
 Adjust the inverse metric estimated from the sample, using an *ad-hoc* shrinkage method.
 """
-function regularize_M⁻¹(Σ::Union{Diagonal,Symmetric}, λ::Real)
-    # ad-hoc “shrinkage estimator”
-    (1 - λ) * Σ + λ * UniformScaling(max(1e-3, median(diag(Σ))))
+function regularize_M⁻¹(Σ::Symmetric, λ::Real)
+    d = diag(Σ)
+    (1 - λ) * Σ + λ * Diagonal(d) # ad-hoc “shrinkage”
 end
+
+regularize_M⁻¹(Σ::Union{Diagonal}, λ::Real) = Σ
 
 """
 $(SIGNATURES)

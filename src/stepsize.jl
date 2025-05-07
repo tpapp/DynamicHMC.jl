@@ -118,7 +118,7 @@ function DualAveraging(; δ = 0.8, γ = 0.05, κ = 0.75, t₀ = 10)
 end
 
 "Current state of adaptation for `ϵ`."
-struct DualAveragingState{T <: AbstractFloat}
+Base.@kwdef struct DualAveragingState{T <: AbstractFloat}
     μ::T
     m::Int
     H̄::T
@@ -134,7 +134,7 @@ Return an initial adaptation state for the adaptation method and a stepsize `ϵ`
 function initial_adaptation_state(::DualAveraging, ϵ)
     @argcheck ϵ > 0
     logϵ = log(ϵ)
-    DualAveragingState(log(10) + logϵ, 0, zero(logϵ), logϵ, zero(logϵ))
+    DualAveragingState(; μ = log(10) + logϵ, m = 1, H̄ = zero(logϵ), logϵ, logϵ̄ = zero(logϵ))
 end
 
 """
@@ -152,7 +152,7 @@ function adapt_stepsize(parameters::DualAveraging, A::DualAveragingState, a)
     H̄ += (δ - a - H̄) / (m + t₀)
     logϵ = μ - √m/γ * H̄
     logϵ̄ += m^(-κ)*(logϵ - logϵ̄)
-    DualAveragingState(μ, m, H̄, logϵ, logϵ̄)
+    DualAveragingState(; μ, m, H̄, logϵ, logϵ̄)
 end
 
 """
