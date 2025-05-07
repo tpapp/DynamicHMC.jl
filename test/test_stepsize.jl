@@ -64,7 +64,7 @@ end
     δ = 0.65
     dual_averaging = DualAveraging(; δ = δ)
     A = initial_adaptation_state(dual_averaging, ϵ₀)
-    for _ in 1:2000
+    for _ in 1:10000
         A = adapt_stepsize(dual_averaging, A, dummy_acceptance_rate(current_ϵ(A), 2.0))
     end
     @test mean_dummy_acceptance_rate(final_ϵ(A), 2.0) ≈ δ atol = 0.04
