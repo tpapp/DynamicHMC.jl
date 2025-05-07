@@ -28,7 +28,7 @@ end
 "Random Cholesky factor for correlation matrix."
 function rand_C(K)
     t = TransformVariables.CorrCholeskyFactor(K)
-    TransformVariables.transform(t, randn(TransformVariables.dimension(t)))'
+    TransformVariables.transform(t, randn(TransformVariables.dimension(t)) ./ 4)'
 end
 
 """
