@@ -99,14 +99,19 @@ end
 
 @testset "NUTS tests with heavier tails and skewness" begin
     K = 5
+    𝒩 = StandardMultivariateNormal(K)
 
     # somewhat nasty, relaxed requirements
-    ℓ = elongate(1.1)(StandardMultivariateNormal(K))
+    ℓ = elongate(1.1)(𝒩)
     NUTS_tests(RNG, ℓ, "elongate(1.1, 𝑁)",
                10000; p_alert = 0.05, EBFMI_alert = 0.2, R̂_fail = 1.05)
 
     # this has very nasty tails so we relax requirements a bit
-    ℓ = (elongate(1.1) ∘ shift(ones(K)))(StandardMultivariateNormal(K))
+    ℓ = (elongate(1.1) ∘ shift(ones(K)))(𝒩)
     NUTS_tests(RNG, ℓ, "skew elongate(1.1, 𝑁)",
                10000; τ_alert = 0.1, EBFMI_alert = 0.2, R̂_fail = 1.05, p_fail = 0.001)
+
+    # funnel, mixed with a normal
+    ℓ = mix(0.8, funnel()(𝒩), 𝒩)
+    NUTS_tests(RNG, ℓ, "funnel", 10000; EBFMI_alert = 0.2, τ_alert = 0.1)
 end
