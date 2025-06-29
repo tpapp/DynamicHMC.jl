@@ -110,7 +110,7 @@ end
 
     @testset "invalid values" begin
         n = 3
-        ℓ = multivariate_normal(randn(RNG, n), I)
+        ℓ = multivariate_normal(randn(RNG, n), I(n))
         @test_throws DynamicHMCError evaluate_ℓ(ℓ, fill(NaN, n))
     end
 end
