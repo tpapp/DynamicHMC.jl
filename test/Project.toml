@@ -19,4 +19,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 
 [compat]
-LogDensityTestSuite = "0.6"
+LogDensityTestSuite = "0.7"

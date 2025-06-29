@@ -61,10 +61,10 @@ thus decorrelates the density perfectly.
 find_stable_ϵ(κ::GaussianKineticEnergy, Σ) = √eigmin(κ.W'*Σ*κ.W)
 
 "Multivariate normal with `Σ = LL'`."
-multivariate_normal(μ, L) = shift(μ, linear(L, StandardMultivariateNormal(length(μ))))
+multivariate_normal(μ, L) = (shift(μ) ∘ linear(L))(StandardMultivariateNormal(length(μ)))
 
 "Multivariate normal with diagonal `Σ` (constant `v` variance)."
-multivariate_normal(μ, v::Real = 1) = multivariate_normal(μ, I * v)
+multivariate_normal(μ, v::Real = 1) = multivariate_normal(μ, I(length(μ)) * v)
 
 """
 $(SIGNATURES)
