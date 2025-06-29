@@ -113,5 +113,5 @@ end
 
     # funnel, mixed with a normal
     ℓ = mix(0.8, funnel()(𝒩), 𝒩)
-    NUTS_tests(RNG, ℓ, "funnel", 10000; EBFMI_alert = 0.2, τ_alert = 0.1)
+    NUTS_tests(RNG, ℓ, "funnel", 10000; EBFMI_alert = 0.2, τ_alert = 0.1, p_fail = 5e-3)
 end
