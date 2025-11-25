@@ -227,6 +227,14 @@ _empty_posterior_matrix(Q, N) = Matrix{eltype(Q.q)}(undef, length(Q.q), N)
 """
 $(SIGNATURES)
 
+Create an empty vector for log densities, based on `Q` (a logdensity evaluated at a
+position).
+"""
+_empty_logdensity_vector(Q, N) = Vector{typeof(Q.ℓq)}(undef, N)
+
+"""
+$(SIGNATURES)
+
 Perform a warmup on a given `sampling_logdensity`, using the specified `tuning`, starting
 from `warmup_state`.
 
@@ -245,6 +253,7 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
     (; Q, κ, ϵ) = warmup_state
     (; N, stepsize_adaptation, λ) = tuning
     posterior_matrix = _empty_posterior_matrix(Q, N)
+    logdensity_vector = _empty_logdensity_vector(Q, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
     H = Hamiltonian(κ, ℓ)
     ϵ_state = initial_adaptation_state(stepsize_adaptation, ϵ)
@@ -257,6 +266,7 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
         ϵs[i] = ϵ
         Q, stats = sample_tree(rng, algorithm, H, Q, ϵ)
         posterior_matrix[:, i] = Q.q
+        logdensity_vector[i] = Q.ℓq
         tree_statistics[i] = stats
         ϵ_state = adapt_stepsize(stepsize_adaptation, ϵ_state, stats.acceptance_rate)
         report(mcmc_reporter, i; ϵ = round(ϵ; sigdigits = REPORT_SIGDIGITS))
@@ -265,7 +275,7 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
         κ = GaussianKineticEnergy(regularize_M⁻¹(sample_M⁻¹(M, posterior_matrix), λ))
         report(mcmc_reporter, "adaptation finished", adapted_kinetic_energy = κ)
     end
-    ((; posterior_matrix, tree_statistics, ϵs), WarmupState(Q, κ, final_ϵ(ϵ_state)))
+    ((; posterior_matrix, tree_statistics, ϵs, logdensity_vector), WarmupState(Q, κ, final_ϵ(ϵ_state)))
 end
 
 """
@@ -348,15 +358,17 @@ function mcmc(sampling_logdensity, N, warmup_state)
     (; reporter) = sampling_logdensity
     (; Q) = warmup_state
     posterior_matrix = _empty_posterior_matrix(Q, N)
+    logdensity_vector = _empty_logdensity_vector(Q, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
     mcmc_reporter = make_mcmc_reporter(reporter, N; currently_warmup = false)
     steps = mcmc_steps(sampling_logdensity, warmup_state)
     for i in 1:N
         Q, tree_statistics[i] = mcmc_next_step(steps, Q)
         posterior_matrix[:, i] = Q.q
+        logdensity_vector[i] = Q.ℓq
         report(mcmc_reporter, i)
     end
-    (; posterior_matrix, tree_statistics)
+    (; posterior_matrix, tree_statistics, logdensity_vector)
 end
 
 """

@@ -206,7 +206,7 @@ Accessing fields directly is part of the API.
 $(FIELDS)
 """
 struct TreeStatisticsNUTS
-    "Log density (negative energy)."
+    "Log density of the Hamiltonian (negative energy)."
     π::Float64
     "Depth of the tree."
     depth::Int
