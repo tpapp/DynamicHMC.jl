@@ -10,6 +10,22 @@ using DynamicHMC.Diagnostics: ACCEPTANCE_QUANTILES
 using LogDensityProblems: logdensity_and_gradient, dimension, LogDensityProblems
 using LogDensityTestSuite
 
+####
+#### static analysis and QA; before everything else as tests extend methods
+####
+
+@testset "static analysis with JET.jl" begin
+    using JET
+    @test isempty(JET.get_reports(report_package(DynamicHMC, target_modules=(DynamicHMC,))))
+end
+
+@testset "Aqua" begin
+    import Aqua
+    Aqua.test_all(DynamicHMC; ambiguities = false)
+    # testing separately, cf https://github.com/JuliaTesting/Aqua.jl/issues/77
+    Aqua.test_ambiguities(DynamicHMC)
+end
+
 ###
 ### general test environment
 ###
@@ -39,19 +55,3 @@ include("test_logging.jl")
 ####
 
 include("sample-correctness_tests.jl")
-
-####
-#### static analysis and QA
-####
-
-@testset "static analysis with JET.jl" begin
-    using JET
-    @test isempty(JET.get_reports(report_package(DynamicHMC, target_modules=(DynamicHMC,))))
-end
-
-@testset "Aqua" begin
-    import Aqua
-    Aqua.test_all(DynamicHMC; ambiguities = false)
-    # testing separately, cf https://github.com/JuliaTesting/Aqua.jl/issues/77
-    Aqua.test_ambiguities(DynamicHMC)
-end

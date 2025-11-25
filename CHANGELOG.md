@@ -1,4 +1,18 @@
-# Unreleased
+## Unreleased
+
+### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+
+- JET tests up front so that method extensions do not confuse it
+
+### Security
+
+# v3.5.1
+
+**No changelog was kept after v3.3.0,** it should be reconstructed from commits.
 
 # v3.3.0
 
