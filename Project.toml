@@ -3,6 +3,9 @@ uuid = "bbc10e6e-7c05-544b-b16e-64fede858acb"
 version = "3.5.1"
 authors = ["Tamas K. Papp <tkpapp@gmail.com>"]
 
+[workspace]
+projects = ["test"]
+
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
