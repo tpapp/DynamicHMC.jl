@@ -3,9 +3,6 @@ uuid = "bbc10e6e-7c05-544b-b16e-64fede858acb"
 version = "3.5.1"
 authors = ["Tamas K. Papp <tkpapp@gmail.com>"]
 
-[workspace]
-projects = ["test"]
-
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
@@ -25,7 +22,7 @@ FillArrays = "0.13, 1"
 LinearAlgebra = "1.6"
 LogDensityProblems = "1, 2"
 LogExpFunctions = "0.3"
-MCMCDiagnosticTools = "0.2"
+MCMCDiagnosticTools = "0.2, 0.3"
 ProgressMeter = "1"
 Random = "1.6"
 Statistics = "1"
@@ -34,3 +31,6 @@ julia = "1.10"
 
 [extras]
 MCMCDiagnosticTools = "be115224-59cd-429b-ad48-344e309966f0"
+
+[workspace]
+projects = ["test", "docs"]
