@@ -1,3 +1,10 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## Unreleased
 
 ### Added
@@ -5,61 +12,113 @@
 ### Deprecated
 ### Removed
 ### Fixed
-
-- JET tests up front so that method extensions do not confuse it
-
 ### Security
 
-# v3.5.1
+## v3.6.0
 
-**No changelog was kept after v3.3.0,** it should be reconstructed from commits.
+- add `logdensities` to `mcmc` results (#194)
+- minor cleanup of `Project.toml`
 
-# v3.3.0
+## v3.5.1
+
+- Cleanup tests, tighten tolerances. (#190)
+- Use OhMyThreads for threaded example. (#191)
+
+## v3.5.0
+
+- remove `@unpack`, use `(;)`
+- require Julia 1.10
+- minor test fixes
+
+## v3.4.8
+
+- refresh Github actions
+- loosen test tolerances a bit to test cleanly on Julia 1.11
+- remove vestigial code from tests
+
+## v3.4.7
+
+- fix compat entries
+
+## v3.4.6
+
+- test with Aqua, minor fixes
+
+## v3.4.5
+
+- Provide more details when initial stepsize search fails. (#180)
+- Simplify stepsize search. (#181)
+- replace Parameters: @unpack with SimpleUnPack (#182)
+- replace GLOBAL_RNG with default_rng() (#183)
+
+## v3.4.4
+
+- compat bumps
+
+## 3.4.3
+
+- remove workaround for JET.jl
+
+## 3.4.2
+
+- change stacked ordering
+
+## 3.4.1
+
+- Support Julia LTS and update CompatHelper
+
+## 3.4.0
+
+- transition to MCMCDiagnosticTools for diagnostics
+- minor fixes
+- JET tests up front so that method extensions do not confuse it
+
+## v3.3.0
 
 - remove `position_matrix` [https://github.com/tpapp/DynamicHMC.jl/pull/165](#165), add utility functions for posterior matrices
 
-# v3.2.1
+## v3.2.1
 
 - compat version bumps
 
-# v3.2.0
+## v3.2.0
 
 - compat version bumps
 
-# v3.1.2
+## v3.1.2
 
 - compat version bumps
 
-# v3.1.1
+## v3.1.1
 
 - minor doc and export list fixes (follow-up to ([#145](https://github.com/tpapp/DynamicHMC.jl/pull/145)))
 
-# v3.1.0
+## v3.1.0
 
 - more robust U-turn checking ([#145](https://github.com/tpapp/DynamicHMC.jl/pull/145))
 
-# v3.0.0
+## v3.0.0
 
 - get rid of `local_optimization` in warmup ([#146](https://github.com/tpapp/DynamicHMC.jl/pull/146))
 
-# v2.2.0
+## v2.2.0
 
 - add a progress bar ([#136](https://github.com/tpapp/DynamicHMC.jl/pull/136))
 - compat bounds, minor changes
 
-# v2.1.4
+## v2.1.4
 
 - compat bumps extension
 
-# v2.1.3
+## v2.1.3
 
 - relax test bounds a bit ([#116](https://github.com/tpapp/DynamicHMC.jl/pull/116))
 
-# v2.1.2
+## v2.1.2
 
 Technical release (compat version bounds extended).
 
-# v2.1.1
+## v2.1.1
 
 - re-enable support for Julia 1.0 ([#107](https://github.com/tpapp/DynamicHMC.jl/pull/107))
 
@@ -67,7 +126,7 @@ Technical release (compat version bounds extended).
 
 - add example for skipping stepsize search ([#104](https://github.com/tpapp/DynamicHMC.jl/pull/104))
 
-# v2.1.0
+## v2.1.0
 
 - add experimental “iterator” interface ([#94](https://github.com/tpapp/DynamicHMC.jl/pull/94))
 
@@ -75,19 +134,19 @@ Technical release (compat version bounds extended).
 
 - remove dependence on StatsFuns.jl
 
-# v2.0.2
+## v2.0.2
 
 Default keyword arguments for LogProgressReport.
 
-# v2.0.1
+## v2.0.1
 
 Don't print `chain_id` when it is `nothing`.
 
-# v2.0.0
+## v2.0.0
 
 Note: the interface was redesigned. You probably want to review the docs, especially the worked example.
 
-## API changes
+### API changes
 
 - major API change: entry point is now `mcmc_with_warmup`
 
@@ -103,7 +162,7 @@ Note: the interface was redesigned. You probably want to review the docs, especi
 
   - add `leapfrog_trajectory` for exploration
 
-## Implementation changes
+### Implementation changes
 
 - factor out the tree traversal code
 
@@ -127,18 +186,18 @@ Note: the interface was redesigned. You probably want to review the docs, especi
 
   - large test cleanup
 
-# v1.0.6
+## v1.0.6
 
 - fix LogDensityProblems version bounds
 
-# v1.0.5
+## v1.0.5
 
 - fix tuning with singular covariance matrices
 
-# v1.0.4
+## v1.0.4
 
 - minor fixes in tests and coverage
 
-# v1.0.3 and prior
+## v1.0.3 and prior
 
 No CHANGELOG available.
