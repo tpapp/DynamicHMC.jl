@@ -18,6 +18,7 @@ end
     @testset "default warmup" begin
         results = mcmc_with_warmup(RNG, ℓ, 10000; reporter = NoProgressReport())
         Z = results.posterior_matrix
+        @test map(z -> LogDensityProblems.logdensity(ℓ, z), eachcol(Z)) ≈ results.logdensities
         @test norm(mean(Z; dims = 2) .- ones(5), Inf) < 0.04
         @test norm(std(Z; dims = 2) .- ones(5), Inf) < 0.04
         @test mean(x -> x.acceptance_rate, results.tree_statistics) ≥ 0.8
