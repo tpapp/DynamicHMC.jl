@@ -48,8 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Provide more details when initial stepsize search fails. (#180)
 - Simplify stepsize search. (#181)
-- replace Parameters: @unpack with SimpleUnPack (#182)
-- replace GLOBAL_RNG with default_rng() (#183)
+- replace `Parameters: @unpack` with `SimpleUnPack` (#182)
+- replace `GLOBAL_RNG` with `default_rng()` (#183)
 
 ## v3.4.4
 
