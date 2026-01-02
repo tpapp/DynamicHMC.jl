@@ -22,12 +22,11 @@ FillArrays = "0.13, 1"
 LinearAlgebra = "1.6"
 LogDensityProblems = "1, 2"
 LogExpFunctions = "0.3"
-MCMCDiagnosticTools = "0.2"
 ProgressMeter = "1"
 Random = "1.6"
 Statistics = "1"
 TensorCast = "0.4"
 julia = "1.10"
 
-[extras]
-MCMCDiagnosticTools = "be115224-59cd-429b-ad48-344e309966f0"
+[workspace]
+projects = ["test"]
