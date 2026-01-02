@@ -11,7 +11,7 @@ using LogDensityProblems: logdensity_and_gradient, dimension, LogDensityProblems
 using LogDensityTestSuite
 
 ####
-#### static analysis and QA
+#### static analysis and QA; before everything else as tests extend methods
 ####
 
 @testset "static analysis with JET.jl" begin

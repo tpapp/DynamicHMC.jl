@@ -44,13 +44,17 @@ Base.empty!(trajectory) = empty(trajectory.visited)
 
 DynamicHMC.move(::DummyTrajectory, z, is_forward) = z + (is_forward ? 1 : -1)
 
-function DynamicHMC.is_turning(::DummyTrajectory, τ)
+const DUMMY_TURN_STATISTICS = Tuple{Bool,UnitRange{Int64}}
+
+function DynamicHMC.is_turning(::DummyTrajectory, τ::DUMMY_TURN_STATISTICS)
     turn_flag, positions = τ
     @test length(positions) > 1 # not called on a leaf
     turn_flag
 end
 
-function DynamicHMC.combine_turn_statistics(::DummyTrajectory, τ₁, τ₂)
+function DynamicHMC.combine_turn_statistics(::DummyTrajectory,
+                                            τ₁::DUMMY_TURN_STATISTICS,
+                                            τ₂::DUMMY_TURN_STATISTICS)
     turn_flag1, positions1 = τ₁
     turn_flag2, positions2 = τ₂
     @test last(positions1) + 1 == first(positions2) # adjacency and order
