@@ -1,6 +1,6 @@
 name = "DynamicHMC"
 uuid = "bbc10e6e-7c05-544b-b16e-64fede858acb"
-version = "3.5.1"
+version = "3.6.0"
 authors = ["Tamas K. Papp <tkpapp@gmail.com>"]
 
 [deps]

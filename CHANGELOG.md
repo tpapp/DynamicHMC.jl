@@ -1,4 +1,76 @@
-# Unreleased
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## Unreleased
+
+### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
+
+# v3.6.0
+
+- add `logdensities` to `mcmc` results (#194)
+- minor cleanup of `Project.toml`
+
+# v3.5.1
+
+- Cleanup tests, tighten tolerances. (#190)
+- Use OhMyThreads for threaded example. (#191)
+
+# v3.5.0
+
+- remove `@unpack`, use `(;)`
+- require Julia 1.10
+- minor test fixes
+
+# v3.4.8
+
+- refresh Github actions
+- loosen test tolerances a bit to test cleanly on Julia 1.11
+- remove vestigial code from tests
+
+# v3.4.7
+
+- fix compat entries
+
+# v3.4.6
+
+- test with Aqua, minor fixes
+
+# v3.4.5
+
+- Provide more details when initial stepsize search fails. (#180)
+- Simplify stepsize search. (#181)
+- replace Parameters: @unpack with SimpleUnPack (#182)
+- replace GLOBAL_RNG with default_rng() (#183)
+
+# v3.4.4
+
+- compat bumps
+
+# 3.4.3
+
+- remove workaround for JET.jl
+
+# 3.4.2
+
+- change stacked ordering
+
+# 3.4.1
+
+- Support Julia LTS and update CompatHelper
+
+# 3.4.0
+
+- transition to MCMCDiagnosticTools for diagnostics
+- minor fixes
 
 # v3.3.0
 
