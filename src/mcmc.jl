@@ -127,7 +127,7 @@ Create an initial warmup state from a random position.
 $(DOC_INITIAL_WARMUP_ARGS)
 """
 function initialize_warmup_state(rng, ℓ; q = random_position(rng, dimension(ℓ)),
-                                 κ = GaussianKineticEnergy(dimension(ℓ)), ϵ = nothing)
+                                 κ = GaussianKineticEnergy(dimension(ℓ), one(eltype(q))), ϵ = nothing)
     WarmupState(evaluate_ℓ(ℓ, q; strict = true), κ, ϵ)
 end
 
@@ -135,6 +135,8 @@ function warmup(sampling_logdensity, stepsize_search::InitialStepsizeSearch, war
     (; rng, ℓ, reporter) = sampling_logdensity
     (; Q, κ, ϵ) = warmup_state
     @argcheck ϵ ≡ nothing "stepsize ϵ manually specified, won't perform initial search"
+    T = typeof(one(eltype(Q.q)))
+    stepsize_search = _oftype(stepsize_search, T)
     z = PhasePoint(Q, rand_p(rng, κ))
     try
         ϵ = find_initial_stepsize(stepsize_search, local_log_acceptance_ratio(Hamiltonian(κ, ℓ), z))
@@ -175,7 +177,7 @@ A `NamedTuple` with the following fields:
 
 $(FIELDS)
 """
-struct TuningNUTS{M,D}
+struct TuningNUTS{M,D,T<:Real}
     "Number of samples."
     N::Int
     "Dual averaging parameters."
@@ -185,12 +187,12 @@ struct TuningNUTS{M,D}
     rescaled by `λ` towards ``σ²I``, where ``σ²`` is the median of the diagonal. The
     constructor has a reasonable default.
     """
-    λ::Float64
+    λ::T
     function TuningNUTS{M}(N::Integer, stepsize_adaptation::D,
-                           λ = 5.0/N) where {M <: Union{Nothing,Diagonal,Symmetric},D}
+                           λ::T = 5.0/N) where {M <: Union{Nothing,Diagonal,Symmetric},D,T<:Real}
         @argcheck N ≥ 20        # variance estimator is kind of meaningless for few samples
         @argcheck λ ≥ 0
-        new{M,D}(N, stepsize_adaptation, λ)
+        new{M,D,T}(N, stepsize_adaptation, λ)
     end
 end
 
@@ -259,12 +261,14 @@ function warmup(sampling_logdensity, tuning::TuningNUTS{M}, warmup_state) where 
     (; rng, ℓ, algorithm, reporter) = sampling_logdensity
     (; Q, κ, ϵ) = warmup_state
     (; N, stepsize_adaptation, λ) = tuning
+    T = typeof(one(eltype(Q.q)))
+    stepsize_adaptation = _oftype(stepsize_adaptation, T)
     posterior_matrix = _empty_posterior_matrix(Q, N)
     logdensities = _empty_logdensity_vector(Q, N)
     tree_statistics = Vector{TreeStatisticsNUTS}(undef, N)
     H = Hamiltonian(κ, ℓ)
     ϵ_state = initial_adaptation_state(stepsize_adaptation, ϵ)
-    ϵs = Vector{Float64}(undef, N)
+    ϵs = Vector{typeof(float(ϵ))}(undef, N)
     mcmc_reporter = make_mcmc_reporter(reporter, N;
                                        currently_warmup = true,
                                        tuning = M ≡ Nothing ? "stepsize" : "stepsize and $(M) metric")

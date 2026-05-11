@@ -41,7 +41,7 @@ Random boolean which is `true` with the given probability `exp(logprob)`, which 
 in which case no random value is drawn.
 """
 function rand_bool_logprob(rng::AbstractRNG, logprob)
-    logprob ≥ 0 || (randexp(rng, Float64) > -logprob)
+    logprob ≥ 0 || (randexp(rng, typeof(logprob)) > -logprob)
 end
 
 function calculate_logprob2(::TrajectoryNUTS, is_doubling, ω₁, ω₂, ω)
@@ -175,22 +175,22 @@ developments, as described in Betancourt (2017).
 
 $(FIELDS)
 """
-struct NUTS{S}
+struct NUTS{T<:Real,S}
     "Maximum tree depth."
     max_depth::Int
     "Threshold for negative energy relative to starting point that indicates divergence."
-    min_Δ::Float64
+    min_Δ::T
     """
     Turn statistic configuration. Currently only `Val(:generalized)` (the default) is
     supported.
     """
     turn_statistic_configuration::S
-    function NUTS(; max_depth = DEFAULT_MAX_TREE_DEPTH, min_Δ = -1000.0,
-                  turn_statistic_configuration = Val{:generalized}())
+    function NUTS(; max_depth = DEFAULT_MAX_TREE_DEPTH, min_Δ::T = -1000.0,
+                  turn_statistic_configuration = Val{:generalized}()) where {T<:Real}
         @argcheck 0 < max_depth ≤ MAX_DIRECTIONS_DEPTH
         @argcheck min_Δ < 0
         S = typeof(turn_statistic_configuration)
-        new{S}(Int(max_depth), Float64(min_Δ), turn_statistic_configuration)
+        new{T,S}(Int(max_depth), min_Δ, turn_statistic_configuration)
     end
 end
 
@@ -205,15 +205,15 @@ Accessing fields directly is part of the API.
 
 $(FIELDS)
 """
-struct TreeStatisticsNUTS
+struct TreeStatisticsNUTS{T<:Real}
     "Log density of the Hamiltonian (negative energy)."
-    π::Float64
+    π::T
     "Depth of the tree."
     depth::Int
     "Reason for termination. See [`InvalidTree`](@ref) and [`REACHED_MAX_DEPTH`](@ref)."
     termination::InvalidTree
     "Acceptance rate statistic."
-    acceptance_rate::Float64
+    acceptance_rate::T
     "Number of leapfrog steps evaluated."
     steps::Int
     "Directions for tree doubling (useful for debugging)."
@@ -233,7 +233,8 @@ function sample_tree(rng, algorithm::NUTS, H::Hamiltonian, Q::EvaluatedLogDensit
                           p = rand_p(rng, H.κ), directions = rand(rng, Directions))
     (; max_depth, min_Δ, turn_statistic_configuration) = algorithm
     z = PhasePoint(Q, p)
-    trajectory = TrajectoryNUTS(H, logdensity(H, z), ϵ, min_Δ, turn_statistic_configuration)
+    π₀ = logdensity(H, z)
+    trajectory = TrajectoryNUTS(H, π₀, oftype(π₀, ϵ), oftype(π₀, min_Δ), turn_statistic_configuration)
     ζ, v, termination, depth = sample_trajectory(rng, trajectory, z, max_depth, directions)
     tree_statistics = TreeStatisticsNUTS(logdensity(H, ζ), depth, termination,
                                          acceptance_rate(v), v.steps, directions)

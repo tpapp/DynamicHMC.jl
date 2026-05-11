@@ -84,7 +84,7 @@ $(SIGNATURES)
 
 Gaussian kinetic energy with a diagonal inverse covariance matrix `M⁻¹=m⁻¹*I`.
 """
-GaussianKineticEnergy(N::Integer, m⁻¹ = 1.0) = GaussianKineticEnergy(Diagonal(Fill(m⁻¹, N)))
+GaussianKineticEnergy(N::Integer, m⁻¹ = 1.0) = GaussianKineticEnergy(Diagonal(Fill(float(m⁻¹), N)))
 
 function Base.show(io::IO, κ::GaussianKineticEnergy{T}) where {T}
     print(io::IO, "Gaussian kinetic energy ($(nameof(T))), √diag(M⁻¹): $(.√(diag(κ.M⁻¹)))")
@@ -121,7 +121,7 @@ $(SIGNATURES)
 
 Generate a random momentum from a kinetic energy at position `q`.
 """
-rand_p(rng::AbstractRNG, κ::GaussianKineticEnergy, q = nothing) = κ.W * randn(rng, size(κ.W, 1))
+rand_p(rng::AbstractRNG, κ::GaussianKineticEnergy, q = nothing) = κ.W * randn(rng, eltype(κ.W), size(κ.W, 1))
 
 ####
 #### Hamiltonian

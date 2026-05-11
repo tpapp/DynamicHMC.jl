@@ -20,18 +20,19 @@ $FIELDS
 
     The algorithm is from Hoffman and Gelman (2014), default threshold modified to `0.8` following later practice in Stan.
 """
-struct InitialStepsizeSearch
+struct InitialStepsizeSearch{T<:Real}
     "The stepsize where the search is started."
-    initial_ϵ::Float64
+    initial_ϵ::T
     "Log of the threshold that needs to be crossed."
-    log_threshold::Float64
+    log_threshold::T
     "Maximum number of iterations for crossing the threshold."
     maxiter_crossing::Int
-    function InitialStepsizeSearch(; log_threshold::Float64 = log(0.8), initial_ϵ = 0.1, maxiter_crossing = 400)
+    function InitialStepsizeSearch(; log_threshold = log(0.8), initial_ϵ = 0.1, maxiter_crossing = 400)
+        T = promote_type(typeof(log_threshold), typeof(initial_ϵ))
         @argcheck isfinite(log_threshold) && log_threshold < 0
         @argcheck isfinite(initial_ϵ) && 0 < initial_ϵ
         @argcheck maxiter_crossing ≥ 50
-        new(initial_ϵ, log_threshold, maxiter_crossing)
+        new{T}(T(initial_ϵ), T(log_threshold), maxiter_crossing)
     end
 end
 
@@ -131,10 +132,10 @@ $(SIGNATURES)
 
 Return an initial adaptation state for the adaptation method and a stepsize `ϵ`.
 """
-function initial_adaptation_state(::DualAveraging, ϵ)
+function initial_adaptation_state(::DualAveraging{T}, ϵ) where T <: AbstractFloat
     @argcheck ϵ > 0
     logϵ = log(ϵ)
-    DualAveragingState(; μ = log(10) + logϵ, m = 1, H̄ = zero(logϵ), logϵ, logϵ̄ = zero(logϵ))
+    DualAveragingState{T}(; μ = log(T(10)) + logϵ, m = 1, H̄ = zero(logϵ), logϵ, logϵ̄ = zero(logϵ))
 end
 
 """
@@ -150,8 +151,9 @@ function adapt_stepsize(parameters::DualAveraging, A::DualAveragingState, a)
     (; μ, m, H̄, logϵ, logϵ̄) = A
     m += 1
     H̄ += (δ - a - H̄) / (m + t₀)
-    logϵ = μ - √m/γ * H̄
-    logϵ̄ += m^(-κ)*(logϵ - logϵ̄)
+    T_m = oftype(μ, m)
+    logϵ = μ - sqrt(T_m)/γ * H̄
+    logϵ̄ += T_m^(-κ)*(logϵ - logϵ̄)
     DualAveragingState(; μ, m, H̄, logϵ, logϵ̄)
 end
 
@@ -187,3 +189,19 @@ adapt_stepsize(::FixedStepsize, ϵ, a) = ϵ
 current_ϵ(ϵ::Real) = ϵ
 
 final_ϵ(ϵ::Real) = ϵ
+
+###
+### type conversion helpers for warmup pipeline
+###
+
+_oftype(da::DualAveraging{T}, ::Type{T}) where {T} = da
+_oftype(da::DualAveraging, ::Type{T}) where {T<:AbstractFloat} =
+    DualAveraging(T(da.δ), T(da.γ), T(da.κ), da.t₀)
+
+_oftype(iss::InitialStepsizeSearch{T}, ::Type{T}) where {T} = iss
+_oftype(iss::InitialStepsizeSearch, ::Type{T}) where {T<:Real} =
+    InitialStepsizeSearch(; log_threshold = T(iss.log_threshold),
+                            initial_ϵ = T(iss.initial_ϵ),
+                            maxiter_crossing = iss.maxiter_crossing)
+
+_oftype(fs::FixedStepsize, ::Type) = fs

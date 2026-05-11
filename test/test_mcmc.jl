@@ -71,6 +71,97 @@ end
     @test M == 0
 end
 
+@testset "Float32 support" begin
+    # Float32 multivariate normal: ℓ(q) = -½ (q - μ)ᵀ Σ⁻¹ (q - μ) with Σ = I
+    struct Float32Normal{V <: AbstractVector}
+        μ::V
+    end
+    LogDensityProblems.capabilities(::Type{<:Float32Normal}) = LogDensityProblems.LogDensityOrder{1}()
+    LogDensityProblems.dimension(ℓ::Float32Normal) = length(ℓ.μ)
+    function LogDensityProblems.logdensity_and_gradient(ℓ::Float32Normal, q::AbstractVector)
+        r = q - ℓ.μ
+        T = eltype(q)
+        T(-dot(r, r) / 2), -r
+    end
+
+    @testset "type propagation" begin
+        ℓ32 = Float32Normal(zeros(Float32, 3))
+        q0 = randn(Float32, 3)
+        results = mcmc_with_warmup(RNG, ℓ32, 100;
+                                   initialization = (q = q0,),
+                                   reporter = NoProgressReport())
+        @test eltype(results.posterior_matrix) == Float32
+        @test eltype(results.logdensities) == Float32
+        @test results.tree_statistics[1].π isa Float32
+        @test results.tree_statistics[1].acceptance_rate isa Float32
+        @test results.ϵ isa Float32
+    end
+
+    @testset "no type promotion in compute" begin
+        # A log density that errors if position is not Float32,
+        # catching any accidental promotion in leapfrog/adaptation
+        struct StrictFloat32Normal{V <: AbstractVector{Float32}}
+            μ::V
+        end
+        LogDensityProblems.capabilities(::Type{<:StrictFloat32Normal}) = LogDensityProblems.LogDensityOrder{1}()
+        LogDensityProblems.dimension(ℓ::StrictFloat32Normal) = length(ℓ.μ)
+        function LogDensityProblems.logdensity_and_gradient(ℓ::StrictFloat32Normal, q::AbstractVector)
+            @assert eltype(q) === Float32 "position promoted to $(eltype(q)), expected Float32"
+            r = q - ℓ.μ
+            Float32(-dot(r, r) / 2), -r
+        end
+        ℓ_strict = StrictFloat32Normal(zeros(Float32, 3))
+        q0 = randn(Float32, 3)
+        # runs full warmup (stepsize search + dual averaging + metric adaptation)
+        # and inference — any Float64 promotion in leapfrog would trigger the assertion
+        results = mcmc_with_warmup(RNG, ℓ_strict, 100;
+                                   initialization = (q = q0,),
+                                   reporter = NoProgressReport())
+        @test eltype(results.posterior_matrix) == Float32
+        @test results.ϵ isa Float32
+    end
+
+    @testset "sample correctness" begin
+        μ = Float32[1.0, -0.5, 2.0, 0.0, -1.5]
+        ℓ32 = Float32Normal(μ)
+        q0 = randn(Float32, 5)
+        results = mcmc_with_warmup(RNG, ℓ32, 10000;
+                                   initialization = (q = q0,),
+                                   reporter = NoProgressReport())
+        Z = results.posterior_matrix
+        @test eltype(Z) == Float32
+        @test norm(mean(Z; dims = 2) .- μ, Inf) < 0.06
+        @test norm(std(Z; dims = 2) .- ones(Float32, 5), Inf) < 0.06
+        @test mean(x -> x.acceptance_rate, results.tree_statistics) ≥ 0.7
+    end
+
+    @testset "fixed stepsize" begin
+        ℓ32 = Float32Normal(ones(Float32, 3))
+        q0 = randn(Float32, 3)
+        results = mcmc_with_warmup(RNG, ℓ32, 5000;
+                                   initialization = (q = q0, ϵ = Float32(1.0)),
+                                   warmup_stages = fixed_stepsize_warmup_stages(),
+                                   reporter = NoProgressReport())
+        Z = results.posterior_matrix
+        @test eltype(Z) == Float32
+        @test norm(mean(Z; dims = 2) .- ones(Float32, 3), Inf) < 0.1
+    end
+
+    @testset "stepwise" begin
+        ℓ32 = Float32Normal(zeros(Float32, 3))
+        q0 = randn(Float32, 3)
+        results = mcmc_keep_warmup(RNG, ℓ32, 0;
+                                   initialization = (q = q0,),
+                                   reporter = NoProgressReport())
+        steps = mcmc_steps(results.sampling_logdensity, results.final_warmup_state)
+        Q = results.final_warmup_state.Q
+        @test eltype(Q.q) == Float32
+        qs = [(Q = first(mcmc_next_step(steps, Q)); Q.q) for _ in 1:1000]
+        @test eltype(qs[1]) == Float32
+        @test norm(mean(reduce(hcat, qs); dims = 2), Inf) ≤ 0.15
+    end
+end
+
 @testset "posterior accessors sanity checks" begin
     D, N, K = 5, 100, 7
     ℓ = multivariate_normal(ones(5))
