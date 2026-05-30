@@ -3,6 +3,9 @@ uuid = "bbc10e6e-7c05-544b-b16e-64fede858acb"
 version = "3.6.0"
 authors = ["Tamas K. Papp <tkpapp@gmail.com>"]
 
+[workspace]
+projects = ["test", "docs"]
+
 [deps]
 ArgCheck = "dce04be8-c92d-5529-be00-80e4d2c0e197"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
@@ -21,12 +24,9 @@ DocStringExtensions = "0.8, 0.9"
 FillArrays = "0.13, 1"
 LinearAlgebra = "1.6"
 LogDensityProblems = "1, 2"
-LogExpFunctions = "0.3"
+LogExpFunctions = "0.3, 1"
 ProgressMeter = "1"
 Random = "1.6"
 Statistics = "1"
 TensorCast = "0.4"
 julia = "1.10"
-
-[workspace]
-projects = ["test", "docs"]
