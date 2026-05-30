@@ -6,3 +6,17 @@ updates:
     schedule:
       # Check for updates to GitHub Actions every month
       interval: "monthly"
+  - package-ecosystem: "julia"
+    directories: # Location of Julia projects
+      - "/"
+      - "/docs"
+      - "/test"
+    schedule:
+      interval: "daily"
+    groups:
+      # Group all Julia package updates into a single PR:
+      all-julia-packages:
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "DynamicHMC"
