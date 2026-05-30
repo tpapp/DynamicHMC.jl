@@ -23,4 +23,17 @@ TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 DynamicHMC = {path = ".."}
 
 [compat]
+Aqua = "0.8.14"
+ArgCheck = "2.5.0"
+DocStringExtensions = "0.9.5"
+ForwardDiff = "1.3.3"
+HypothesisTests = "0.11.7"
+JET = "0.11.3"
+LogDensityProblems = "2.2.0"
 LogDensityTestSuite = "0.7"
+LogExpFunctions = "1.0.0"
+MCMCDiagnosticTools = "0.3.17"
+OhMyThreads = "0.8.6"
+Statistics = "1.11.1"
+StatsBase = "0.34.11"
+TransformVariables = "0.8.24"
