@@ -23,7 +23,7 @@ TransformVariables = "84d833dd-6860-57f9-a1a7-6da5db126cff"
 DynamicHMC = {path = ".."}
 
 [compat]
-Aqua = "0.8."
+Aqua = "0.8"
 ArgCheck = "2"
 DocStringExtensions = "0.9"
 ForwardDiff = "1"
