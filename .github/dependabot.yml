@@ -7,10 +7,7 @@ updates:
       # Check for updates to GitHub Actions every month
       interval: "monthly"
   - package-ecosystem: "julia"
-    directories: # Location of Julia projects
-      - "/"
-      - "/docs"
-      - "/test"
+    directory: "/"
     schedule:
       interval: "daily"
     groups:
