@@ -25,7 +25,7 @@ DynamicHMC = {path = ".."}
 [compat]
 Aqua = "0.8"
 ArgCheck = "2"
-DocStringExtensions = "0.9"
+DocStringExtensions = "0.9, 0.10"
 ForwardDiff = "1"
 HypothesisTests = "0.11, 0.12"
 JET = "0.9,0.10,0.11,0.12"
